@@ -109,8 +109,9 @@ Dit werkt ook in andere Chromium-browsers zoals Edge, Brave en Opera.
 
 ## Hoe het werkt
 
-Het volledige vooronderzoek staat in [docs/RESEARCH.md](docs/RESEARCH.md). Kort
-samengevat:
+Het volledige vooronderzoek staat in [docs/RESEARCH.md](docs/RESEARCH.md).
+Een overzicht van alle functies en ideeën voor uitbreiding staat in
+[docs/REQUIREMENTS.md](docs/REQUIREMENTS.md). Kort samengevat:
 
 - Een **content script** op `www.cardmarket.com` doet het werk:
   - het leest het winkelmandje (`tr[data-article-id]` met `data-*`-attributen);
