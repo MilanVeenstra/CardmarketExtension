@@ -200,23 +200,30 @@
 
     const now = Date.now();
     const patches = {};
+    const favoritePatches = {};
+    const dropped = [];
     for (const id of attempted) {
       const result = results[id];
       const lastAttempt = { at: now, ok: result.ok, message: result.message };
-      if (inCart.has(id)) patches[id] = { lastAttempt };
-      else if (result.ok) {
+      if (inCart.has(id)) {
+        patches[id] = { lastAttempt };
+        favoritePatches[id] = { unavailable: false, unavailableMessage: null };
+      } else if (result.ok) {
         patches[id] = {
           status: store.STATUS.MISSING,
           lastAttempt: { ...lastAttempt, ok: false, message: CMCS.t('addedButNotInCart') },
         };
       } else {
-        patches[id] = {
-          status: store.STATUS.UNAVAILABLE,
-          lastAttempt: { ...lastAttempt, message: result.message || CMCS.t('notAvailableAnymore') },
-        };
+        const message = result.message || CMCS.t('notAvailableAnymore');
+        favoritePatches[id] = { unavailable: true, unavailableMessage: message };
+        // A favourite that never made it into the cart stays a favourite only.
+        if (items[id] && items[id].viaFavorite) dropped.push(id);
+        else patches[id] = { status: store.STATUS.UNAVAILABLE, lastAttempt: { ...lastAttempt, message } };
       }
     }
     await store.patchItems(patches);
+    if (dropped.length) await store.removeItems(dropped);
+    await store.patchFavorites(favoritePatches);
   }
 
   CMCS.refill = { start, resumePending, cancel, isRunning: () => running };

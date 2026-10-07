@@ -12,16 +12,16 @@
     "message": "$1 article(s) in your cart are saved."
   },
   "clearAll": {
-    "message": "Delete all saved articles"
+    "message": "Delete everything"
   },
   "clearConfirm": {
-    "message": "Delete all saved articles? This cannot be undone."
+    "message": "Delete all saved articles and favourites? This cannot be undone."
   },
   "clearUnavailable": {
     "message": "Clear list"
   },
   "cleared": {
-    "message": "All saved articles were deleted."
+    "message": "All saved articles and favourites were deleted."
   },
   "close": {
     "message": "Close"
@@ -30,10 +30,10 @@
     "message": "Minimise"
   },
   "dataSummary": {
-    "message": "$1 saved: $2 in cart, $3 missing, $4 unavailable."
+    "message": "$1 saved: $2 in cart, $3 missing, $4 unavailable. $5 favourite(s)."
   },
   "dataTitle": {
-    "message": "Your saved articles"
+    "message": "Your saved articles and favourites"
   },
   "emptyLead": {
     "message": "Open your shopping cart on Cardmarket and Cart Saver remembers its articles automatically."
@@ -77,6 +77,45 @@
   "extName": {
     "message": "Cardmarket Cart Saver"
   },
+  "favAdd": {
+    "message": "Save as favourite"
+  },
+  "favAddToCart": {
+    "message": "Put in cart"
+  },
+  "favAvailable": {
+    "message": "$1 available"
+  },
+  "favEmptyLead": {
+    "message": "Click the ☆ next to an offer on Cardmarket (or an article in your cart) to keep it here."
+  },
+  "favEmptyTitle": {
+    "message": "No favourites yet"
+  },
+  "favNoMatches": {
+    "message": "No favourites match your search."
+  },
+  "favNotOnPageLead": {
+    "message": "This offer from $1 is not listed here. It may have been sold, or it is further down the list."
+  },
+  "favNotOnPageTitle": {
+    "message": "Favourite not on this page"
+  },
+  "favOpenOffer": {
+    "message": "View offer on Cardmarket"
+  },
+  "favRemove": {
+    "message": "Remove from favourites"
+  },
+  "favSavedOn": {
+    "message": "saved $1"
+  },
+  "favSearch": {
+    "message": "Search favourites (name, set, seller…)"
+  },
+  "favSellerOffers": {
+    "message": "Find at this seller"
+  },
   "filterAll": {
     "message": "All"
   },
@@ -103,6 +142,9 @@
   },
   "how4": {
     "message": "Articles you buy disappear from the list automatically once you open the order on Cardmarket."
+  },
+  "how5": {
+    "message": "Click the ☆ next to any offer (or article in your cart) to keep it as a favourite. Find it again under Favourites in the toolbar popup: open the offer, search the seller's stock or put it in your cart."
   },
   "howTitle": {
     "message": "How it works"
@@ -171,7 +213,7 @@
     "message": "Stopped"
   },
   "refillSummary": {
-    "message": "$1 put back, $2 not available."
+    "message": "$1 put in your cart, $2 not available."
   },
   "refillWaiting": {
     "message": "Waiting for Cardmarket to open…"
@@ -238,6 +280,12 @@
   },
   "stop": {
     "message": "Stop"
+  },
+  "tabCart": {
+    "message": "Cart"
+  },
+  "tabFavorites": {
+    "message": "Favourites ($1)"
   },
   "viewInCart": {
     "message": "View"

@@ -19,7 +19,8 @@ import { createMockCardmarket, ARTICLES } from './mock-cardmarket.mjs';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const SHOTS = process.env.SCREENSHOT_DIR ? path.resolve(process.env.SCREENSHOT_DIR) : null;
 const CM = 'https://www.cardmarket.com';
-const [BOG, MAGE, EPHEMERATE, SOL_RING] = ARTICLES.map((a) => a.articleId);
+const [BOG, MAGE, EPHEMERATE, SOL_RING, SOL_KINGDOM, SOL_MINT] = ARTICLES.map((a) => a.articleId);
+const SOL_RING_URL = `https://www.cardmarket.com/en/Magic/Products/Singles/Commander-Masters/Sol-Ring`;
 const DELAY_MS = 300;
 
 let context;
@@ -61,6 +62,30 @@ async function shot(target, name) {
 }
 
 const widget = (page) => page.locator('cmcs-cart-saver .cmcs-panel');
+async function favorites() {
+  return (await storage())['cmcs.favorites'] || {};
+}
+
+/**
+ * Click something in the popup that queues a job and opens Cardmarket in a new
+ * tab, then let that tab run the job. (Playwright cannot intercept the first
+ * load of a tab the extension opened itself, so it is loaded once more.)
+ */
+async function runViaNewTab(locator) {
+  await sw.evaluate(() => chrome.storage.local.set({ 'cmcs.job': null }));
+  const opened = context.waitForEvent('page');
+  await locator.click();
+  const tab = await opened;
+  await tab.waitForLoadState();
+  await tab.goto(`${CM}/en/Magic/ShoppingCart`);
+  const job = await waitFor(async () => {
+    const j = (await storage())['cmcs.job'];
+    return j && (j.state === 'done' || j.state === 'error') && j;
+  }, 'job finished');
+  await tab.close();
+  return job;
+}
+
 const addRequests = () => mock.state.requests.filter((r) => r.method === 'POST' && r.path.includes('/AjaxAction/'));
 
 before(async () => {
@@ -174,7 +199,7 @@ describe('Cardmarket Cart Saver', () => {
       assert.ok(posts[i].at - posts[i - 1].at >= DELAY_MS, 'requests are spaced out');
     }
 
-    await waitFor(async () => /2 teruggezet, 1 niet beschikbaar/.test(await widget(page).innerText()), 'summary');
+    await waitFor(async () => /2 in je mandje gezet, 1 niet beschikbaar/.test(await widget(page).innerText()), 'summary');
     assert.equal(await sw.evaluate(() => chrome.action.getBadgeText({})), '');
     await shot(widget(page), '03-refill-summary');
   });
@@ -350,6 +375,148 @@ describe('Cardmarket Cart Saver', () => {
     assert.deepEqual(tokens, [mock.state.stalePageToken, mock.state.token]);
     assert.ok(mock.state.cart.has(MAGE));
     assert.equal((await items())[MAGE].status, 'in_cart');
+  });
+
+  it('stars offers on a product page', async () => {
+    await page.goto(SOL_RING_URL);
+    const star = page.locator(`#articleRow${SOL_KINGDOM} cmcs-fav button`);
+    assert.equal(await star.getAttribute('aria-pressed'), 'false');
+    assert.equal(await star.getAttribute('title'), 'Bewaar als favoriet');
+    await star.click();
+    const fav = await waitFor(async () => (await favorites())[SOL_KINGDOM], 'favourite saved');
+
+    assert.equal(fav.name, 'Sol Ring');
+    assert.equal(fav.expansion, 'Commander Masters');
+    assert.equal(fav.productUrl, SOL_RING_URL);
+    assert.equal(fav.game, 'Magic');
+    assert.equal(fav.lang, 'en');
+    assert.equal(fav.seller, 'CardKingdomNL');
+    assert.equal(fav.sellerUrl, `${CM}/en/Magic/Users/CardKingdomNL`);
+    assert.equal(fav.price, 1.1);
+    assert.equal(fav.available, 3);
+    assert.equal(fav.conditionLabel, 'EX');
+    assert.equal(fav.condition, 3);
+    assert.equal(fav.languageLabel, 'German');
+    assert.equal(fav.language, 3);
+    assert.equal(fav.foil, false);
+    assert.match(fav.imageUrl, /500100\.jpg$/);
+    await waitFor(async () => (await star.getAttribute('aria-pressed')) === 'true', 'star filled');
+
+    await page.locator(`#articleRow${SOL_MINT} cmcs-fav button`).click();
+    const mint = await waitFor(async () => (await favorites())[SOL_MINT], 'second favourite');
+    assert.equal(mint.foil, true);
+    assert.deepEqual(mint.extras, ['Foil']);
+    assert.equal(mint.conditionLabel, 'MT');
+    await shot(page, '07-product-stars');
+
+    // Clicking again removes it; clicking once more brings it back.
+    await star.click();
+    await waitFor(async () => !(await favorites())[SOL_KINGDOM], 'unstarred');
+    await star.click();
+    await waitFor(async () => (await favorites())[SOL_KINGDOM], 'starred again');
+  });
+
+  it('stars an article from the cart page', async () => {
+    mock.state.cart.set(BOG, 1);
+    await page.goto(`${CM}/en/Magic/ShoppingCart`);
+    await page.locator(`tr[data-article-id="${BOG}"] cmcs-fav button`).first().click();
+    const fav = await waitFor(async () => (await favorites())[BOG], 'cart favourite');
+    assert.equal(fav.seller, 'snowc');
+    assert.equal(fav.conditionLabel, 'NM');
+    assert.equal(fav.amount, undefined, 'the cart amount is not part of a favourite');
+    await page.locator(`tr[data-article-id="${BOG}"] cmcs-fav button`).first().click();
+    await waitFor(async () => !(await favorites())[BOG], 'cart favourite removed');
+    mock.state.cart.delete(BOG);
+  });
+
+  it('finds favourites back in the popup', async () => {
+    await sw.evaluate(() => chrome.storage.local.set({ 'cmcs.job': null }));
+    const popup = await context.newPage();
+    await popup.setViewportSize({ width: 400, height: 600 });
+    await popup.goto(`chrome-extension://${extensionId}/src/popup/popup.html`);
+    await popup.getByRole('tab', { name: 'Favorieten (2)' }).click();
+    await waitFor(async () => (await popup.locator('#fav-list .cmcs-item').count()) === 2, 'two favourites');
+
+    // Newest first.
+    const names = await popup.locator('#fav-list .cmcs-item').evaluateAll((rows) => rows.map((r) => r.dataset.articleId));
+    assert.deepEqual(names, [SOL_KINGDOM, SOL_MINT]);
+
+    const row = popup.locator(`#fav-list [data-article-id="${SOL_KINGDOM}"]`);
+    assert.match(await row.innerText(), /Verkoper: CardKingdomNL/);
+    assert.match(await row.innerText(), /3 beschikbaar/);
+    assert.equal(
+      await row.getByRole('link', { name: 'Bekijk aanbieding op Cardmarket' }).getAttribute('href'),
+      `${SOL_RING_URL}?language=3&minCondition=3#articleRow${SOL_KINGDOM}`,
+    );
+    assert.equal(
+      await row.getByRole('link', { name: 'Zoek bij deze verkoper' }).getAttribute('href'),
+      `${CM}/en/Magic/Users/CardKingdomNL/Offers/Singles?name=Sol+Ring`,
+    );
+    assert.doesNotMatch(await popup.locator('body').innerText(), /\bnull\b|undefined/);
+    await shot(popup, '08-popup-favorites');
+
+    await popup.fill('#fav-search', 'mint foil');
+    await waitFor(async () => (await popup.locator('#fav-list .cmcs-item').count()) === 1, 'search narrows');
+    assert.equal(await popup.locator('#fav-list .cmcs-item').getAttribute('data-article-id'), SOL_MINT);
+    await popup.fill('#fav-search', 'nothing like this');
+    await waitFor(async () => /Geen favorieten gevonden/.test(await popup.locator('#fav-list').innerText()), 'no matches');
+    await popup.close();
+  });
+
+  it('opening a favourite highlights the offer and refreshes its price', async () => {
+    mock.article(SOL_KINGDOM).price = 0.95;
+    await page.goto(`${SOL_RING_URL}?language=3&minCondition=3#articleRow${SOL_KINGDOM}`);
+    await page.locator(`#articleRow${SOL_KINGDOM}[data-cmcs-highlight]`).waitFor();
+    await waitFor(async () => (await favorites())[SOL_KINGDOM].price === 0.95, 'price refreshed');
+  });
+
+  it('finds a favourite on the seller page', async () => {
+    await page.goto(`${CM}/en/Magic/Users/CardKingdomNL/Offers/Singles?name=Sol+Ring`);
+    const star = page.locator(`#articleRow${SOL_KINGDOM} cmcs-fav button`);
+    await waitFor(async () => (await star.getAttribute('aria-pressed')) === 'true', 'shown as favourite');
+  });
+
+  it('puts a favourite in the cart from the popup (one copy)', async () => {
+    mock.state.cart.delete(SOL_KINGDOM);
+    const popup = await context.newPage();
+    await popup.goto(`chrome-extension://${extensionId}/src/popup/popup.html`);
+    await popup.getByRole('tab', { name: /Favorieten/ }).click();
+    const row = popup.locator(`#fav-list [data-article-id="${SOL_KINGDOM}"]`);
+    const job = await runViaNewTab(row.getByRole('button', { name: 'In winkelmandje leggen' }));
+
+    assert.equal(job.state, 'done');
+    assert.equal(mock.state.cart.get(SOL_KINGDOM), 1, 'one copy, not all 3 available');
+    assert.equal((await items())[SOL_KINGDOM].status, 'in_cart');
+    await waitFor(async () => /In mandje/.test(await row.innerText()), 'popup shows it is in the cart');
+    assert.equal(await row.getByRole('button', { name: 'In winkelmandje leggen' }).count(), 0);
+    await popup.close();
+  });
+
+  it('flags a sold favourite and says so on the offer page', async () => {
+    mock.state.available.delete(SOL_MINT);
+    const popup = await context.newPage();
+    await popup.goto(`chrome-extension://${extensionId}/src/popup/popup.html`);
+    await popup.getByRole('tab', { name: /Favorieten/ }).click();
+    const row = popup.locator(`#fav-list [data-article-id="${SOL_MINT}"]`);
+    const job = await runViaNewTab(row.getByRole('button', { name: 'In winkelmandje leggen' }));
+
+    assert.equal(job.failed, 1);
+    const fav = (await favorites())[SOL_MINT];
+    assert.equal(fav.unavailable, true);
+    assert.equal(fav.unavailableMessage, 'This article is no longer available.');
+    assert.equal((await items())[SOL_MINT], undefined, 'not added to the saved cart list');
+    await waitFor(async () => /This article is no longer available/.test(await row.innerText()), 'note in popup');
+    await popup.close();
+
+    await sw.evaluate(() => chrome.storage.local.set({ 'cmcs.job': null }));
+    await page.goto(`${SOL_RING_URL}?language=1&minCondition=1&isFoil=Y#articleRow${SOL_MINT}`);
+    await waitFor(() => widget(page).isVisible(), 'notice');
+    assert.match(await widget(page).innerText(), /Favoriet niet op deze pagina/);
+    assert.equal(
+      await widget(page).getByRole('link', { name: 'Zoek bij deze verkoper' }).getAttribute('href'),
+      `${CM}/en/Magic/Users/MintCondition/Offers/Singles?name=Sol+Ring`,
+    );
+    await shot(widget(page), '09-favorite-not-found');
   });
 
   it('options page shows the saved data and stores settings', async () => {

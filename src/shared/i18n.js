@@ -17,6 +17,10 @@
     });
     scope.querySelectorAll('[data-i18n-title]').forEach((el) => {
       el.title = CMCS.t(el.dataset.i18nTitle);
+      el.setAttribute('aria-label', el.title);
+    });
+    scope.querySelectorAll('[data-i18n-placeholder]').forEach((el) => {
+      el.placeholder = CMCS.t(el.dataset.i18nPlaceholder);
     });
   };
 })(globalThis);

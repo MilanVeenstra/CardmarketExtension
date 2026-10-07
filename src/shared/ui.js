@@ -25,6 +25,27 @@
     return el;
   }
 
+  const ICON_PATHS = {
+    close: '<path d="M6 6l12 12M18 6L6 18"/>',
+    minus: '<path d="M6 12h12"/>',
+    refresh: '<path d="M20 12a8 8 0 1 1-2.34-5.66"/><path d="M20 4v5h-5"/>',
+    search: '<circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/>',
+    star: '<path d="M12 3.5l2.6 5.4 5.9.8-4.3 4.1 1 5.8L12 16.8l-5.2 2.8 1-5.8-4.3-4.1 5.9-.8z"/>',
+    starFilled: '<path fill="currentColor" d="M12 3.5l2.6 5.4 5.9.8-4.3 4.1 1 5.8L12 16.8l-5.2 2.8 1-5.8-4.3-4.1 5.9-.8z"/>',
+    cart: '<path d="M3.5 5h2l1.8 9.2a1 1 0 0 0 1 .8h7.6a1 1 0 0 0 1-.8L18.5 8H7"/><circle cx="9.5" cy="19" r="1.2"/><circle cx="16" cy="19" r="1.2"/>',
+    external: '<path d="M14 4h6v6"/><path d="M20 4l-9 9"/><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/>',
+    user: '<circle cx="12" cy="8.5" r="3.5"/><path d="M5 20c.8-3.6 3.6-5.5 7-5.5s6.2 1.9 7 5.5"/>',
+  };
+
+  /** A 16px line icon (inline SVG, inherits the text colour). */
+  function icon(name) {
+    const svg = new DOMParser().parseFromString(
+      `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON_PATHS[name] || ''}</svg>`,
+      'image/svg+xml',
+    ).documentElement;
+    return document.importNode(svg, true);
+  }
+
   const STATUS_LABEL = {
     in_cart: 'statusInCart',
     missing: 'statusMissing',
@@ -48,11 +69,16 @@
    * @param {Node}   [opts.leading]   e.g. a checkbox in front of the thumbnail
    * @param {boolean}[opts.showStatus]
    * @param {boolean}[opts.showSeller]  default true
+   * @param {string} [opts.href]        where the name links to (default: product page)
+   * @param {string} [opts.extraMeta]   an extra muted line
+   * @param {string} [opts.note]        a warning line (default: last failed attempt)
    */
   function itemRow(item, opts = {}) {
     const t = CMCS.t;
     const price = CMCS.store.formatPrice(item.price);
     const failed = item.lastAttempt && !item.lastAttempt.ok && item.status !== 'in_cart';
+    const note = opts.note !== undefined ? opts.note : failed ? item.lastAttempt.message : null;
+    const href = opts.href || item.productUrl;
     return h(
       'div',
       { class: `cmcs-item cmcs-item--${item.status}`, dataset: { articleId: item.articleId } },
@@ -63,14 +89,13 @@
       h(
         'div',
         { class: 'cmcs-item-main' },
-        item.productUrl
-          ? h('a', { class: 'cmcs-item-name', href: item.productUrl, target: '_blank', rel: 'noopener', title: item.name }, item.name)
+        href
+          ? h('a', { class: 'cmcs-item-name', href, target: '_blank', rel: 'noopener', title: item.name }, item.name)
           : h('span', { class: 'cmcs-item-name' }, item.name),
         h('div', { class: 'cmcs-item-meta' }, itemMeta(item).join(' · ')),
         item.seller && opts.showSeller !== false ? h('div', { class: 'cmcs-item-meta' }, t('soldBy', item.seller)) : null,
-        failed && item.lastAttempt.message
-          ? h('div', { class: 'cmcs-item-note' }, item.lastAttempt.message)
-          : null,
+        opts.extraMeta ? h('div', { class: 'cmcs-item-meta' }, opts.extraMeta) : null,
+        note ? h('div', { class: 'cmcs-item-note' }, note) : null,
       ),
       h(
         'div',
@@ -100,8 +125,12 @@
     return kind ? CMCS.t(ERROR_KEYS[kind] || 'errorUnknown') : null;
   }
 
-  function iconButton(label, symbol, onClick, extraClass = '') {
-    return h('button', { type: 'button', class: `cmcs-icon-btn ${extraClass}`, title: label, 'aria-label': label, onclick: onClick }, symbol);
+  function iconButton(label, iconName, onClick, extraClass = '') {
+    return h('button', { type: 'button', class: `cmcs-icon-btn ${extraClass}`, title: label, 'aria-label': label, onclick: onClick }, icon(iconName));
+  }
+
+  function iconLink(label, iconName, href) {
+    return h('a', { class: 'cmcs-icon-btn', href, target: '_blank', rel: 'noopener', title: label, 'aria-label': label }, icon(iconName));
   }
 
   /** Shared look for items, buttons and badges (light + dark). */
@@ -121,6 +150,7 @@
       --cmcs-warn-bg: #fff2d6;
       --cmcs-bad: #b42318;
       --cmcs-bad-bg: #fde7e5;
+      --cmcs-star: #e09a00;
       --cmcs-shadow: 0 10px 30px rgba(15, 23, 42, 0.18), 0 2px 6px rgba(15, 23, 42, 0.08);
       --cmcs-radius: 10px;
       font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -144,6 +174,7 @@
         --cmcs-warn-bg: #3a2e14;
         --cmcs-bad: #ff8a80;
         --cmcs-bad-bg: #42201d;
+        --cmcs-star: #f5b82e;
         --cmcs-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
       }
     }
@@ -169,6 +200,9 @@
       display: inline-flex; align-items: center; justify-content: center; text-decoration: none;
     }
     .cmcs-icon-btn:hover { background: var(--cmcs-surface); color: var(--cmcs-text); text-decoration: none; }
+    .cmcs-icon-btn svg { width: 16px; height: 16px; }
+    .cmcs-icon-btn--star { color: var(--cmcs-star); }
+    .cmcs-icon-btn--star:hover { color: var(--cmcs-star); }
     .cmcs-item {
       display: flex; gap: 10px; align-items: flex-start;
       padding: 8px 0; border-top: 1px solid var(--cmcs-border);
@@ -195,5 +229,5 @@
     .cmcs-group-title { font-size: 12px; font-weight: 700; color: var(--cmcs-muted); text-transform: uppercase; letter-spacing: 0.03em; margin: 12px 0 2px; }
   `;
 
-  CMCS.ui = { h, itemRow, iconButton, errorText, STYLES };
+  CMCS.ui = { h, icon, itemRow, iconButton, iconLink, errorText, STYLES };
 })(globalThis);

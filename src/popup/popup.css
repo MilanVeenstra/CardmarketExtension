@@ -8,9 +8,25 @@ body {
 }
 .top {
   display: flex; align-items: center; gap: 8px;
-  padding: 12px 12px 10px 16px;
+  padding: 12px 12px 6px 16px;
+}
+.tabs {
+  display: flex; gap: 4px; padding: 0 12px;
   border-bottom: 1px solid var(--cmcs-border);
 }
+.tab {
+  appearance: none; border: 0; background: transparent; cursor: pointer;
+  font: inherit; font-weight: 600; color: var(--cmcs-muted);
+  padding: 8px 6px; margin-bottom: -1px; border-bottom: 2px solid transparent;
+}
+.tab:hover { color: var(--cmcs-text); }
+.tab[aria-selected="true"] { color: var(--cmcs-text); border-bottom-color: var(--cmcs-accent); }
+.search {
+  width: 100%; font: inherit; color: var(--cmcs-text);
+  background: var(--cmcs-surface); border: 1px solid var(--cmcs-border);
+  border-radius: 7px; padding: 7px 10px; margin-bottom: 4px;
+}
+.search:focus { outline: 2px solid var(--cmcs-accent); outline-offset: -1px; }
 .logo { width: 22px; height: 22px; }
 .title { font-size: 15px; font-weight: 700; margin: 0; flex: 1; }
 .game {
@@ -30,7 +46,7 @@ main { overflow: auto; padding: 12px 16px 4px; flex: 1; }
 .stat--unavailable .stat-value { color: var(--cmcs-bad); }
 .actions { display: flex; gap: 8px; margin-top: 12px; }
 .actions .cmcs-btn { flex: 1; text-decoration: none; }
-.job { margin-top: 12px; padding: 10px; border: 1px solid var(--cmcs-border); border-radius: 8px; }
+.job { margin-bottom: 12px; padding: 10px; border: 1px solid var(--cmcs-border); border-radius: 8px; }
 .job p { margin: 0 0 6px; }
 .job-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 6px; }
 .filters { display: flex; gap: 4px; margin: 14px 0 2px; flex-wrap: wrap; }
@@ -45,5 +61,5 @@ main { overflow: auto; padding: 12px 16px 4px; flex: 1; }
 .empty { text-align: center; padding: 18px 8px 8px; }
 .empty-title { font-weight: 700; font-size: 14px; margin: 0 0 4px; }
 .empty .cmcs-btn { margin-top: 10px; text-decoration: none; }
-.notice { margin: 10px 0 0; font-size: 12px; }
+.notice { margin: 0 0 10px; font-size: 12px; }
 .foot { font-size: 11px; padding: 8px 16px 10px; border-top: 1px solid var(--cmcs-border); }

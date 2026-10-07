@@ -21,6 +21,7 @@
     meta: 'cmcs.meta',
     job: 'cmcs.job',
     settings: 'cmcs.settings',
+    favorites: 'cmcs.favorites',
   };
 
   const STATUS = {
@@ -95,6 +96,7 @@
       next[cartItem.articleId] = {
         ...(prev || {}),
         ...cartItem,
+        viaFavorite: false,
         firstSavedAt: (prev && prev.firstSavedAt) || opts.now,
         lastSeenInCartAt: opts.now,
         status: STATUS.IN_CART,
@@ -148,6 +150,30 @@
       .map((item) => item.articleId)
       .sort()
       .join(',');
+  }
+
+  const FAVORITE_FIELDS = [
+    'articleId', 'productId', 'game', 'lang', 'name', 'expansion', 'number', 'productUrl', 'imageUrl',
+    'price', 'available', 'condition', 'conditionLabel', 'language', 'languageLabel', 'foil', 'extras',
+    'comment', 'seller', 'sellerUrl',
+  ];
+
+  /** The part of an article worth keeping as a favourite. */
+  function toFavorite(article, now = Date.now()) {
+    const fav = {};
+    for (const field of FAVORITE_FIELDS) if (article[field] !== undefined) fav[field] = article[field];
+    return { ...fav, favoritedAt: now, lastSeenAt: now, unavailable: false, unavailableMessage: null };
+  }
+
+  /** Does a favourite match a free-text search (name, expansion, seller…)? */
+  function favoriteMatches(fav, query) {
+    const words = String(query || '').toLowerCase().split(/\s+/).filter(Boolean);
+    if (!words.length) return true;
+    const haystack = [fav.name, fav.expansion, fav.seller, fav.game, fav.languageLabel, fav.conditionLabel, ...(fav.extras || [])]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase();
+    return words.every((word) => haystack.includes(word));
   }
 
   /** A refill job, before a Cardmarket tab claims and runs it. */
@@ -210,6 +236,8 @@
     missingSignature,
     newJob,
     isJobActive,
+    toFavorite,
+    favoriteMatches,
     groupBy,
     formatPrice,
 
@@ -262,6 +290,78 @@
           if (next[id]) next[id] = { ...next[id], ...patch };
         }
         return next;
+      });
+    },
+
+    /**
+     * Make sure favourites exist as saved cart items so a refill job can add
+     * them. New ones are added once (amount 1) and flagged, so a failed add can
+     * drop them again instead of cluttering the cart list.
+     */
+    async ensureItemsFromFavorites(favorites) {
+      return update(KEYS.items, {}, (items) => {
+        const next = { ...items };
+        const now = Date.now();
+        for (const fav of favorites) {
+          const prev = next[fav.articleId];
+          if (prev && prev.status === STATUS.IN_CART) continue;
+          const { favoritedAt, lastSeenAt, unavailable, unavailableMessage, available, ...article } = fav;
+          next[fav.articleId] = {
+            ...article,
+            ...(prev || {}),
+            amount: (prev && prev.amount) || 1,
+            status: STATUS.MISSING,
+            viaFavorite: prev ? Boolean(prev.viaFavorite) : true,
+            firstSavedAt: (prev && prev.firstSavedAt) || now,
+            missingSince: now,
+          };
+        }
+        return next;
+      });
+    },
+
+    getFavorites: () => get(KEYS.favorites, {}),
+    setFavorites: (favorites) => set(KEYS.favorites, favorites),
+    updateFavorites: (fn) => update(KEYS.favorites, {}, fn),
+
+    /** Star or unstar an article. Resolves to true when it is now a favourite. */
+    async toggleFavorite(article) {
+      let starred = false;
+      await update(KEYS.favorites, {}, (favorites) => {
+        const next = { ...favorites };
+        if (next[article.articleId]) delete next[article.articleId];
+        else {
+          next[article.articleId] = toFavorite(article);
+          starred = true;
+        }
+        return next;
+      });
+      return starred;
+    },
+
+    async removeFavorites(articleIds) {
+      const ids = new Set(articleIds);
+      return update(KEYS.favorites, {}, (favorites) => {
+        const next = {};
+        for (const [id, fav] of Object.entries(favorites)) if (!ids.has(id)) next[id] = fav;
+        return next;
+      });
+    },
+
+    /** Merge fields into existing favourites; unknown ids are ignored. Skips the write when nothing changes. */
+    async patchFavorites(patches) {
+      return update(KEYS.favorites, {}, (favorites) => {
+        let changed = false;
+        const next = { ...favorites };
+        for (const [id, patch] of Object.entries(patches)) {
+          if (!next[id]) continue;
+          const merged = { ...next[id], ...patch };
+          if (JSON.stringify(merged) !== JSON.stringify(next[id])) {
+            next[id] = merged;
+            changed = true;
+          }
+        }
+        return changed ? next : undefined;
       });
     },
 

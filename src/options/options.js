@@ -36,14 +36,28 @@
   // --- Data ------------------------------------------------------------------
 
   async function renderSummary() {
-    const summary = store.summarize(await store.getItems());
-    $('dataSummary').textContent = t('dataSummary', summary.total, summary.inCart, summary.missing, summary.unavailable);
+    const [items, favorites] = await Promise.all([store.getItems(), store.getFavorites()]);
+    const summary = store.summarize(items);
+    $('dataSummary').textContent = t(
+      'dataSummary',
+      summary.total,
+      summary.inCart,
+      summary.missing,
+      summary.unavailable,
+      Object.keys(favorites).length,
+    );
   }
   store.onChanged(renderSummary);
   renderSummary();
 
   $('export').addEventListener('click', async () => {
-    const payload = { format: 'cardmarket-cart-saver', version: 1, exportedAt: new Date().toISOString(), items: await store.getItems() };
+    const payload = {
+      format: 'cardmarket-cart-saver',
+      version: 2,
+      exportedAt: new Date().toISOString(),
+      items: await store.getItems(),
+      favorites: await store.getFavorites(),
+    };
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
@@ -58,17 +72,27 @@
     if (!file) return;
     try {
       const data = JSON.parse(await file.text());
+      const isArticle = (item) =>
+        item && /^\d+$/.test(String(item.articleId)) && typeof item.name === 'string' && typeof item.game === 'string';
       const incoming = data && typeof data.items === 'object' ? data.items : data;
-      const valid = Object.values(incoming || {}).filter(
-        (item) => item && /^\d+$/.test(String(item.articleId)) && typeof item.name === 'string' && typeof item.game === 'string',
-      );
-      if (!valid.length) throw new Error('no items');
+      const validItems = Object.values(incoming || {}).filter(isArticle);
+      const validFavorites = Object.values((data && data.favorites) || {}).filter(isArticle);
+      if (!validItems.length && !validFavorites.length) throw new Error('nothing to import');
       let added = 0;
       await store.updateItems((items) => {
         const next = { ...items };
-        for (const item of valid) {
+        for (const item of validItems) {
           if (next[item.articleId]) continue;
           next[item.articleId] = { ...item, status: item.status === store.STATUS.UNAVAILABLE ? item.status : store.STATUS.MISSING };
+          added += 1;
+        }
+        return next;
+      });
+      await store.updateFavorites((favorites) => {
+        const next = { ...favorites };
+        for (const fav of validFavorites) {
+          if (next[fav.articleId]) continue;
+          next[fav.articleId] = fav;
           added += 1;
         }
         return next;
@@ -82,6 +106,7 @@
   $('clear').addEventListener('click', async () => {
     if (!confirm(t('clearConfirm'))) return;
     await store.setItems({});
+    await store.setFavorites({});
     await store.setJob(null);
     $('dataMessage').textContent = t('cleared');
   });

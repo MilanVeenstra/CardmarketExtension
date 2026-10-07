@@ -21,7 +21,9 @@
   let host;
   let shadow;
   let panel;
-  let state = { items: {}, job: null, settings: store.DEFAULT_SETTINGS, meta: {} };
+  let state = { items: {}, favorites: {}, job: null, settings: store.DEFAULT_SETTINGS, meta: {} };
+  /** A one-off message (e.g. "favourite not on this page") until the user closes it. */
+  let notice = null;
   const deselected = new Set();
 
   const WIDGET_CSS = `
@@ -88,13 +90,14 @@
   }
 
   async function refresh() {
-    const [items, job, settings, meta] = await Promise.all([
+    const [items, favorites, job, settings, meta] = await Promise.all([
       store.getItems(),
+      store.getFavorites(),
       store.getJob(),
       store.getSettings(),
       store.getMeta(),
     ]);
-    state = { items, job, settings, meta };
+    state = { items, favorites, job, settings, meta };
     render();
   }
 
@@ -137,8 +140,8 @@
         { class: 'cmcs-head' },
         logo(),
         h('div', { class: 'cmcs-title' }, title),
-        onCollapse ? ui.iconButton(t('collapse'), '–', onCollapse) : null,
-        onClose ? ui.iconButton(t('close'), '×', onClose) : null,
+        onCollapse ? ui.iconButton(t('collapse'), 'minus', onCollapse) : null,
+        onClose ? ui.iconButton(t('close'), 'close', onClose) : null,
       ),
       h('div', { class: 'cmcs-body' }, body),
     );
@@ -168,7 +171,7 @@
   function summaryView(job) {
     const failedItems = Object.entries(job.results || {})
       .filter(([, result]) => !result.ok)
-      .map(([id]) => state.items[id])
+      .map(([id]) => state.items[id] || state.favorites[id])
       .filter(Boolean);
     const error = ui.errorText(job.error);
     return shell(
@@ -197,10 +200,8 @@
   function alternativeActions(item) {
     const url = cm.alternativesUrl(item);
     return [
-      url
-        ? h('a', { class: 'cmcs-icon-btn', href: url, target: '_blank', rel: 'noopener', title: t('findAlternative'), 'aria-label': t('findAlternative') }, '⌕')
-        : null,
-      ui.iconButton(t('removeFromSaved'), '×', () => removeItems([item.articleId])),
+      url ? ui.iconLink(t('findAlternative'), 'search', url) : null,
+      ui.iconButton(t('removeFromSaved'), 'close', () => removeItems([item.articleId])),
     ].filter(Boolean);
   }
 
@@ -262,7 +263,7 @@
                   render();
                 },
               }),
-              actions: [ui.iconButton(t('removeFromSaved'), '×', () => removeItems([item.articleId]))],
+              actions: [ui.iconButton(t('removeFromSaved'), 'close', () => removeItems([item.articleId]))],
             }),
           ),
         ),
@@ -327,6 +328,27 @@
     return shell('Cart Saver', { onCollapse: () => setCollapsed(true) }, body);
   }
 
+  function showNotice(next) {
+    notice = next;
+    render();
+  }
+
+  function noticeView() {
+    const close = () => showNotice(null);
+    return shell(
+      notice.title,
+      { onClose: close },
+      h('p', { class: 'cmcs-lead' }, notice.text),
+      h(
+        'div',
+        { class: 'cmcs-actions' },
+        (notice.links || []).map((link, i) =>
+          h('a', { class: `cmcs-btn ${i ? 'cmcs-btn--ghost' : ''}`, href: link.href }, link.label),
+        ),
+      ),
+    );
+  }
+
   function reminderView(missing) {
     const value = missing.reduce((sum, item) => sum + (item.price || 0) * (item.amount || 1), 0);
     return shell(
@@ -359,6 +381,8 @@
       view = progressView(job);
     } else if (job && job.finishedAt && !job.acknowledged && Date.now() - job.finishedAt < SUMMARY_TTL_MS) {
       view = summaryView(job);
+    } else if (notice) {
+      view = noticeView();
     } else if (loc.isCart && forGame.length) {
       view = cartView(missing, unavailable, inCart);
     } else if (
@@ -374,5 +398,5 @@
     host.style.display = view ? '' : 'none';
   }
 
-  CMCS.widget = { mount, refresh };
+  CMCS.widget = { mount, refresh, showNotice };
 })(globalThis);

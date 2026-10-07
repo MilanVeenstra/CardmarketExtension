@@ -19,11 +19,21 @@
   ];
   const STATUS_ORDER = { missing: 0, unavailable: 1, in_cart: 2 };
 
+  const TAB_KEY = 'cmcs.popupTab';
+
   let items = {};
+  let favorites = {};
   let job = null;
   let game = null;
   let filter = 'all';
   let notice = null;
+  let query = '';
+  let tab = 'cart';
+  try {
+    tab = localStorage.getItem(TAB_KEY) === 'fav' ? 'fav' : 'cart';
+  } catch {
+    // Storage blocked: just start on the cart tab.
+  }
 
   const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
   const tabLoc =
@@ -37,6 +47,21 @@
   $('game').addEventListener('change', (event) => {
     game = event.target.value;
     render();
+  });
+  for (const [id, name] of [['tab-cart', 'cart'], ['tab-fav', 'fav']]) {
+    $(id).addEventListener('click', () => {
+      tab = name;
+      try {
+        localStorage.setItem(TAB_KEY, name);
+      } catch {
+        // Not remembered, that is fine.
+      }
+      render();
+    });
+  }
+  $('fav-search').addEventListener('input', (event) => {
+    query = event.target.value;
+    renderFavorites();
   });
 
   // ---------------------------------------------------------------------------
@@ -86,6 +111,21 @@
     return store.removeItems(list.map((item) => item.articleId));
   }
 
+  /** Favourites go through the same refill job as saved cart articles (amount 1). */
+  async function addFavoritesToCart(list) {
+    if (store.isJobActive(job)) {
+      notice = t('errorBusy');
+      return render();
+    }
+    await store.ensureItemsFromFavorites(list);
+    const saved = await store.getItems();
+    await refill(list.map((fav) => saved[fav.articleId]).filter(Boolean));
+  }
+
+  function formatDate(ts) {
+    return ts ? new Date(ts).toLocaleDateString(chrome.i18n.getUILanguage(), { day: 'numeric', month: 'short' }) : '';
+  }
+
   // ---------------------------------------------------------------------------
 
   function stat(kind, value, label) {
@@ -117,7 +157,8 @@
       return;
     }
     const stopped = job.error && job.error !== 'cancelled';
-    box.replaceChildren(
+    // replaceChildren() would turn a null into the text "null", so build the list first.
+    const parts = [
       h(
         'p',
         null,
@@ -132,7 +173,8 @@
         h('span'),
         h('button', { type: 'button', class: 'cmcs-btn cmcs-btn--ghost', onclick: acknowledgeJob }, t('close')),
       ),
-    );
+    ];
+    box.replaceChildren(...parts.filter(Boolean));
   }
 
   /** A running job stops after its current article; a queued one is dropped. */
@@ -150,27 +192,93 @@
     return store.updateJob((current) => (current ? { ...current, acknowledged: true } : undefined));
   }
 
+  function starButton(article) {
+    const on = Boolean(favorites[article.articleId]);
+    return ui.iconButton(
+      t(on ? 'favRemove' : 'favAdd'),
+      on ? 'starFilled' : 'star',
+      () => store.toggleFavorite(article),
+      on ? 'cmcs-icon-btn--star' : '',
+    );
+  }
+
   function itemActions(item) {
-    const actions = [];
+    const actions = [starButton(item)];
     if (item.status !== store.STATUS.IN_CART) {
       const alt = cm.alternativesUrl(item);
-      if (alt) actions.push(h('a', { class: 'cmcs-icon-btn', href: alt, target: '_blank', rel: 'noopener', title: t('findAlternative'), 'aria-label': t('findAlternative') }, '⌕'));
-      actions.push(ui.iconButton(t('refillOne'), '↺', () => refill([item])));
+      if (alt) actions.push(ui.iconLink(t('findAlternative'), 'search', alt));
+      actions.push(ui.iconButton(t('refillOne'), 'refresh', () => refill([item])));
     }
-    actions.push(ui.iconButton(t('removeFromSaved'), '×', () => removeItems([item])));
+    actions.push(ui.iconButton(t('removeFromSaved'), 'close', () => removeItems([item])));
     return actions;
   }
 
+  function favoriteActions(fav, inCart) {
+    const offer = cm.offerUrl(fav);
+    const seller = cm.sellerSearchUrl(fav);
+    return [
+      inCart ? null : ui.iconButton(t('favAddToCart'), 'cart', () => addFavoritesToCart([fav])),
+      offer ? ui.iconLink(t('favOpenOffer'), 'external', offer) : null,
+      seller ? ui.iconLink(t('favSellerOffers'), 'user', seller) : null,
+      ui.iconButton(t('favRemove'), 'starFilled', () => store.removeFavorites([fav.articleId]), 'cmcs-icon-btn--star'),
+    ].filter(Boolean);
+  }
+
+  function renderTabs() {
+    const count = Object.keys(favorites).length;
+    $('tab-fav').textContent = t('tabFavorites', count);
+    $('tab-cart').setAttribute('aria-selected', String(tab === 'cart'));
+    $('tab-fav').setAttribute('aria-selected', String(tab === 'fav'));
+    $('view-cart').hidden = tab !== 'cart';
+    $('view-fav').hidden = tab !== 'fav';
+    $('notice').hidden = !notice;
+    $('notice').textContent = notice || '';
+  }
+
+  function renderFavorites() {
+    const all = Object.values(favorites).sort((a, b) => (b.favoritedAt || 0) - (a.favoritedAt || 0));
+    $('fav-empty').hidden = all.length > 0;
+    $('fav-search').hidden = all.length === 0;
+    const multiGame = new Set(all.map((fav) => fav.game)).size > 1;
+    const visible = all.filter((fav) => store.favoriteMatches(fav, query));
+    $('fav-list').replaceChildren(
+      ...(all.length && !visible.length
+        ? [h('p', { class: 'cmcs-muted' }, t('favNoMatches'))]
+        : visible.map((fav) => {
+            const inCart = items[fav.articleId] && items[fav.articleId].status === store.STATUS.IN_CART;
+            return ui.itemRow(inCart ? { ...fav, status: store.STATUS.IN_CART } : fav, {
+              href: cm.offerUrl(fav) || fav.productUrl,
+              showStatus: inCart,
+              extraMeta: [
+                multiGame ? fav.game : null,
+                fav.available ? t('favAvailable', fav.available) : null,
+                t('favSavedOn', formatDate(fav.favoritedAt)),
+              ]
+                .filter(Boolean)
+                .join(' · '),
+              note: fav.unavailable && !inCart ? fav.unavailableMessage || t('notAvailableAnymore') : null,
+              actions: favoriteActions(fav, inCart),
+            });
+          })),
+    );
+  }
+
   function render() {
+    renderTabs();
+    renderJob();
+    renderFavorites();
+    renderCart();
+  }
+
+  function renderCart() {
     const all = Object.values(items);
     const games = [...new Set(all.map((item) => item.game).filter(Boolean))].sort();
 
     $('empty').hidden = all.length > 0;
     for (const id of ['summary', 'actions', 'filters', 'list']) $(id).hidden = all.length === 0;
-    if (!all.length) {
-      $('job').hidden = true;
+    if (!all.length || tab !== 'cart') {
       $('game').hidden = true;
-      return;
+      if (!all.length) return;
     }
 
     if (!game || !games.includes(game)) {
@@ -180,7 +288,7 @@
       game = tabLoc && games.includes(tabLoc.game) ? tabLoc.game : byMissing[0][0];
     }
     const select = $('game');
-    select.hidden = games.length < 2;
+    select.hidden = games.length < 2 || tab !== 'cart';
     select.replaceChildren(...games.map((g) => h('option', { value: g, selected: g === game }, g)));
 
     const forGame = all.filter((item) => item.game === game);
@@ -190,8 +298,6 @@
       stat('missing', summary.missing, t('statusMissing')),
       stat('unavailable', summary.unavailable, t('statusUnavailable')),
     );
-
-    renderJob();
 
     const missing = forGame.filter((item) => item.status === store.STATUS.MISSING);
     const busy = store.isJobActive(job);
@@ -207,9 +313,6 @@
         t('openCart'),
       ),
     );
-    $('notice').hidden = !notice;
-    $('notice').textContent = notice || '';
-
     const filters = $('filters');
     filters.hidden = false;
     filters.replaceChildren(
@@ -244,7 +347,7 @@
   }
 
   async function load() {
-    [items, job] = await Promise.all([store.getItems(), store.getJob()]);
+    [items, favorites, job] = await Promise.all([store.getItems(), store.getFavorites(), store.getJob()]);
     render();
   }
 

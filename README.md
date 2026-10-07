@@ -9,7 +9,10 @@ de artikelen nog te koop zijn.
   <img src="docs/screenshots/reminder.png" alt="Melding op Cardmarket als je mandje is geleegd" width="380">
   <img src="docs/screenshots/summary.png" alt="Resultaat na het terugzetten" width="380">
 </p>
-<img src="docs/screenshots/popup.png" alt="Popup met alle opgeslagen artikelen" width="400">
+<p>
+  <img src="docs/screenshots/popup.png" alt="Popup met alle opgeslagen artikelen" width="400">
+  <img src="docs/screenshots/favorites.png" alt="Favorieten in de popup" width="400">
+</p>
 
 ## Wat het doet
 
@@ -29,6 +32,17 @@ de artikelen nog te koop zijn.
   - Wat intussen verkocht is, wordt gemarkeerd als *niet meer beschikbaar*, met
     een knop om vergelijkbaar aanbod te zoeken (zelfde taal, minimaal dezelfde
     conditie, zelfde foil).
+- **Favorieten.** Klik op de ☆ bij een aanbieding om dat specifieke artikel
+  van die verkoper te bewaren. Dat kan op productpagina's, kaartpagina's,
+  verkoperspagina's en in je winkelmandje. In de popup onder **Favorieten**
+  kun je zoeken op naam, set of verkoper. Per favoriet kun je:
+  - de aanbieding openen: de pagina scrolt ernaartoe en markeert hem;
+  - bij de verkoper zoeken;
+  - hem met één klik in je winkelmandje leggen (1 exemplaar).
+
+  Prijs en voorraad worden bijgewerkt zodra je de aanbieding weer tegenkomt.
+  Is hij verkocht, dan zie je dat bij de favoriet, met links naar de
+  verkoper en naar vergelijkbaar aanbod.
 - **Gekochte artikelen** verdwijnen vanzelf uit de lijst zodra je de bestelling
   op Cardmarket opent. Wat je zelf met het prullenbakje uit je mandje haalt,
   wordt ook vergeten.
@@ -62,7 +76,9 @@ Dit werkt ook in andere Chromium-browsers zoals Edge, Brave en Opera.
 2. Wordt je mandje later geleegd? Dan verschijnt op Cardmarket de melding
    **"Je winkelmandje is geleegd"**. Klik op **Zet terug**, of kies op de
    winkelmandjepagina zelf welke artikelen je terug wilt.
-3. Je kunt ook het icoon in de werkbalk gebruiken. De popup toont alle
+3. Zie je een aanbieding die je later misschien wilt kopen? Klik op de ☆
+   ernaast. Je vindt hem terug in de popup onder **Favorieten**.
+4. Je kunt ook het icoon in de werkbalk gebruiken. De popup toont alle
    opgeslagen artikelen per verkoper en kan het terugzetten starten. Zit je
    niet op Cardmarket, dan opent hij je winkelmandje en begint het terugzetten
    vanzelf.
@@ -72,7 +88,7 @@ Dit werkt ook in andere Chromium-browsers zoals Edge, Brave en Opera.
 - automatisch opslaan aan/uit;
 - de melding op Cardmarket aan/uit;
 - de pauze tussen artikelen (standaard 1,2 s);
-- export en import (JSON);
+- export en import (JSON), inclusief favorieten;
 - alles wissen.
 
 ## Goed om te weten
@@ -113,7 +129,8 @@ manifest.json
 src/
   shared/      store.js (datamodel + opslag), ui.js (gedeelde weergave), i18n.js
   content/     cardmarket.js (kennis van de site), refill.js (terugzetten),
-               widget.js (paneel op de site), main.js (opstarten)
+               widget.js (paneel op de site), favorites.js (sterren bij aanbiedingen),
+               main.js (opstarten)
   popup/       popup.html/css/js
   options/     options.html/css/js
   background/  service-worker.js (badge)
@@ -134,6 +151,8 @@ endpoints als de echte site. Getest worden:
 - opslaan;
 - een geleegd mandje herkennen;
 - terugzetten, met pauzes tussen de verzoeken;
+- favorieten: bewaren, terugvinden, in het mandje leggen en verkocht
+  markeren;
 - niet-beschikbare artikelen;
 - de popup en de instellingenpagina;
 - het terugzetten vanuit de popup;

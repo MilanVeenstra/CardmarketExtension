@@ -38,6 +38,7 @@
         "src/content/cardmarket.js",
         "src/content/refill.js",
         "src/content/widget.js",
+        "src/content/favorites.js",
         "src/content/main.js"
       ],
       "run_at": "document_idle"

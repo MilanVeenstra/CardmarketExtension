@@ -93,6 +93,49 @@ export const ARTICLES = [
     sellerId: '2002',
     foil: false,
   },
+  // Two more offers of the same Sol Ring, to star as favourites.
+  {
+    articleId: '1611110001',
+    productId: '500100',
+    game: 'Magic',
+    name: 'Sol Ring',
+    expansion: 'Commander Masters',
+    expansionSlug: 'Commander-Masters',
+    cardSlug: 'Sol-Ring',
+    number: '410',
+    rarity: 'Uncommon',
+    condition: 3,
+    conditionLabel: 'EX',
+    conditionTitle: 'Excellent',
+    language: 3,
+    languageLabel: 'German',
+    price: 1.1,
+    available: 3,
+    seller: 'CardKingdomNL',
+    sellerId: '3003',
+    foil: false,
+  },
+  {
+    articleId: '1611110002',
+    productId: '500100',
+    game: 'Magic',
+    name: 'Sol Ring',
+    expansion: 'Commander Masters',
+    expansionSlug: 'Commander-Masters',
+    cardSlug: 'Sol-Ring',
+    number: '410',
+    rarity: 'Uncommon',
+    condition: 1,
+    conditionLabel: 'MT',
+    conditionTitle: 'Mint',
+    language: 1,
+    languageLabel: 'English',
+    price: 2.5,
+    available: 1,
+    seller: 'MintCondition',
+    sellerId: '4004',
+    foil: true,
+  },
 ];
 
 export function createMockCardmarket() {
@@ -222,15 +265,54 @@ export function createMockCardmarket() {
     });
   }
 
-  function productPage(lang, game) {
-    // A page with an "add to cart" button that behaves like the site's own:
-    // AJAX add, then the header badge is updated in place.
+  /** An offer row as on product / card / seller-stock pages (`div.article-row`). */
+  function offerRow(a, lang, { sellerPage = false } = {}) {
+    const product = `/${lang}/${a.game}/Products/Singles/${a.expansionSlug}/${a.cardSlug}`;
+    const sellerCell = sellerPage
+      ? `<a href="${product}">${esc(a.name)}</a>`
+      : `<span class="seller-info d-flex align-items-center"><span class="seller-name d-flex">
+           <span title="1027&nbsp;Sales&nbsp;|&nbsp;3172&nbsp;Available items" class="badge sell-count">1K</span>
+           <span title="Item location: Germany" class="icon d-flex"><span class="icon"></span></span>
+           <span class="d-flex"><a href="/${lang}/${a.game}/Users/${encodeURIComponent(a.seller)}">${esc(a.seller)}</a></span>
+         </span></span>`;
+    return `
+      <div id="articleRow${a.articleId}" class="row g-0 article-row">
+        <div class="d-none col"></div>
+        <div class="col-sellerProductInfo col"><div class="row g-0">
+          <div class="col-seller col-12 col-lg-auto">${sellerCell}</div>
+          <div class="col-product col-12 col-lg"><div class="row g-0"><div class="product-attributes col">
+            <a href="/${lang}/${a.game}/Expansions/${a.expansionSlug}" title="${esc(a.expansion)}" class="expansion-symbol is-magic icon is-24x24"><span></span></a>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="16" height="16" title="${a.rarity}"><path d="M8 1c3.9 0 7 3.1 7 7s-3.1 7-7 7-7-3.1-7-7 3.1-7 7-7Z"/></svg>
+            <a href="https://help.cardmarket.com/en/CardCondition" title="${a.conditionTitle}" class="article-condition condition-${a.conditionLabel.toLowerCase()} me-1"><span class="badge">${a.conditionLabel}</span></a>
+            <span onmouseover="showMsgBox(this,\`${a.languageLabel}\`)" title="${a.languageLabel}" data-original-title="${a.languageLabel}" class="icon me-2"></span>
+            ${a.foil ? '<span title="Foil" data-original-title="Foil" class="icon st_SpecialIcon me-1"></span>' : ''}
+          </div></div></div>
+        </div></div>
+        <div class="col-offer col-auto">
+          <div class="price-container d-none d-md-flex justify-content-end"><div class="d-flex flex-column"><div class="d-flex align-items-center justify-content-end">
+            <span class="color-primary small text-end text-nowrap fw-bold">${euro(a.price)}</span></div></div></div>
+          <div class="amount-container d-none d-md-flex justify-content-end me-3"><span class="item-count small text-end">${a.available || 1}</span></div>
+          <div class="actions-container d-flex align-items-center justify-content-end col ps-2 pe-0">
+            <button type="button" class="btn btn-sm btn-primary"><span class="fonticon-cart"></span></button></div>
+        </div>
+      </div>`;
+  }
+
+  function productPage(lang, game, expansionSlug, cardSlug) {
+    const offers = ARTICLES.filter(
+      (a) => a.game === game && a.expansionSlug === expansionSlug && a.cardSlug === cardSlug && state.available.has(a.articleId),
+    );
+    const first = ARTICLES.find((a) => a.cardSlug === cardSlug) || ARTICLES[0];
     return layout({
       lang,
       game,
-      title: 'Sol Ring',
-      body: `<h1>Sol Ring</h1>
-        <div id="articleRow1611110000" class="row article-row"><button id="site-add">Put in cart</button></div>
+      title: first.name,
+      body: `
+        <div class="page-title-container d-flex"><div class="flex-fill"><h1>${esc(first.name)}<span class="h4 text-muted fst-italic fw-normal">${esc(first.expansion)} - Singles</span></h1></div></div>
+        <section id="image"><img src="https://product-images.s3.cardmarket.com/1/X/${first.productId}/${first.productId}.jpg" alt="${esc(first.name)}" width="146"></section>
+        <!-- A button that behaves like the site's own: AJAX add, then the header badge is updated in place. -->
+        <button id="site-add">Put Sol Ring (Kärtchen-Laden) in cart</button>
+        <div class="table article-table table-striped"><div class="table-body">${offers.map((a) => offerRow(a, lang)).join('')}</div></div>
         <script>
           document.getElementById('site-add').addEventListener('click', async () => {
             const token = document.querySelector('input[name="__cmtkn"]').value;
@@ -241,6 +323,20 @@ export function createMockCardmarket() {
             document.querySelector('#cart').replaceWith(doc.querySelector('#cart'));
           });
         </script>`,
+    });
+  }
+
+  function sellerPage(lang, game, seller, name) {
+    const offers = ARTICLES.filter(
+      (a) => a.game === game && a.seller === seller && state.available.has(a.articleId) && (!name || a.name === name),
+    );
+    return layout({
+      lang,
+      game,
+      title: seller,
+      body: `<h1>${esc(seller)}</h1><div class="table article-table"><div class="table-body">${offers
+        .map((a) => offerRow(a, lang, { sellerPage: true }))
+        .join('')}</div></div>`,
     });
   }
 
@@ -300,7 +396,10 @@ export function createMockCardmarket() {
       const ids = (url.searchParams.get('ids') || '').split(',').filter(Boolean);
       res = { status: 200, contentType: 'text/html', body: orderPage(lang, game, ids) };
     } else if (page === 'Products') {
-      res = { status: 200, contentType: 'text/html', body: productPage(lang, game) };
+      res = { status: 200, contentType: 'text/html', body: productPage(lang, game, rest[1], rest[2]) };
+    } else if (page === 'Users') {
+      const seller = decodeURIComponent(rest[0] || '');
+      res = { status: 200, contentType: 'text/html', body: sellerPage(lang, game, seller, url.searchParams.get('name')) };
     } else {
       res = { status: 200, contentType: 'text/html', body: layout({ lang, game, title: game, body: `<h1>${game}</h1>` }) };
     }

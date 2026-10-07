@@ -14,18 +14,35 @@
       <a id="options" class="cmcs-icon-btn" href="#" data-i18n-title="settings">⚙</a>
     </header>
 
+    <nav class="tabs" role="tablist">
+      <button type="button" id="tab-cart" class="tab" role="tab" aria-controls="view-cart" data-i18n="tabCart"></button>
+      <button type="button" id="tab-fav" class="tab" role="tab" aria-controls="view-fav"></button>
+    </nav>
+
     <main>
-      <section id="summary" class="summary"></section>
       <section id="job" class="job" hidden></section>
-      <section id="actions" class="actions"></section>
       <p id="notice" class="notice cmcs-muted" hidden></p>
-      <nav id="filters" class="filters" hidden></nav>
-      <section id="list" class="list"></section>
-      <section id="empty" class="empty" hidden>
-        <p class="empty-title" data-i18n="emptyTitle"></p>
-        <p class="cmcs-muted" data-i18n="emptyLead"></p>
-        <a class="cmcs-btn" href="https://www.cardmarket.com/en/Magic/ShoppingCart" target="_blank" data-i18n="openCardmarket"></a>
-      </section>
+
+      <div id="view-cart" role="tabpanel" aria-labelledby="tab-cart">
+        <section id="summary" class="summary"></section>
+        <section id="actions" class="actions"></section>
+        <nav id="filters" class="filters" hidden></nav>
+        <section id="list" class="list"></section>
+        <section id="empty" class="empty" hidden>
+          <p class="empty-title" data-i18n="emptyTitle"></p>
+          <p class="cmcs-muted" data-i18n="emptyLead"></p>
+          <a class="cmcs-btn" href="https://www.cardmarket.com/en/Magic/ShoppingCart" target="_blank" data-i18n="openCardmarket"></a>
+        </section>
+      </div>
+
+      <div id="view-fav" role="tabpanel" aria-labelledby="tab-fav" hidden>
+        <input id="fav-search" class="search" type="search" autocomplete="off" data-i18n-placeholder="favSearch" />
+        <section id="fav-list" class="list"></section>
+        <section id="fav-empty" class="empty" hidden>
+          <p class="empty-title" data-i18n="favEmptyTitle"></p>
+          <p class="cmcs-muted" data-i18n="favEmptyLead"></p>
+        </section>
+      </div>
     </main>
 
     <footer class="foot cmcs-muted" data-i18n="privacyNote"></footer>

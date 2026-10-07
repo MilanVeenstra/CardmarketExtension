@@ -48,6 +48,10 @@
   };
 
   const CONDITIONS = { 1: 'MT', 2: 'NM', 3: 'EX', 4: 'GD', 5: 'LP', 6: 'PL', 7: 'PO' };
+  const CONDITION_IDS = Object.fromEntries(Object.entries(CONDITIONS).map(([id, code]) => [code, Number(id)]));
+  const LANGUAGE_IDS = Object.fromEntries(Object.entries(LANGUAGES).map(([id, name]) => [name, Number(id)]));
+  /** Article extras that are not the card language. */
+  const EXTRA_RE = /foil|holo|signed|altered|first edition|1st edition|playset|signiert|alteriert|signé|altéré/i;
 
   const TOKEN_RE = /^[0-9a-f]{32,}$/i;
   const LABEL_ATTRS = ['aria-label', 'data-bs-original-title', 'data-original-title', 'title'];
@@ -86,6 +90,29 @@
     if (item.language) u.searchParams.set('language', String(item.language));
     if (item.condition) u.searchParams.set('minCondition', String(item.condition));
     if (item.foil) u.searchParams.set('isFoil', 'Y');
+    return u.toString();
+  }
+
+  /**
+   * The page where a saved offer can be seen again: its product page filtered
+   * to the offer's language and condition (so it is near the top), jumping
+   * straight to the offer's row.
+   */
+  function offerUrl(item) {
+    if (!item.productUrl) return null;
+    const u = new URL(item.productUrl);
+    if (item.language) u.searchParams.set('language', String(item.language));
+    if (item.condition) u.searchParams.set('minCondition', String(item.condition));
+    if (item.foil) u.searchParams.set('isFoil', 'Y');
+    u.hash = `articleRow${item.articleId}`;
+    return u.toString();
+  }
+
+  /** The seller's stock, searched for this card's name. */
+  function sellerSearchUrl(item) {
+    if (!item.sellerUrl) return null;
+    const u = new URL(`${item.sellerUrl.replace(/\/$/, '')}/Offers/Singles`);
+    if (item.name) u.searchParams.set('name', item.name);
     return u.toString();
   }
 
@@ -260,6 +287,126 @@
       );
     });
     return items;
+  }
+
+  /** One cart row, with its seller looked up in the surrounding page. */
+  function parseCartRow(tr, { baseUrl, game, lang, sellers }) {
+    const map = sellers || mapRowsToSellers(tr.ownerDocument);
+    return parseRow(tr, { baseUrl, fallbackGame: game, fallbackLang: lang, sellerLink: map.get(tr) });
+  }
+
+  /** Product name and expansion from a product page title ("Ephemerate" + "Modern Horizons - Singles"). */
+  function productTitle(doc) {
+    const h1 = doc.querySelector('.page-title-container h1') || doc.querySelector('h1');
+    if (!h1) return { name: null, expansion: null };
+    const sub = h1.querySelector('span');
+    const subtitle = clean(sub && sub.textContent);
+    let name = clean(h1.textContent);
+    if (subtitle && name.endsWith(subtitle)) name = name.slice(0, -subtitle.length).trim();
+    const expansion = subtitle && !/\bversions?\b/i.test(subtitle) ? subtitle.replace(/\s+-\s+[^-]+$/, '').trim() : null;
+    return { name: name || null, expansion: expansion || null };
+  }
+
+  function productImage(doc) {
+    const img = doc.querySelector('#image img[src], .image img[src]');
+    if (img) return new URL(img.getAttribute('src'), ORIGIN).toString();
+    const og = doc.querySelector('meta[property="og:image"]');
+    return og ? og.getAttribute('content') : null;
+  }
+
+  /**
+   * One offer row (`div.article-row#articleRow<id>`) on a product page, a card
+   * page or a seller's stock page.
+   */
+  function parseOfferRow(row, { baseUrl }) {
+    const doc = row.ownerDocument;
+    const articleId = ((row.id || '').match(/articleRow(\d+)/) || [])[1];
+    if (!articleId) return null;
+    const pageLoc = parseLocation(baseUrl);
+    const page = new URL(baseUrl);
+
+    // Seller stock pages link the product inside the row; product pages are the product.
+    const productLink = row.querySelector('.col-seller a[href*="/Products/"], .col-product a[href*="/Products/"]');
+    const title = productTitle(doc);
+    let productUrl = null;
+    let name = null;
+    if (productLink) {
+      const u = new URL(productLink.getAttribute('href'), baseUrl);
+      productUrl = u.origin + u.pathname;
+      name = clean(productLink.textContent);
+    } else if (pageLoc.page === 'Products' || pageLoc.page === 'Cards') {
+      productUrl = page.origin + page.pathname;
+      name = title.name;
+    }
+    const productLoc = productUrl ? parseLocation(productUrl) : pageLoc;
+
+    const sellerLink = [...row.querySelectorAll('a[href*="/Users/"]')].find((a) => !/\/Products\//.test(a.getAttribute('href')));
+    // A seller's own stock page has no seller per row: the page is the seller.
+    const pageSeller =
+      !sellerLink && pageLoc.page === 'Users'
+        ? (() => {
+            const slug = page.pathname.split('/').filter(Boolean)[3];
+            return slug
+              ? { seller: decodeURIComponent(slug), sellerUrl: `${page.origin}/${pageLoc.lang}/${pageLoc.game}/Users/${slug}` }
+              : null;
+          })()
+        : null;
+
+    const attrs = row.querySelector('.product-attributes') || row;
+    const conditionEl = attrs.querySelector('.article-condition');
+    const conditionLabel =
+      clean(conditionEl && conditionEl.querySelector('.badge') && conditionEl.querySelector('.badge').textContent) ||
+      (((conditionEl && conditionEl.className) || '').match(/condition-([a-z]{2})/) || [])[1]?.toUpperCase() ||
+      null;
+    const expansionEl = attrs.querySelector('.expansion-symbol');
+
+    const labels = [];
+    attrs.querySelectorAll('[aria-label], [title], [data-bs-original-title], [data-original-title]').forEach((el) => {
+      if (el.closest('svg') || el.closest('.expansion-symbol') || el.closest('.article-condition')) return;
+      const label = labelOf(el);
+      if (label && !labels.includes(label)) labels.push(label);
+    });
+    const extras = labels.filter((l) => EXTRA_RE.test(l));
+    const languageLabel = labels.find((l) => !EXTRA_RE.test(l)) || null;
+
+    let price = null;
+    const priceBox = row.querySelector('.col-offer .price-container') || row.querySelector('.price-container');
+    for (const span of priceBox ? priceBox.querySelectorAll('span.color-primary, span.text-nowrap') : []) {
+      if (span.closest('del, s, .text-decoration-line-through')) continue;
+      const m = clean(span.textContent).match(/(\d[\d.\s]*,\d{2})/);
+      if (m) {
+        price = parseFloat(m[1].replace(/[.\s]/g, '').replace(',', '.'));
+        break;
+      }
+    }
+    const countEl = row.querySelector('.col-offer .item-count') || row.querySelector('.item-count');
+    const thumb = row.querySelector('.thumbnail-icon');
+    const thumbHtml = thumb
+      ? thumb.getAttribute('data-bs-title') || thumb.getAttribute('data-bs-original-title') || thumb.getAttribute('aria-label') || ''
+      : '';
+    const comment = row.querySelector('.product-comments .text-truncate, .product-comments');
+
+    return {
+      articleId,
+      productId: null,
+      game: productLoc.game || pageLoc.game,
+      lang: productLoc.lang || pageLoc.lang,
+      name: name || `#${articleId}`,
+      expansion: (expansionEl && labelOf(expansionEl)) || title.expansion,
+      number: null,
+      productUrl,
+      imageUrl: (thumbHtml.match(/src=["']([^"']+)["']/) || [])[1] || productImage(doc),
+      price,
+      available: parseInt(clean(countEl && countEl.textContent), 10) || null,
+      condition: CONDITION_IDS[conditionLabel] || null,
+      conditionLabel,
+      language: LANGUAGE_IDS[languageLabel] || null,
+      languageLabel,
+      foil: extras.some((l) => /foil/i.test(l)),
+      extras,
+      comment: clean(comment && comment.textContent) || null,
+      ...(pageSeller || sellerFromLink(sellerLink, baseUrl)),
+    };
   }
 
   /** Article ids listed on an order page (those were bought). */
@@ -437,6 +584,11 @@
     parseLocation,
     cartUrl,
     alternativesUrl,
+    offerUrl,
+    sellerSearchUrl,
+    mapRowsToSellers,
+    parseCartRow,
+    parseOfferRow,
     readHeaderCount,
     isSignedIn,
     findToken,

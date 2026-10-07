@@ -6,7 +6,8 @@
  *    last look, fetch the cart once and update the saved list. That is how an
  *    automatically emptied cart is noticed.
  * 3. On order pages: articles you bought are removed from the saved list.
- * 4. Mount the on-page widget and pick up a refill queued from the popup.
+ * 4. Mount the on-page widget, add favourite stars to offers, and pick up a
+ *    refill queued from the popup.
  */
 (async function main() {
   'use strict';
@@ -139,6 +140,7 @@
     }
 
     await CMCS.widget.mount(loc);
+    await CMCS.favorites.init(loc);
 
     if (cm.isSignedIn(document)) {
       if (loc.isCart) {

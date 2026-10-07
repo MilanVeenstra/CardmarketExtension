@@ -12,16 +12,16 @@
     "message": "$1 artikel(en) in je mandje opgeslagen."
   },
   "clearAll": {
-    "message": "Alle opgeslagen artikelen wissen"
+    "message": "Alles wissen"
   },
   "clearConfirm": {
-    "message": "Alle opgeslagen artikelen wissen? Dit kan niet ongedaan worden gemaakt."
+    "message": "Alle opgeslagen artikelen en favorieten wissen? Dit kan niet ongedaan worden gemaakt."
   },
   "clearUnavailable": {
     "message": "Lijst opschonen"
   },
   "cleared": {
-    "message": "Alle opgeslagen artikelen zijn gewist."
+    "message": "Alle opgeslagen artikelen en favorieten zijn gewist."
   },
   "close": {
     "message": "Sluiten"
@@ -30,10 +30,10 @@
     "message": "Minimaliseren"
   },
   "dataSummary": {
-    "message": "$1 opgeslagen: $2 in mandje, $3 ontbreken, $4 niet beschikbaar."
+    "message": "$1 opgeslagen: $2 in mandje, $3 ontbreken, $4 niet beschikbaar. $5 favoriet(en)."
   },
   "dataTitle": {
-    "message": "Je opgeslagen artikelen"
+    "message": "Je opgeslagen artikelen en favorieten"
   },
   "emptyLead": {
     "message": "Open je winkelmandje op Cardmarket; Cart Saver onthoudt de artikelen automatisch."
@@ -77,6 +77,45 @@
   "extName": {
     "message": "Cardmarket Cart Saver"
   },
+  "favAdd": {
+    "message": "Bewaar als favoriet"
+  },
+  "favAddToCart": {
+    "message": "In winkelmandje leggen"
+  },
+  "favAvailable": {
+    "message": "$1 beschikbaar"
+  },
+  "favEmptyLead": {
+    "message": "Klik op de ☆ bij een aanbieding op Cardmarket (of een artikel in je winkelmandje) om hem hier te bewaren."
+  },
+  "favEmptyTitle": {
+    "message": "Nog geen favorieten"
+  },
+  "favNoMatches": {
+    "message": "Geen favorieten gevonden voor deze zoekopdracht."
+  },
+  "favNotOnPageLead": {
+    "message": "Deze aanbieding van $1 staat hier niet. Misschien is hij verkocht, of staat hij verderop in de lijst."
+  },
+  "favNotOnPageTitle": {
+    "message": "Favoriet niet op deze pagina"
+  },
+  "favOpenOffer": {
+    "message": "Bekijk aanbieding op Cardmarket"
+  },
+  "favRemove": {
+    "message": "Verwijder uit favorieten"
+  },
+  "favSavedOn": {
+    "message": "bewaard $1"
+  },
+  "favSearch": {
+    "message": "Zoek in favorieten (naam, set, verkoper…)"
+  },
+  "favSellerOffers": {
+    "message": "Zoek bij deze verkoper"
+  },
   "filterAll": {
     "message": "Alles"
   },
@@ -103,6 +142,9 @@
   },
   "how4": {
     "message": "Artikelen die je koopt verdwijnen vanzelf uit de lijst zodra je de bestelling op Cardmarket opent."
+  },
+  "how5": {
+    "message": "Klik op de ☆ bij een aanbieding (of een artikel in je mandje) om hem als favoriet te bewaren. Je vindt hem terug onder Favorieten in de popup: open de aanbieding, zoek bij de verkoper of leg hem in je mandje."
   },
   "howTitle": {
     "message": "Zo werkt het"
@@ -171,7 +213,7 @@
     "message": "Gestopt"
   },
   "refillSummary": {
-    "message": "$1 teruggezet, $2 niet beschikbaar."
+    "message": "$1 in je mandje gezet, $2 niet beschikbaar."
   },
   "refillWaiting": {
     "message": "Wachten tot Cardmarket opent…"
@@ -238,6 +280,12 @@
   },
   "stop": {
     "message": "Stoppen"
+  },
+  "tabCart": {
+    "message": "Winkelmandje"
+  },
+  "tabFavorites": {
+    "message": "Favorieten ($1)"
   },
   "viewInCart": {
     "message": "Bekijken"

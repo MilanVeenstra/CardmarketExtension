@@ -186,7 +186,20 @@ geen optie voor deze extensie.
    - Artikelen die Cardmarket weigert, worden gemarkeerd als *niet meer
      beschikbaar*, met de reden van Cardmarket en een link naar vergelijkbaar
      aanbod (zelfde taal, minimaal dezelfde conditie, zelfde foil).
-4. **Gekocht = klaar.** Artikelen die op een bestelpagina (`/Orders/…`) staan,
+4. **Favorieten.**
+   - Elke aanbiedingsrij (`div.article-row#articleRow<id>`) krijgt een ☆, net
+     als elke rij in het mandje. Je vindt die rijen op productpagina's,
+     kaartpagina's en verkoperspagina's (`/Users/<naam>/Offers/Singles`).
+   - Een favoriet bewaart dat ene artikel: verkoper, conditie, taal, foil,
+     prijs en voorraad.
+   - Om hem terug te vinden linkt de popup naar de productpagina, gefilterd op
+     taal en conditie, met `#articleRow<id>`. Het content script scrolt naar
+     die rij en markeert hem.
+   - Staat de rij er niet, dan volgt een melding met links naar de voorraad
+     van de verkoper (`?name=<kaart>`) en naar vergelijkbaar aanbod.
+   - "In winkelmandje" gebruikt hetzelfde terugzet-mechanisme, met
+     1 exemplaar.
+5. **Gekocht = klaar.** Artikelen die op een bestelpagina (`/Orders/…`) staan,
    worden uit de lijst gehaald.
 
 ### Veiligheidsnetten
