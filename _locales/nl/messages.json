@@ -1,0 +1,245 @@
+{
+  "addedButNotInCart": {
+    "message": "Cardmarket accepteerde het, maar het staat niet in je mandje."
+  },
+  "badgeTitle": {
+    "message": "Cart Saver – $1 opgeslagen artikel(en) niet in je mandje"
+  },
+  "cartEmptyLead": {
+    "message": "Je winkelmandje is leeg. Deze opgeslagen artikelen kun je terugzetten:"
+  },
+  "cartSavedLead": {
+    "message": "$1 artikel(en) in je mandje opgeslagen."
+  },
+  "clearAll": {
+    "message": "Alle opgeslagen artikelen wissen"
+  },
+  "clearConfirm": {
+    "message": "Alle opgeslagen artikelen wissen? Dit kan niet ongedaan worden gemaakt."
+  },
+  "clearUnavailable": {
+    "message": "Lijst opschonen"
+  },
+  "cleared": {
+    "message": "Alle opgeslagen artikelen zijn gewist."
+  },
+  "close": {
+    "message": "Sluiten"
+  },
+  "collapse": {
+    "message": "Minimaliseren"
+  },
+  "dataSummary": {
+    "message": "$1 opgeslagen: $2 in mandje, $3 ontbreken, $4 niet beschikbaar."
+  },
+  "dataTitle": {
+    "message": "Je opgeslagen artikelen"
+  },
+  "emptyLead": {
+    "message": "Open je winkelmandje op Cardmarket; Cart Saver onthoudt de artikelen automatisch."
+  },
+  "emptyTitle": {
+    "message": "Nog niets opgeslagen"
+  },
+  "errorBusy": {
+    "message": "Er worden al artikelen teruggezet — wacht tot dat klaar is."
+  },
+  "errorCartUnreadable": {
+    "message": "Je winkelmandje kon niet worden gelezen, dus er is niets toegevoegd (Cardmarket heeft mogelijk de opmaak veranderd). Deze extensie heeft waarschijnlijk een update nodig."
+  },
+  "errorChallenge": {
+    "message": "Cardmarket toont een beveiligingscontrole. Ververs de pagina, voltooi de controle en probeer het opnieuw."
+  },
+  "errorHttp": {
+    "message": "Cardmarket gaf een onverwachte fout. Probeer het later opnieuw."
+  },
+  "errorLoggedOut": {
+    "message": "Je bent niet ingelogd op Cardmarket. Log in en probeer het opnieuw."
+  },
+  "errorNetwork": {
+    "message": "Geen verbinding met Cardmarket. Controleer je internetverbinding."
+  },
+  "errorNoEndpoint": {
+    "message": "Cardmarket heeft het toevoegen aan het mandje veranderd. Deze extensie heeft een update nodig."
+  },
+  "errorRateLimited": {
+    "message": "Cardmarket vraagt om het rustiger aan te doen. Wacht een paar minuten en probeer het opnieuw."
+  },
+  "errorUnknown": {
+    "message": "Er ging iets mis. Probeer het opnieuw."
+  },
+  "exportData": {
+    "message": "Exporteren (JSON)"
+  },
+  "extDescription": {
+    "message": "Onthoudt wat je in je Cardmarket-winkelmandje legt en zet het met één klik terug nadat je mandje is geleegd."
+  },
+  "extName": {
+    "message": "Cardmarket Cart Saver"
+  },
+  "filterAll": {
+    "message": "Alles"
+  },
+  "filterEmpty": {
+    "message": "Geen artikelen in deze weergave."
+  },
+  "findAlternative": {
+    "message": "Zoek vergelijkbaar aanbod"
+  },
+  "groupMissing": {
+    "message": "Niet meer in je mandje ($1)"
+  },
+  "groupUnavailable": {
+    "message": "Niet meer beschikbaar ($1)"
+  },
+  "how1": {
+    "message": "Leg artikelen zoals altijd in je winkelmandje op Cardmarket. Cart Saver slaat ze automatisch op."
+  },
+  "how2": {
+    "message": "Als Cardmarket je mandje leegt, verschijnt er een melding op de site en toont het icoon hoeveel artikelen ontbreken."
+  },
+  "how3": {
+    "message": "Klik op “Zet terug” om ze opnieuw in je mandje te leggen. Artikelen die intussen verkocht zijn worden gemarkeerd als “niet meer beschikbaar”, met een link naar vergelijkbaar aanbod."
+  },
+  "how4": {
+    "message": "Artikelen die je koopt verdwijnen vanzelf uit de lijst zodra je de bestelling op Cardmarket opent."
+  },
+  "howTitle": {
+    "message": "Zo werkt het"
+  },
+  "importData": {
+    "message": "Importeren"
+  },
+  "importDone": {
+    "message": "$1 artikel(en) geïmporteerd."
+  },
+  "importFailed": {
+    "message": "Dat bestand kon niet worden gelezen."
+  },
+  "jobCancelled": {
+    "message": "Gestopt voordat alle artikelen waren teruggezet."
+  },
+  "notAvailableAnymore": {
+    "message": "Niet meer beschikbaar."
+  },
+  "nothingMissing": {
+    "message": "Alles wat je hebt opgeslagen zit in je mandje."
+  },
+  "nothingToRefill": {
+    "message": "Niets om terug te zetten"
+  },
+  "openCardmarket": {
+    "message": "Open Cardmarket"
+  },
+  "openCart": {
+    "message": "Open winkelmandje"
+  },
+  "pillAttention": {
+    "message": "Cart Saver · $1 te bekijken"
+  },
+  "pillSaved": {
+    "message": "Cart Saver · $1 opgeslagen"
+  },
+  "privacyNote": {
+    "message": "Alles wordt lokaal in je browser bewaard. Cart Saver praat alleen met cardmarket.com, via je eigen sessie."
+  },
+  "progressCount": {
+    "message": "$1 van $2"
+  },
+  "refillAll": {
+    "message": "Zet $1 artikel(en) terug"
+  },
+  "refillDoneTitle": {
+    "message": "Klaar"
+  },
+  "refillOne": {
+    "message": "Terugzetten in mandje"
+  },
+  "refillQueued": {
+    "message": "Je winkelmandje op Cardmarket wordt geopend — het terugzetten start vanzelf."
+  },
+  "refillRunningLead": {
+    "message": "Artikelen worden teruggezet in je mandje…"
+  },
+  "refillRunningTitle": {
+    "message": "Bezig met terugzetten"
+  },
+  "refillSelected": {
+    "message": "Zet $1 artikel(en) terug · $2"
+  },
+  "refillStoppedTitle": {
+    "message": "Gestopt"
+  },
+  "refillSummary": {
+    "message": "$1 teruggezet, $2 niet beschikbaar."
+  },
+  "refillWaiting": {
+    "message": "Wachten tot Cardmarket opent…"
+  },
+  "reminderLead": {
+    "message": "$1 opgeslagen artikel(en) ($2) zitten niet meer in je winkelmandje."
+  },
+  "reminderTitle": {
+    "message": "Je winkelmandje is geleegd"
+  },
+  "removeFromSaved": {
+    "message": "Verwijderen uit opgeslagen lijst"
+  },
+  "retryUnavailable": {
+    "message": "Toch opnieuw proberen"
+  },
+  "saveCartNow": {
+    "message": "Huidig mandje opslaan"
+  },
+  "selectAll": {
+    "message": "Alles selecteren"
+  },
+  "selectNone": {
+    "message": "Niets selecteren"
+  },
+  "settingAutoTrack": {
+    "message": "Mandje automatisch opslaan"
+  },
+  "settingAutoTrackHelp": {
+    "message": "Elk artikel dat in je mandje verschijnt wordt opgeslagen. Staat dit uit, dan bewaar je alleen via de knop “Huidig mandje opslaan” op de winkelmandjepagina."
+  },
+  "settingDelay": {
+    "message": "Pauze tussen artikelen (seconden)"
+  },
+  "settingDelayHelp": {
+    "message": "Artikelen worden één voor één teruggezet. Een langere pauze is vriendelijker voor Cardmarket."
+  },
+  "settingReminder": {
+    "message": "Melding tonen op Cardmarket"
+  },
+  "settingReminderHelp": {
+    "message": "Als opgeslagen artikelen uit je mandje zijn verdwenen, biedt een klein paneel aan om ze terug te zetten."
+  },
+  "settings": {
+    "message": "Instellingen"
+  },
+  "settingsSaved": {
+    "message": "Opgeslagen."
+  },
+  "settingsTitle": {
+    "message": "Instellingen"
+  },
+  "soldBy": {
+    "message": "Verkoper: $1"
+  },
+  "statusInCart": {
+    "message": "In mandje"
+  },
+  "statusMissing": {
+    "message": "Ontbreekt"
+  },
+  "statusUnavailable": {
+    "message": "Niet beschikbaar"
+  },
+  "stop": {
+    "message": "Stoppen"
+  },
+  "viewInCart": {
+    "message": "Bekijken"
+  }
+}

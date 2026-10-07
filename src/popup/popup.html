@@ -1,0 +1,39 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Cart Saver</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body class="cmcs-root">
+    <header class="top">
+      <img class="logo" src="../../icons/icon32.png" alt="" />
+      <h1 class="title">Cart Saver</h1>
+      <select id="game" class="game" hidden aria-label="Game"></select>
+      <a id="options" class="cmcs-icon-btn" href="#" data-i18n-title="settings">⚙</a>
+    </header>
+
+    <main>
+      <section id="summary" class="summary"></section>
+      <section id="job" class="job" hidden></section>
+      <section id="actions" class="actions"></section>
+      <p id="notice" class="notice cmcs-muted" hidden></p>
+      <nav id="filters" class="filters" hidden></nav>
+      <section id="list" class="list"></section>
+      <section id="empty" class="empty" hidden>
+        <p class="empty-title" data-i18n="emptyTitle"></p>
+        <p class="cmcs-muted" data-i18n="emptyLead"></p>
+        <a class="cmcs-btn" href="https://www.cardmarket.com/en/Magic/ShoppingCart" target="_blank" data-i18n="openCardmarket"></a>
+      </section>
+    </main>
+
+    <footer class="foot cmcs-muted" data-i18n="privacyNote"></footer>
+
+    <script src="../shared/i18n.js"></script>
+    <script src="../shared/store.js"></script>
+    <script src="../shared/ui.js"></script>
+    <script src="../content/cardmarket.js"></script>
+    <script src="popup.js"></script>
+  </body>
+</html>

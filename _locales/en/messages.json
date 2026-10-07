@@ -1,0 +1,245 @@
+{
+  "addedButNotInCart": {
+    "message": "Cardmarket accepted it, but it is not in your cart."
+  },
+  "badgeTitle": {
+    "message": "Cart Saver – $1 saved article(s) not in your cart"
+  },
+  "cartEmptyLead": {
+    "message": "Your cart is empty. These saved articles can be put back:"
+  },
+  "cartSavedLead": {
+    "message": "$1 article(s) in your cart are saved."
+  },
+  "clearAll": {
+    "message": "Delete all saved articles"
+  },
+  "clearConfirm": {
+    "message": "Delete all saved articles? This cannot be undone."
+  },
+  "clearUnavailable": {
+    "message": "Clear list"
+  },
+  "cleared": {
+    "message": "All saved articles were deleted."
+  },
+  "close": {
+    "message": "Close"
+  },
+  "collapse": {
+    "message": "Minimise"
+  },
+  "dataSummary": {
+    "message": "$1 saved: $2 in cart, $3 missing, $4 unavailable."
+  },
+  "dataTitle": {
+    "message": "Your saved articles"
+  },
+  "emptyLead": {
+    "message": "Open your shopping cart on Cardmarket and Cart Saver remembers its articles automatically."
+  },
+  "emptyTitle": {
+    "message": "Nothing saved yet"
+  },
+  "errorBusy": {
+    "message": "Already putting articles back — wait until that has finished."
+  },
+  "errorCartUnreadable": {
+    "message": "Your cart page could not be read, so nothing was added (Cardmarket may have changed its layout). This extension probably needs an update."
+  },
+  "errorChallenge": {
+    "message": "Cardmarket is showing a security check. Reload the page, complete the check and try again."
+  },
+  "errorHttp": {
+    "message": "Cardmarket returned an unexpected error. Try again later."
+  },
+  "errorLoggedOut": {
+    "message": "You are not logged in on Cardmarket. Log in and try again."
+  },
+  "errorNetwork": {
+    "message": "No connection to Cardmarket. Check your internet connection."
+  },
+  "errorNoEndpoint": {
+    "message": "Cardmarket changed how adding to the cart works. This extension needs an update."
+  },
+  "errorRateLimited": {
+    "message": "Cardmarket asked to slow down. Wait a few minutes and try again."
+  },
+  "errorUnknown": {
+    "message": "Something went wrong. Try again."
+  },
+  "exportData": {
+    "message": "Export (JSON)"
+  },
+  "extDescription": {
+    "message": "Remembers what you put in your Cardmarket shopping cart and puts it back with one click after the cart was emptied."
+  },
+  "extName": {
+    "message": "Cardmarket Cart Saver"
+  },
+  "filterAll": {
+    "message": "All"
+  },
+  "filterEmpty": {
+    "message": "No articles in this view."
+  },
+  "findAlternative": {
+    "message": "Find a similar offer"
+  },
+  "groupMissing": {
+    "message": "Not in your cart ($1)"
+  },
+  "groupUnavailable": {
+    "message": "No longer available ($1)"
+  },
+  "how1": {
+    "message": "Put articles in your Cardmarket cart as usual. Cart Saver saves them automatically."
+  },
+  "how2": {
+    "message": "When Cardmarket empties your cart, a reminder appears on the site and the toolbar icon shows how many articles are missing."
+  },
+  "how3": {
+    "message": "Click “Put back” to add them to your cart again. Articles sold in the meantime are marked “no longer available”, with a link to similar offers."
+  },
+  "how4": {
+    "message": "Articles you buy disappear from the list automatically once you open the order on Cardmarket."
+  },
+  "howTitle": {
+    "message": "How it works"
+  },
+  "importData": {
+    "message": "Import"
+  },
+  "importDone": {
+    "message": "$1 article(s) imported."
+  },
+  "importFailed": {
+    "message": "That file could not be read."
+  },
+  "jobCancelled": {
+    "message": "Stopped before all articles were put back."
+  },
+  "notAvailableAnymore": {
+    "message": "No longer available."
+  },
+  "nothingMissing": {
+    "message": "Everything you saved is in your cart."
+  },
+  "nothingToRefill": {
+    "message": "Nothing to put back"
+  },
+  "openCardmarket": {
+    "message": "Open Cardmarket"
+  },
+  "openCart": {
+    "message": "Open cart"
+  },
+  "pillAttention": {
+    "message": "Cart Saver · $1 to check"
+  },
+  "pillSaved": {
+    "message": "Cart Saver · $1 saved"
+  },
+  "privacyNote": {
+    "message": "Everything is stored locally in your browser. Cart Saver only talks to cardmarket.com, using your own session."
+  },
+  "progressCount": {
+    "message": "$1 of $2"
+  },
+  "refillAll": {
+    "message": "Put back $1 article(s)"
+  },
+  "refillDoneTitle": {
+    "message": "Done"
+  },
+  "refillOne": {
+    "message": "Put back in cart"
+  },
+  "refillQueued": {
+    "message": "Opening your cart on Cardmarket — putting articles back starts automatically."
+  },
+  "refillRunningLead": {
+    "message": "Putting articles back in your cart…"
+  },
+  "refillRunningTitle": {
+    "message": "Putting back"
+  },
+  "refillSelected": {
+    "message": "Put back $1 article(s) · $2"
+  },
+  "refillStoppedTitle": {
+    "message": "Stopped"
+  },
+  "refillSummary": {
+    "message": "$1 put back, $2 not available."
+  },
+  "refillWaiting": {
+    "message": "Waiting for Cardmarket to open…"
+  },
+  "reminderLead": {
+    "message": "$1 saved article(s) ($2) are no longer in your cart."
+  },
+  "reminderTitle": {
+    "message": "Your cart was emptied"
+  },
+  "removeFromSaved": {
+    "message": "Remove from saved list"
+  },
+  "retryUnavailable": {
+    "message": "Try again anyway"
+  },
+  "saveCartNow": {
+    "message": "Save current cart"
+  },
+  "selectAll": {
+    "message": "Select all"
+  },
+  "selectNone": {
+    "message": "Select none"
+  },
+  "settingAutoTrack": {
+    "message": "Save cart automatically"
+  },
+  "settingAutoTrackHelp": {
+    "message": "Every article that appears in your cart is saved. When off, only the “Save current cart” button on the cart page saves articles."
+  },
+  "settingDelay": {
+    "message": "Pause between articles (seconds)"
+  },
+  "settingDelayHelp": {
+    "message": "Articles are put back one by one. A longer pause is friendlier to Cardmarket."
+  },
+  "settingReminder": {
+    "message": "Show a reminder on Cardmarket"
+  },
+  "settingReminderHelp": {
+    "message": "When saved articles fell out of your cart, a small panel offers to put them back."
+  },
+  "settings": {
+    "message": "Settings"
+  },
+  "settingsSaved": {
+    "message": "Saved."
+  },
+  "settingsTitle": {
+    "message": "Settings"
+  },
+  "soldBy": {
+    "message": "Seller: $1"
+  },
+  "statusInCart": {
+    "message": "In cart"
+  },
+  "statusMissing": {
+    "message": "Missing"
+  },
+  "statusUnavailable": {
+    "message": "Unavailable"
+  },
+  "stop": {
+    "message": "Stop"
+  },
+  "viewInCart": {
+    "message": "View"
+  }
+}

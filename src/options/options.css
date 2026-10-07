@@ -1,0 +1,23 @@
+html, body { margin: 0; background: var(--cmcs-surface); min-height: 100%; }
+.page { max-width: 640px; margin: 0 auto; padding: 32px 16px 48px; }
+.top { display: flex; gap: 14px; align-items: center; margin-bottom: 20px; }
+.top h1 { margin: 0; font-size: 22px; }
+.top p { margin: 2px 0 0; }
+.logo { width: 48px; height: 48px; }
+.card {
+  background: var(--cmcs-bg); border: 1px solid var(--cmcs-border);
+  border-radius: var(--cmcs-radius); padding: 16px 18px; margin-bottom: 16px;
+}
+.card h2 { font-size: 15px; margin: 0 0 12px; }
+.row { display: flex; gap: 12px; align-items: flex-start; padding: 8px 0; cursor: pointer; }
+.row > span { display: flex; flex-direction: column; gap: 2px; flex: 1; }
+.row input[type="checkbox"] { margin-top: 3px; accent-color: var(--cmcs-accent); }
+.row--input { align-items: center; }
+.row input[type="number"] {
+  width: 80px; font: inherit; padding: 5px 8px; color: var(--cmcs-text);
+  background: var(--cmcs-surface); border: 1px solid var(--cmcs-border); border-radius: 6px;
+}
+.saved { min-height: 1.4em; margin: 6px 0 0; }
+.buttons { display: flex; gap: 8px; flex-wrap: wrap; }
+.how { padding-left: 20px; margin: 0 0 10px; }
+.how li { margin-bottom: 6px; }

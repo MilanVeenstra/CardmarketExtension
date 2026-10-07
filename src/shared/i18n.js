@@ -1,0 +1,22 @@
+/* Tiny wrapper around chrome.i18n so UI code can stay short. */
+(function (root) {
+  'use strict';
+
+  const CMCS = (root.CMCS = root.CMCS || {});
+
+  /** Translate `key`; substitutions fill $1, $2, … in messages.json. */
+  CMCS.t = function t(key, ...subs) {
+    const text = root.chrome.i18n.getMessage(key, subs.map(String));
+    return text || key;
+  };
+
+  /** Fill every [data-i18n] / [data-i18n-title] element under `scope`. */
+  CMCS.localize = function localize(scope) {
+    scope.querySelectorAll('[data-i18n]').forEach((el) => {
+      el.textContent = CMCS.t(el.dataset.i18n);
+    });
+    scope.querySelectorAll('[data-i18n-title]').forEach((el) => {
+      el.title = CMCS.t(el.dataset.i18nTitle);
+    });
+  };
+})(globalThis);
