@@ -152,7 +152,9 @@ Na een update vragen open Cardmarket-tabbladen om te verversen, via het label
 Het volledige vooronderzoek staat in [docs/RESEARCH.md](docs/RESEARCH.md).
 Een overzicht van alle functies en ideeën voor uitbreiding staat in
 [docs/REQUIREMENTS.md](docs/REQUIREMENTS.md). Een brief voor een
-(re)design staat in [docs/DESIGN-BRIEF.md](docs/DESIGN-BRIEF.md). Kort
+(re)design staat in [docs/DESIGN-BRIEF.md](docs/DESIGN-BRIEF.md). Een analyse
+van hoe de cart saver nog beter kan staat in
+[docs/CART-SAVER-ANALYSE.md](docs/CART-SAVER-ANALYSE.md). Kort
 samengevat:
 
 - Een **content script** op `www.cardmarket.com` doet het werk:
