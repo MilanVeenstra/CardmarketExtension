@@ -173,7 +173,7 @@ describe('Cardmarket Cart Saver', () => {
     await shot(widget(page), '02-reminder');
   });
 
-  it('puts the articles back with one click, one request at a time', async () => {
+  it('puts the articles back with one click: one request per seller, spaced out', async () => {
     const before = addRequests().length;
     await widget(page).getByRole('button', { name: 'Zet 3 artikel(en) terug' }).click();
 
@@ -192,17 +192,23 @@ describe('Cardmarket Cart Saver', () => {
     assert.equal(saved[EPHEMERATE].status, 'unavailable');
     assert.equal(saved[EPHEMERATE].lastAttempt.message, 'This article is no longer available.');
 
+    // snowc's two articles go in one request; Kärtchen-Laden's on its own.
     const posts = addRequests().slice(before);
-    assert.equal(posts.length, 3);
+    assert.equal(posts.length, 2);
+    const sent = [];
     for (const post of posts) {
       assert.match(post.path, /^\/en\/Magic\/AjaxAction\/ShoppingCart_Add_AddArticlesFromUserOffers$/);
       const body = new URLSearchParams(post.body);
       assert.equal(body.get('__cmtkn'), mock.state.token);
       const ids = JSON.parse(body.get('idArticle'));
-      const [id] = Object.keys(ids);
-      assert.equal(ids[id], id);
-      assert.equal(JSON.parse(body.get('amount'))[id], String(mock.article(id).articleId === BOG ? 2 : 1));
+      const amounts = JSON.parse(body.get('amount'));
+      for (const id of Object.keys(ids)) {
+        assert.equal(ids[id], id);
+        assert.equal(amounts[id], String(id === BOG ? 2 : 1));
+      }
+      sent.push(Object.keys(ids).sort());
     }
+    assert.deepEqual(sent, [[BOG, MAGE].sort(), [EPHEMERATE]]);
     for (let i = 1; i < posts.length; i += 1) {
       assert.ok(posts[i].at - posts[i - 1].at >= DELAY_MS, 'requests are spaced out');
     }
@@ -739,22 +745,23 @@ describe('Cardmarket Cart Saver', () => {
     });
   });
 
+  /** Click something that starts a refill and wait for that (new) job to finish. */
+  const refillVia = async (button) => {
+    const previous = (await storage())['cmcs.job'];
+    await button.click();
+    return waitFor(async () => {
+      const j = (await storage())['cmcs.job'];
+      return j && j.id !== (previous && previous.id) && (j.state === 'done' || j.state === 'error') && j;
+    }, 'job finished');
+  };
+  const postsFor = (since, id) =>
+    addRequests()
+      .slice(since)
+      .filter((r) => r.path.includes('ShoppingCart_Add') && JSON.parse(new URLSearchParams(r.body).get('idArticle') || '{}')[id]);
+  const amountOf = (post, id) => JSON.parse(new URLSearchParams(post.body).get('amount'))[id];
+  const settle = (ms = 1500) => new Promise((r) => setTimeout(r, ms));
+
   describe('reliable refilling', () => {
-    /** Click something that starts a refill and wait for that (new) job to finish. */
-    const refillVia = async (button) => {
-      const previous = (await storage())['cmcs.job'];
-      await button.click();
-      return waitFor(async () => {
-        const j = (await storage())['cmcs.job'];
-        return j && j.id !== (previous && previous.id) && (j.state === 'done' || j.state === 'error') && j;
-      }, 'job finished');
-    };
-    const postsFor = (since, id) =>
-      addRequests()
-        .slice(since)
-        .filter((r) => r.path.includes('ShoppingCart_Add') && JSON.parse(new URLSearchParams(r.body).get('idArticle') || '{}')[id]);
-    const amountOf = (post, id) => JSON.parse(new URLSearchParams(post.body).get('amount'))[id];
-    const settle = (ms = 1500) => new Promise((r) => setTimeout(r, ms));
 
     it('does not trust a cart page on which a seller block cannot be read', async (t) => {
       t.after(() => (mock.state.brokenSeller = null));
@@ -950,6 +957,147 @@ describe('Cardmarket Cart Saver', () => {
 
       await widget(page).getByRole('button', { name: 'Voortaan someone-else gebruiken' }).click();
       await waitFor(async () => (await storage())['cmcs.meta'].account === 'someone-else', 'account switched');
+    });
+  });
+
+  describe('smart refilling', () => {
+    const SOL_SAME_SELLER = '1611110003';
+    const SOL_SNOWC = '1611110004';
+    const SOL_BUDGET = '1611110005';
+    const removeRequests = (since) => mock.state.requests.slice(since).filter((r) => r.method === 'POST' && r.path.endsWith('/ShoppingCart_RemoveArticle'));
+    const openPopup = async () => {
+      const popup = await context.newPage();
+      await popup.setViewportSize({ width: 400, height: 600 });
+      await popup.goto(`chrome-extension://${extensionId}/src/popup/popup.html`);
+      return popup;
+    };
+
+    it('tries the rest one by one when a seller batch is refused', async (t) => {
+      t.after(() => mock.state.available.set(MAGE, mock.article(MAGE)));
+      await sw.evaluate(() => chrome.storage.local.set({ 'cmcs.job': null, 'cmcs.meta': {}, 'cmcs.items': {} }));
+      mock.state.cart = new Map([
+        [BOG, 1],
+        [MAGE, 1],
+        [SOL_RING, 1],
+      ]);
+      await page.goto(`${CM}/en/Magic/ShoppingCart`);
+      await waitFor(async () => Object.values(await items()).filter((i) => i.status === 'in_cart').length === 3, 'three saved');
+      mock.state.cart.clear();
+      mock.state.available.delete(MAGE);
+      await page.goto(`${CM}/en/Magic`);
+
+      const before = addRequests().length;
+      const job = await refillVia(widget(page).getByRole('button', { name: 'Zet 3 artikel(en) terug' }));
+      assert.equal(job.added, 2);
+      assert.equal(job.failed, 1);
+      const sent = addRequests()
+        .slice(before)
+        .map((r) => Object.keys(JSON.parse(new URLSearchParams(r.body).get('idArticle'))).sort().join('+'));
+      assert.equal(sent[0], [BOG, MAGE].sort().join('+'), 'first one request for snowc');
+      assert.deepEqual(sent.slice(1).sort(), [MAGE, SOL_RING].sort(), 'then the refused Mage alone, and Sol Ring');
+      assert.equal(mock.state.cart.get(BOG), 1, 'the Bog that got in with the batch is not added twice');
+      const all = await items();
+      assert.equal(all[BOG].status, 'in_cart');
+      assert.equal(all[SOL_RING].status, 'in_cart');
+      assert.equal(all[MAGE].status, 'unavailable');
+    });
+
+    it('undoes a refill: what it added leaves the cart again, but stays on the list', async () => {
+      const before = mock.state.requests.length;
+      await widget(page).getByRole('button', { name: 'Ongedaan maken' }).click();
+      await waitFor(async () => (await storage())['cmcs.job']?.undone, 'undone');
+      await waitFor(() => widget(page).getByText('2 artikel(en) weer uit je mandje gehaald.').isVisible(), 'undo notice');
+      assert.equal(mock.state.cart.size, 0);
+      const removals = removeRequests(before).map((r) => new URLSearchParams(r.body));
+      assert.equal(removals.length, 2);
+      const bog = removals.find((body) => body.get('idArticle') === BOG);
+      assert.equal(bog.get('idSeller'), '1001');
+      assert.equal(bog.get(`amount-${BOG}`), '1');
+      await waitFor(async () => {
+        const all = await items();
+        return all[BOG]?.status === 'missing' && all[SOL_RING]?.status === 'missing';
+      }, 'back to missing, not forgotten');
+    });
+
+    it('finds a replacement for a sold article and swaps it in', async (t) => {
+      t.after(() => mock.state.available.set(SOL_RING, mock.article(SOL_RING)));
+      mock.state.available.delete(SOL_RING);
+      for (const id of [SOL_SAME_SELLER, SOL_SNOWC, SOL_BUDGET]) mock.state.available.set(id, mock.article(id));
+      mock.state.cart = new Map([[BOG, 1]]);
+      await patchItems({ [SOL_RING]: { status: 'unavailable' }, [MAGE]: { status: 'unavailable' } });
+      await sw.evaluate(() => chrome.storage.local.set({ 'cmcs.job': null }));
+      await page.goto(`${CM}/en/Magic/ShoppingCart`);
+      await waitFor(() => widget(page).isVisible(), 'cart panel');
+
+      const solRow = widget(page).locator(`.cmcs-item[data-article-id="${SOL_RING}"]`);
+      await solRow.getByRole('button', { name: 'Vervanging zoeken' }).click();
+      const panel = widget(page).locator('.cmcs-replace');
+      await waitFor(async () => (await panel.locator('.cmcs-item').count()) === 3, 'three suggestions');
+      const rows = await panel.locator('.cmcs-item').allInnerTexts();
+      assert.match(rows[0], /Kärtchen-Laden[\s\S]*Zelfde verkoper · 0,10 € duurder/);
+      assert.match(rows[1], /snowc[\s\S]*Verkoper zit al in je mandje: geen extra verzendkosten/);
+      assert.match(rows[2], /BudgetCards[\s\S]*Goedkoopste vergelijkbare aanbod · 0,20 € goedkoper/);
+      const text = await panel.innerText();
+      assert.doesNotMatch(text, /CardKingdomNL|MintCondition/, 'other condition, language or foil is no replacement');
+      await shot(widget(page), '15-replacement');
+
+      await panel.locator('.cmcs-item').first().getByRole('button', { name: 'Toevoegen' }).click();
+      await waitFor(async () => (await storage())['cmcs.job']?.state === 'done', 'replacement added');
+      assert.equal(mock.state.cart.get(SOL_SAME_SELLER), 1);
+      const all = await waitFor(async () => {
+        const saved = await items();
+        return !saved[SOL_RING] && saved[SOL_SAME_SELLER]?.status === 'in_cart' && saved;
+      }, 'original swapped for the replacement');
+      assert.equal(all[SOL_SAME_SELLER].seller, 'Kärtchen-Laden');
+    });
+
+    it('removing an article from the list can be undone', async () => {
+      const popup = await openPopup();
+      await popup.locator('#tab-cart').click();
+      await popup.locator(`#list .cmcs-item[data-article-id="${MAGE}"]`).getByRole('button', { name: 'Verwijderen uit opgeslagen lijst' }).click();
+      await waitFor(async () => !(await items())[MAGE], 'removed');
+      assert.match(await popup.locator('#toast').innerText(), /“Portal Mage” uit de lijst gehaald\./);
+      await popup.locator('#toast').getByRole('button', { name: 'Ongedaan maken' }).click();
+      await waitFor(async () => (await items())[MAGE]?.status === 'unavailable', 'restored');
+      await popup.close();
+    });
+
+    it('exports the list as a spreadsheet', async () => {
+      const popup = await openPopup();
+      await popup.locator('#tab-cart').click();
+      const [download] = await Promise.all([popup.waitForEvent('download'), popup.getByRole('button', { name: 'Download CSV' }).click()]);
+      const csv = fs.readFileSync(await download.path(), 'utf8');
+      const lines = csv.replace(/^﻿/, '').split('\r\n');
+      assert.equal(lines[0], '"Name";"Expansion";"Number";"Condition";"Language";"Extras";"Amount";"Price";"Seller";"Status";"URL"');
+      assert.ok(lines.some((line) => line.startsWith('"Bojuka Bog";"Commander 2018";"238";"NM";"English";"";"1";"0,99";"snowc";"in_cart";')), csv);
+      await popup.close();
+    });
+
+    it('saves the list as a named cart and puts it back later', async () => {
+      const popup = await openPopup();
+      await popup.locator('#tab-cart').click();
+      await popup.locator('#tab-carts').click();
+      assert.match(await popup.locator('#carts-empty').innerText(), /Nog geen bewaarde mandjes/);
+      await popup.fill('#cart-name', 'Commander-deck');
+      await popup.getByRole('button', { name: 'Lijst bewaren' }).click();
+      await waitFor(async () => ((await storage())['cmcs.carts'] || []).length === 1, 'cart saved');
+      const [saved] = (await storage())['cmcs.carts'];
+      assert.equal(saved.name, 'Commander-deck');
+      assert.deepEqual(saved.items.map((i) => i.articleId).sort(), [BOG, SOL_SAME_SELLER].sort(), 'unavailable articles are not saved');
+      await waitFor(async () => /Commander-deck[\s\S]*2 artikel\(en\) · 2,58 €/.test(await popup.locator('#carts-list').innerText()), 'listed');
+      await shot(popup, '16-popup-carts');
+
+      // Later: the list and the cart are empty, the saved cart brings both back.
+      await sw.evaluate(() => chrome.storage.local.set({ 'cmcs.items': {} }));
+      mock.state.cart.clear();
+      const job = await runViaNewTab(popup.getByRole('button', { name: 'In mandje zetten' }));
+      assert.equal(job.state, 'done', job.errorDetail);
+      assert.equal(mock.state.cart.get(BOG), 1);
+      assert.equal(mock.state.cart.get(SOL_SAME_SELLER), 1);
+      const all = await items();
+      assert.equal(all[BOG].status, 'in_cart');
+      assert.equal(all[SOL_SAME_SELLER].status, 'in_cart');
+      await popup.close();
     });
   });
 

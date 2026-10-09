@@ -29,6 +29,8 @@
   /** The extension was updated or reloaded underneath this tab. */
   let orphaned = false;
   const deselected = new Set();
+  /** The article a replacement is being looked for: { id, loading, offers, error }. */
+  let replacing = null;
 
   const WIDGET_CSS = `
     :host { all: initial; }
@@ -174,7 +176,32 @@
   const useThisAccount = (username) =>
     store.updateMeta((meta) => ({ ...meta, account: username, accountMismatch: null }));
 
-  const removeItems = (ids) => store.removeItems(ids);
+  /** Remove from the saved list, with a way back. */
+  async function removeItems(ids) {
+    const taken = await store.takeItems(ids);
+    if (!taken.length) return;
+    showNotice({
+      title: 'Cart Saver',
+      text: taken.length === 1 ? t('removedOne', taken[0].name) : t('removedMany', taken.length),
+      actions: [{ label: t('undo'), onClick: () => store.restoreItems(taken).then(() => showNotice(null)) }],
+    });
+  }
+
+  async function undoJob(job) {
+    showNotice({ title: t('undoTitle'), text: t('undoRunning') });
+    await acknowledgeJob();
+    const result = await CMCS.refill.undo(job.id);
+    if (result.ok) {
+      showNotice({ title: t('undoTitle'), text: t('undoDone', result.removed) });
+      if (loc.isCart && result.removed) setTimeout(() => location.reload(), 1200);
+    } else {
+      showNotice({
+        title: t('undoTitle'),
+        text: result.error === 'busy' ? t('errorBusy') : ui.errorText(result.error) || t('errorUnknown'),
+        detail: result.detail,
+      });
+    }
+  }
 
   async function dismissReminder() {
     const signature = store.missingSignature(state.items, loc.game);
@@ -247,7 +274,7 @@
         ? h(
             'div',
             { class: 'cmcs-list' },
-            failedItems.map((item) => ui.itemRow(item, { actions: alternativeActions(item) })),
+            failedItems.map(unavailableRow),
           )
         : null,
       h(
@@ -255,6 +282,9 @@
         { class: 'cmcs-actions' },
         !loc.isCart
           ? h('a', { class: 'cmcs-btn', href: cm.cartUrl(loc.lang, loc.game) }, t('openCart'))
+          : null,
+        job.added > 0 && !job.undone
+          ? h('button', { type: 'button', class: 'cmcs-btn cmcs-btn--ghost', onclick: () => undoJob(job) }, t('undo'))
           : null,
         h('button', { type: 'button', class: 'cmcs-btn cmcs-btn--ghost', onclick: acknowledgeJob }, t('close')),
       ),
@@ -294,10 +324,72 @@
   function alternativeActions(item) {
     const url = cm.alternativesUrl(item);
     return [
+      url ? ui.iconButton(t('replaceFind'), 'swap', () => findReplacement(item)) : null,
       url ? ui.iconLink(t('findAlternative'), 'search', url) : null,
       ui.iconButton(t('removeFromSaved'), 'close', () => removeItems([item.articleId])),
     ].filter(Boolean);
   }
+
+  async function findReplacement(item) {
+    if (replacing && replacing.id === item.articleId && !replacing.loading) {
+      replacing = null; // second click closes it
+      return render();
+    }
+    replacing = { id: item.articleId, loading: true };
+    render();
+    try {
+      const offers = await CMCS.replace.find(item);
+      if (replacing && replacing.id === item.articleId) replacing = { id: item.articleId, offers };
+    } catch (err) {
+      if (replacing && replacing.id === item.articleId) replacing = { id: item.articleId, error: err.kind || 'unknown' };
+    }
+    render();
+  }
+
+  async function useReplacement(item, offer) {
+    replacing = null;
+    await acknowledgeJob();
+    const result = await CMCS.replace.use(item, offer);
+    if (!result.ok) showNotice({ title: 'Cart Saver', text: t('errorBusy') });
+  }
+
+  const REPLACE_REASONS = { sameSeller: 'replaceSameSeller', sellerInCart: 'replaceInCart', cheapest: 'replaceCheapest' };
+
+  /** Suggestions shown under a sold article. */
+  function replacementPanel(item) {
+    if (!replacing || replacing.id !== item.articleId) return null;
+    let body;
+    if (replacing.loading) body = h('p', { class: 'cmcs-muted' }, t('replaceSearching'));
+    else if (replacing.error) body = h('p', { class: 'cmcs-error' }, ui.errorText(replacing.error) || t('errorUnknown'));
+    else if (!replacing.offers.length) body = h('p', { class: 'cmcs-muted' }, t('replaceNone'));
+    else {
+      body = replacing.offers.map((offer) => {
+        const diff = item.price != null ? offer.price - item.price : 0;
+        const priceNote =
+          Math.abs(diff) < 0.005 ? null : t(diff > 0 ? 'replaceMore' : 'replaceLess', store.formatPrice(Math.abs(diff)));
+        return ui.itemRow(
+          { ...offer, status: 'offer' },
+          {
+            href: cm.offerUrl(offer),
+            showInfo: false,
+            note: null,
+            extraMeta: [t(REPLACE_REASONS[offer.reason]), priceNote].filter(Boolean).join(' · '),
+            actions: [
+              h(
+                'button',
+                { type: 'button', class: 'cmcs-btn cmcs-btn--small', onclick: () => useReplacement(item, offer) },
+                t('replaceAdd'),
+              ),
+            ],
+          },
+        );
+      });
+    }
+    return h('div', { class: 'cmcs-replace' }, h('div', { class: 'cmcs-replace-title' }, t('replaceTitle')), body);
+  }
+
+  /** A sold article with its replacement suggestions (when asked for). */
+  const unavailableRow = (item) => [ui.itemRow(item, { actions: alternativeActions(item) }), replacementPanel(item)];
 
   function cartView(missing, unavailable, inCart) {
     if (state.meta.collapsed) {
@@ -395,7 +487,7 @@
         h(
           'div',
           { class: 'cmcs-list' },
-          unavailable.map((item) => ui.itemRow(item, { actions: alternativeActions(item) })),
+          unavailable.map(unavailableRow),
         ),
         h(
           'div',
@@ -433,11 +525,15 @@
       notice.title,
       { onClose: close },
       h('p', { class: 'cmcs-lead' }, notice.text),
+      notice.detail ? h('p', { class: 'cmcs-detail' }, t('errorDetails', notice.detail)) : null,
       h(
         'div',
         { class: 'cmcs-actions' },
         (notice.links || []).map((link, i) =>
           h('a', { class: `cmcs-btn ${i ? 'cmcs-btn--ghost' : ''}`, href: link.href }, link.label),
+        ),
+        (notice.actions || []).map((action, i) =>
+          h('button', { type: 'button', class: `cmcs-btn ${i || (notice.links || []).length ? 'cmcs-btn--ghost' : ''}`, onclick: action.onClick }, action.label),
         ),
       ),
     );

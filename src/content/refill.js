@@ -161,6 +161,49 @@
   // The job
   // ---------------------------------------------------------------------------
 
+  /** Run a request, waiting and retrying (twice) when Cardmarket says "too many requests". */
+  async function withRateLimitRetry(send) {
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      try {
+        return await send();
+      } catch (err) {
+        if (err.kind === 'rate_limited' && attempt < 2) {
+          await sleep(Math.min(err.retryAfter || 10, MAX_RETRY_AFTER_S) * 1000);
+          continue;
+        }
+        throw err;
+      }
+    }
+    throw new cm.CardmarketError('rate_limited');
+  }
+
+  /**
+   * Read the live cart of each game, refusing to go on when it cannot be read
+   * in full, belongs to another account, or the session is gone.
+   * Resolves to { amounts: Map(articleId → copies), token }.
+   */
+  async function readLiveCart(lang, games, meta) {
+    const amounts = new Map();
+    let token = null;
+    for (const game of games) {
+      const cart = await cm.fetchCart(lang, game);
+      // Only Cardmarket's own login form means "not logged in"; any other odd
+      // page is reported as unexpected, with details for a bug report.
+      if (!cart.signedIn) {
+        throw new cm.CardmarketError(cart.loginPage ? 'logged_out' : 'unexpected_page', null, { detail: cart.detail });
+      }
+      if (!cart.trustworthy) {
+        throw new cm.CardmarketError('cart_unreadable', null, { detail: [cart.untrusted, cart.detail].filter(Boolean).join(' · ') });
+      }
+      if (meta.account && cart.username && cart.username !== meta.account) {
+        throw new cm.CardmarketError('other_account', null, { detail: `${cart.username} ≠ ${meta.account}` });
+      }
+      cart.items.forEach((item) => amounts.set(item.articleId, item.amount || 1));
+      token = token || cart.token;
+    }
+    return { amounts, token };
+  }
+
   async function run(job) {
     if (running) return;
     running = true;
@@ -182,20 +225,8 @@
     };
 
     /** One add, with a wait-and-retry when Cardmarket says "too many requests". */
-    const addOnce = async (item, amount) => {
-      for (let attempt = 0; attempt < 3; attempt += 1) {
-        try {
-          return await cm.addArticle({ lang, game: item.game, articleId: item.articleId, amount, token });
-        } catch (err) {
-          if (err.kind === 'rate_limited' && attempt < 2) {
-            await sleep(Math.min(err.retryAfter || 10, MAX_RETRY_AFTER_S) * 1000);
-            continue;
-          }
-          throw err;
-        }
-      }
-      throw new cm.CardmarketError('rate_limited');
-    };
+    const addOnce = (item, amount) =>
+      withRateLimitRetry(() => cm.addArticle({ lang, game: item.game, articleId: item.articleId, amount, token }));
 
     /**
      * Add one article and handle a refusal sensibly:
@@ -237,27 +268,12 @@
       // Look at the live cart first: add only what is still missing (an
       // article already in it would get a higher quantity), and never act on
       // a cart page we cannot read in full.
-      const live = new Map();
-      for (const game of new Set(todo.map((item) => item.game))) {
-        const cart = await cm.fetchCart(lang, game);
-        // Only Cardmarket's own login form means "not logged in"; any other odd
-        // page is reported as unexpected, with details for a bug report.
-        if (!cart.signedIn) {
-          throw new cm.CardmarketError(cart.loginPage ? 'logged_out' : 'unexpected_page', null, { detail: cart.detail });
-        }
-        if (!cart.trustworthy) {
-          throw new cm.CardmarketError('cart_unreadable', null, { detail: [cart.untrusted, cart.detail].filter(Boolean).join(' · ') });
-        }
-        if (meta.account && cart.username && cart.username !== meta.account) {
-          throw new cm.CardmarketError('other_account', null, { detail: `${cart.username} ≠ ${meta.account}` });
-        }
-        cart.items.forEach((item) => live.set(item.articleId, item.amount || 1));
-        token = token || cart.token;
-      }
-      const plan = [];
+      const live = await readLiveCart(lang, new Set(todo.map((item) => item.game)), meta);
+      token = live.token;
+      let plan = [];
       for (const item of todo) {
         const wanted = item.wantedAmount || item.amount || 1;
-        const amount = wanted - (live.get(item.articleId) || 0);
+        const amount = wanted - (live.amounts.get(item.articleId) || 0);
         if (amount > 0) plan.push({ item, amount });
       }
 
@@ -271,21 +287,77 @@
         token = found.token;
       }
 
-      for (let i = 0; i < plan.length; i += 1) {
+      /** Stop when the user pressed stop, or another tab took over (then without a word). */
+      const shouldStop = async () => {
         const current = await store.getJob();
-        // Another tab took over (or the list was cleared): stop without a word.
-        if (!current || current.runner !== RUNNER_ID) break;
+        if (!current || current.runner !== RUNNER_ID) return true;
         if (current.cancelRequested) {
           error = 'cancelled';
-          break;
+          return true;
         }
+        return false;
+      };
+      let done = 0;
+      let stopped = false;
+
+      // Round 1: one request per seller that has several articles to go back.
+      // Afterwards the cart tells what arrived; the rest goes one by one below.
+      const sellerOf = ({ item }) => `${item.game}|${item.sellerId || item.sellerUrl || item.seller || item.articleId}`;
+      const batches = [...store.groupBy(plan, sellerOf).values()].filter((group) => group.length > 1);
+      if (batches.length) {
+        for (let b = 0; b < batches.length && !stopped; b += 1) {
+          stopped = await shouldStop();
+          if (stopped) break;
+          const group = batches[b];
+          await patchJob({ currentName: group[0].item.seller || group[0].item.name });
+          try {
+            await withRateLimitRetry(() =>
+              cm.addArticles({
+                lang,
+                game: group[0].item.game,
+                articles: group.map(({ item, amount }) => ({ articleId: item.articleId, amount })),
+                token,
+              }),
+            );
+          } catch (err) {
+            // An answer we do not understand: the one-by-one round finds out what is wrong.
+            if (err.kind !== 'unexpected_response' && err.kind !== 'no_endpoint') throw err;
+          }
+          await sleep(settings.delayMs + Math.random() * 400);
+        }
+        const batched = new Set(batches.flat().map(({ item }) => item.articleId));
+        const after = await readLiveCart(lang, new Set(plan.map(({ item }) => item.game)), meta);
+        const rest = [];
+        for (const { item, amount } of plan) {
+          const id = item.articleId;
+          const wanted = (live.amounts.get(id) || 0) + amount;
+          const now = after.amounts.get(id) || 0;
+          if (batched.has(id) && now >= wanted) {
+            results[id] = { ok: true, amount, message: '', batch: true, viaFavorite: Boolean(item.viaFavorite) };
+            added += 1;
+            done += 1;
+          } else if (wanted - now > 0) {
+            rest.push({ item, amount: wanted - now });
+          } else {
+            done += 1;
+          }
+        }
+        plan = rest;
+        await patchJob({ done, added, failed, results });
+      }
+
+      // Round 2: one article at a time.
+      for (let i = 0; i < plan.length && !stopped; i += 1) {
+        stopped = await shouldStop();
+        if (stopped) break;
         const { item, amount } = plan[i];
         await patchJob({ currentName: item.name });
-        const result = await addWithRetries(item, amount);
+        const result = { ...(await addWithRetries(item, amount)), viaFavorite: Boolean(item.viaFavorite) };
         results[item.articleId] = result;
         if (result.ok) added += 1;
         else failed += 1;
-        await patchJob({ done: i + 1, added, failed, results });
+        done += 1;
+        await patchJob({ done, added, failed, results });
         if (i < plan.length - 1) await sleep(settings.delayMs + Math.random() * 400);
       }
     } catch (err) {
@@ -354,6 +426,7 @@
     const patches = {};
     const favoritePatches = {};
     const dropped = [];
+    const replaced = [];
     let added = 0;
     let failed = 0;
     for (const [id, result] of Object.entries(results)) {
@@ -367,8 +440,10 @@
       }
       if (inCart.has(id) && result.ok) {
         added += 1;
-        patches[id] = { lastAttempt: { ...lastAttempt, ok: true } };
+        patches[id] = { lastAttempt: { ...lastAttempt, ok: true }, replaces: null };
         favoritePatches[id] = { unavailable: false, unavailableMessage: null };
+        // A replacement that made it: the sold original leaves the list.
+        if (prev.replaces && prev.replaces !== id) replaced.push(prev.replaces);
         continue;
       }
       if (inCart.has(id)) {
@@ -396,8 +471,9 @@
         (result.reason === 'unknown' && (repeated || prev.status === store.STATUS.UNAVAILABLE));
       const message = result.message || CMCS.t(gone ? 'notAvailableAnymore' : 'refusedUnknown');
       if (gone) favoritePatches[id] = { unavailable: true, unavailableMessage: message };
-      // A favourite that never made it into the cart stays a favourite only.
-      if (prev.viaFavorite) dropped.push(id);
+      // A favourite (or suggested replacement) that never made it into the
+      // cart does not join the list.
+      if (prev.viaFavorite || prev.replaces) dropped.push(id);
       else {
         patches[id] = {
           status: gone ? store.STATUS.UNAVAILABLE : store.STATUS.MISSING,
@@ -407,13 +483,74 @@
     }
     // Favourites queued for this job but never tried (stopped early) go too.
     for (const id of job.articleIds) {
-      if (!results[id] && items[id] && items[id].viaFavorite && !inCart.has(id)) dropped.push(id);
+      if (!results[id] && items[id] && (items[id].viaFavorite || items[id].replaces) && !inCart.has(id)) dropped.push(id);
     }
     await store.patchItems(patches);
-    if (dropped.length) await store.removeItems(dropped);
+    if (dropped.length || replaced.length) await store.removeItems([...dropped, ...replaced]);
     await store.patchFavorites(favoritePatches);
     return { added, failed };
   }
 
-  CMCS.refill = { start, resumePending, cancel, lockHeld, remainingIds, isRunning: () => running };
+  /**
+   * Take back what a finished job added: the same number of copies of the
+   * same articles, never more than the cart holds now. Favourites that came
+   * in with the job leave the saved list again. Resolves to
+   * { ok, removed } or { ok: false, error, detail }.
+   */
+  async function undo(jobId) {
+    let outcome = { ok: false, error: 'busy' };
+    await withLock(async () => {
+      const job = await store.getJob();
+      if (!job || job.id !== jobId || !job.finishedAt || job.undone) {
+        outcome = { ok: false, error: 'nothing' };
+        return;
+      }
+      running = true;
+      try {
+        const [items, settings, meta] = await Promise.all([store.getItems(), store.getSettings(), store.getMeta()]);
+        const added = Object.entries(job.results || {}).filter(([id, result]) => result.ok && items[id]);
+        const games = new Set(added.map(([id]) => items[id].game));
+        const live = await readLiveCart(job.lang, games, meta);
+        let token = (cm.isSignedIn(document) && cm.findToken(document)) || live.token;
+        if (!token && added.length) {
+          const found = await cm.discoverToken({ lang: job.lang, game: items[added[0][0]].game });
+          if (!found.token) throw new cm.CardmarketError('no_token', null, { detail: found.detail });
+          token = found.token;
+        }
+        for (const [id, result] of added) {
+          const item = items[id];
+          const amount = Math.min(result.amount || 1, live.amounts.get(id) || 0);
+          if (amount <= 0) continue;
+          await withRateLimitRetry(() =>
+            cm.removeArticle({ lang: job.lang, game: item.game, articleId: id, sellerId: item.sellerId, amount, token }),
+          );
+          await sleep(settings.delayMs + Math.random() * 400);
+        }
+        // The cart decides the statuses again (and what really left it); favourites from this job go.
+        const now = new Map();
+        for (const game of games) {
+          const cart = await cm.fetchCart(job.lang, game);
+          if (!cart.signedIn) continue;
+          cart.items.forEach((item) => now.set(item.articleId, item.amount || 1));
+          await store.syncCart(cart.items, { game, addNew: false, markMissing: cart.trustworthy });
+        }
+        const removed = added.filter(([id]) => (now.get(id) || 0) < (live.amounts.get(id) || 0)).length;
+        const after = await store.getItems();
+        const fromFavorites = added
+          .filter(([id, result]) => result.viaFavorite && after[id] && after[id].status !== store.STATUS.IN_CART)
+          .map(([id]) => id);
+        if (fromFavorites.length) await store.removeItems(fromFavorites);
+        await store.updateJob((current) => (current && current.id === jobId ? { ...current, undone: true } : undefined));
+        outcome = { ok: true, removed };
+      } catch (err) {
+        console.warn('[Cart Saver] undo stopped:', err);
+        outcome = { ok: false, error: err.kind || 'unknown', detail: err.detail || null };
+      } finally {
+        running = false;
+      }
+    });
+    return outcome;
+  }
+
+  CMCS.refill = { start, resumePending, cancel, undo, lockHeld, remainingIds, isRunning: () => running };
 })(globalThis);

@@ -63,3 +63,23 @@ main { overflow: auto; padding: 12px 16px 4px; flex: 1; }
 .empty .cmcs-btn { margin-top: 10px; text-decoration: none; }
 .notice { margin: 0 0 10px; font-size: 12px; }
 .foot { font-size: 11px; padding: 8px 16px 10px; border-top: 1px solid var(--cmcs-border); }
+.export { display: flex; gap: 14px; justify-content: center; padding: 4px 0 10px; }
+.cmcs-linklike { appearance: none; border: 0; background: none; padding: 0; color: var(--cmcs-accent); font: inherit; font-size: 12px; cursor: pointer; }
+.cmcs-linklike:hover { text-decoration: underline; }
+.cart-form { display: flex; gap: 8px; margin-bottom: 8px; }
+.cart-form .search { margin: 0; flex: 1; }
+.saved-cart { padding: 10px 0; border-top: 1px solid var(--cmcs-border); }
+.saved-cart:first-child { border-top: 0; }
+.saved-cart-head { display: flex; align-items: baseline; gap: 8px; }
+.saved-cart-name { font-weight: 700; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.saved-cart-meta { color: var(--cmcs-muted); font-size: 12px; margin: 2px 0 6px; }
+.saved-cart-actions { display: flex; gap: 12px; align-items: center; }
+.saved-cart-actions .cmcs-btn { min-height: 28px; padding: 4px 10px; }
+.toast {
+  position: fixed; left: 12px; right: 12px; bottom: 12px;
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 12px; border-radius: 8px;
+  background: var(--cmcs-text); color: var(--cmcs-bg); box-shadow: var(--cmcs-shadow);
+}
+.toast span { flex: 1; }
+.toast button { appearance: none; border: 0; background: none; color: inherit; font: inherit; font-weight: 700; cursor: pointer; text-decoration: underline; }

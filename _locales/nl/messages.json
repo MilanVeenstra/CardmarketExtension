@@ -20,6 +20,33 @@
   "cartSavedLead": {
     "message": "$1 artikel(en) in je mandje opgeslagen."
   },
+  "cartsDelete": {
+    "message": "Verwijderen"
+  },
+  "cartsEmptyLead": {
+    "message": "Bewaar je lijst onder een naam (bijvoorbeeld per deck) en zet hem later met één klik terug in je mandje."
+  },
+  "cartsEmptyTitle": {
+    "message": "Nog geen bewaarde mandjes"
+  },
+  "cartsMeta": {
+    "message": "$1 artikel(en) · $2 · $3"
+  },
+  "cartsNamePlaceholder": {
+    "message": "Naam, bijv. Commander-deck"
+  },
+  "cartsNothing": {
+    "message": "Er staat niets in de lijst om te bewaren."
+  },
+  "cartsRestore": {
+    "message": "In mandje zetten"
+  },
+  "cartsSave": {
+    "message": "Lijst bewaren"
+  },
+  "cartsSaved": {
+    "message": "Bewaard als “$1”."
+  },
   "clearAll": {
     "message": "Alles wissen"
   },
@@ -91,6 +118,15 @@
   },
   "errorUnknown": {
     "message": "Er ging iets mis. Probeer het opnieuw."
+  },
+  "exportCopied": {
+    "message": "Gekopieerd naar het klembord."
+  },
+  "exportCopy": {
+    "message": "Kopieer als tekst"
+  },
+  "exportCsv": {
+    "message": "Download CSV"
   },
   "exportData": {
     "message": "Exporteren (JSON)"
@@ -278,6 +314,42 @@
   "removeFromSaved": {
     "message": "Verwijderen uit opgeslagen lijst"
   },
+  "removedMany": {
+    "message": "$1 artikelen uit de lijst gehaald."
+  },
+  "removedOne": {
+    "message": "“$1” uit de lijst gehaald."
+  },
+  "replaceAdd": {
+    "message": "Toevoegen"
+  },
+  "replaceCheapest": {
+    "message": "Goedkoopste vergelijkbare aanbod"
+  },
+  "replaceFind": {
+    "message": "Vervanging zoeken"
+  },
+  "replaceInCart": {
+    "message": "Verkoper zit al in je mandje: geen extra verzendkosten"
+  },
+  "replaceLess": {
+    "message": "$1 goedkoper"
+  },
+  "replaceMore": {
+    "message": "$1 duurder"
+  },
+  "replaceNone": {
+    "message": "Geen vergelijkbaar aanbod gevonden."
+  },
+  "replaceSameSeller": {
+    "message": "Zelfde verkoper"
+  },
+  "replaceSearching": {
+    "message": "Vervanging zoeken…"
+  },
+  "replaceTitle": {
+    "message": "Vervanging"
+  },
   "retryUnavailable": {
     "message": "Toch opnieuw proberen"
   },
@@ -338,8 +410,23 @@
   "tabCart": {
     "message": "Winkelmandje"
   },
+  "tabCarts": {
+    "message": "Mandjes ($1)"
+  },
   "tabFavorites": {
     "message": "Favorieten ($1)"
+  },
+  "undo": {
+    "message": "Ongedaan maken"
+  },
+  "undoDone": {
+    "message": "$1 artikel(en) weer uit je mandje gehaald."
+  },
+  "undoRunning": {
+    "message": "De toegevoegde artikelen gaan weer uit je mandje…"
+  },
+  "undoTitle": {
+    "message": "Terugzetten ongedaan maken"
   },
   "updatedPill": {
     "message": "Cart Saver bijgewerkt · ververs de pagina"

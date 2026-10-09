@@ -26,14 +26,17 @@
 
   let items = {};
   let favorites = {};
+  let carts = [];
   let job = null;
   let game = null;
   let filter = 'all';
   let notice = null;
   let query = '';
   let tab = 'cart';
+  const TABS = ['cart', 'fav', 'carts'];
   try {
-    tab = localStorage.getItem(TAB_KEY) === 'fav' ? 'fav' : 'cart';
+    const remembered = localStorage.getItem(TAB_KEY);
+    tab = TABS.includes(remembered) ? remembered : 'cart';
   } catch {
     // Storage blocked: just start on the cart tab.
   }
@@ -51,7 +54,7 @@
     game = event.target.value;
     render();
   });
-  for (const [id, name] of [['tab-cart', 'cart'], ['tab-fav', 'fav']]) {
+  for (const [id, name] of [['tab-cart', 'cart'], ['tab-fav', 'fav'], ['tab-carts', 'carts']]) {
     $(id).addEventListener('click', () => {
       tab = name;
       try {
@@ -66,6 +69,57 @@
     query = event.target.value;
     renderFavorites();
   });
+  $('export-text').addEventListener('click', () => copyText(store.exportText(currentList())));
+  $('export-csv').addEventListener('click', () => download(`cart-saver-${game || 'list'}.csv`, store.exportCsv(currentList()), 'text/csv'));
+  $('cart-form').addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const list = currentList().filter((item) => item.status !== STATUS.UNAVAILABLE);
+    if (!list.length) return showToast(t('cartsNothing'));
+    const saved = await store.saveCart($('cart-name').value, list);
+    $('cart-name').value = '';
+    showToast(t('cartsSaved', saved.name));
+  });
+
+  // ---------------------------------------------------------------------------
+
+  /** The saved list of the game shown in the cart tab. */
+  function currentList() {
+    return Object.values(items)
+      .filter((item) => item.game === game)
+      .sort((a, b) => (a.seller || '').localeCompare(b.seller || '') || a.name.localeCompare(b.name));
+  }
+
+  async function copyText(text) {
+    try {
+      await navigator.clipboard.writeText(text);
+      showToast(t('exportCopied'));
+    } catch {
+      download('cart-saver.txt', text, 'text/plain');
+    }
+  }
+
+  function download(name, text, type) {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob(['\ufeff', text], { type: `${type};charset=utf-8` }));
+    a.download = name;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  }
+
+  let toastTimer = null;
+  /** A short message at the bottom, optionally with one action (e.g. undo). */
+  function showToast(text, action) {
+    const toast = $('toast');
+    clearTimeout(toastTimer);
+    toast.replaceChildren(
+      ...[
+        h('span', null, text),
+        action ? h('button', { type: 'button', onclick: () => { toast.hidden = true; action.onClick(); } }, action.label) : null,
+      ].filter(Boolean),
+    );
+    toast.hidden = false;
+    toastTimer = setTimeout(() => (toast.hidden = true), action ? 8000 : 3000);
+  }
 
   // ---------------------------------------------------------------------------
 
@@ -110,8 +164,22 @@
     await openUrl(cm.cartUrl(lang, list[0].game));
   }
 
-  function removeItems(list) {
-    return store.removeItems(list.map((item) => item.articleId));
+  async function removeItems(list) {
+    const taken = await store.takeItems(list.map((item) => item.articleId));
+    if (!taken.length) return;
+    showToast(taken.length === 1 ? t('removedOne', taken[0].name) : t('removedMany', taken.length), {
+      label: t('undo'),
+      onClick: () => store.restoreItems(taken),
+    });
+  }
+
+  /** Put a saved cart back: its articles join the list and go back into the cart. */
+  async function restoreCart(cart) {
+    await store.ensureItems(cart.items);
+    const saved = await store.getItems();
+    game = cart.game || game;
+    tab = 'cart';
+    await refill(cart.items.map((item) => saved[item.articleId]).filter((item) => item && item.status !== STATUS.IN_CART));
   }
 
   /** Favourites go through the same refill job as saved cart articles (amount 1). */
@@ -250,12 +318,12 @@
   }
 
   function renderTabs() {
-    const count = Object.keys(favorites).length;
-    $('tab-fav').textContent = t('tabFavorites', count);
-    $('tab-cart').setAttribute('aria-selected', String(tab === 'cart'));
-    $('tab-fav').setAttribute('aria-selected', String(tab === 'fav'));
-    $('view-cart').hidden = tab !== 'cart';
-    $('view-fav').hidden = tab !== 'fav';
+    $('tab-fav').textContent = t('tabFavorites', Object.keys(favorites).length);
+    $('tab-carts').textContent = t('tabCarts', carts.length);
+    for (const name of TABS) {
+      $(`tab-${name}`).setAttribute('aria-selected', String(tab === name));
+      $(`view-${name}`).hidden = tab !== name;
+    }
     $('notice').hidden = !notice;
     $('notice').textContent = notice || '';
   }
@@ -288,11 +356,44 @@
     );
   }
 
+  function renderCarts() {
+    $('carts-empty').hidden = carts.length > 0;
+    $('carts-list').replaceChildren(
+      ...carts.map((cart) => {
+        const value = cart.items.reduce((sum, item) => sum + (item.price || 0) * (item.wantedAmount || item.amount || 1), 0);
+        return h(
+          'div',
+          { class: 'saved-cart' },
+          h('div', { class: 'saved-cart-head' }, h('span', { class: 'saved-cart-name', title: cart.name }, cart.name)),
+          h(
+            'div',
+            { class: 'saved-cart-meta' },
+            t('cartsMeta', cart.items.length, store.formatPrice(value), [cart.game, formatDate(cart.createdAt)].filter(Boolean).join(' · ')),
+          ),
+          h(
+            'div',
+            { class: 'saved-cart-actions' },
+            h('button', { type: 'button', class: 'cmcs-btn', disabled: store.isJobActive(job), onclick: () => restoreCart(cart) }, t('cartsRestore')),
+            h('button', { type: 'button', class: 'cmcs-linklike', onclick: () => copyText(store.exportText(cart.items)) }, t('exportCopy')),
+            h(
+              'button',
+              { type: 'button', class: 'cmcs-linklike', onclick: () => download(`${cart.name}.csv`, store.exportCsv(cart.items), 'text/csv') },
+              'CSV',
+            ),
+            h('span', { style: 'flex:1' }),
+            ui.iconButton(t('cartsDelete'), 'close', () => store.removeCart(cart.id)),
+          ),
+        );
+      }),
+    );
+  }
+
   function render() {
     renderTabs();
     renderJob();
     renderFavorites();
     renderCart();
+    renderCarts();
   }
 
   function renderCart() {
@@ -300,7 +401,7 @@
     const games = [...new Set(all.map((item) => item.game).filter(Boolean))].sort();
 
     $('empty').hidden = all.length > 0;
-    for (const id of ['summary', 'actions', 'filters', 'list']) $(id).hidden = all.length === 0;
+    for (const id of ['summary', 'actions', 'filters', 'list', 'export']) $(id).hidden = all.length === 0;
     if (!all.length || tab !== 'cart') {
       $('game').hidden = true;
       if (!all.length) return;
@@ -372,7 +473,7 @@
   }
 
   async function load() {
-    [items, favorites, job] = await Promise.all([store.getItems(), store.getFavorites(), store.getJob()]);
+    [items, favorites, job, carts] = await Promise.all([store.getItems(), store.getFavorites(), store.getJob(), store.getCarts()]);
     render();
   }
 

@@ -807,15 +807,23 @@
   };
 
   /**
-   * Put one article in the cart. Resolves to { ok, message } when Cardmarket
-   * answered (ok=false means it refused, e.g. the article is gone) and throws a
-   * CardmarketError when the request itself failed.
+   * Put articles in the cart, all in one request (the site's own form sends
+   * lists too). Resolves to { ok, message, reason } when Cardmarket answered
+   * (ok=false means it refused, e.g. an article is gone; with several
+   * articles some may still have been added, so read the cart to know) and
+   * throws a CardmarketError when the request itself failed.
    */
-  async function addArticle({ lang, game, articleId, amount, token }) {
+  async function addArticles({ lang, game, articles, token }) {
+    const ids = {};
+    const amounts = {};
+    for (const { articleId, amount } of articles) {
+      ids[articleId] = articleId;
+      amounts[articleId] = String(amount || 1);
+    }
     const body = new URLSearchParams();
     body.set('__cmtkn', token);
-    body.set('idArticle', JSON.stringify({ [articleId]: articleId }));
-    body.set('amount', JSON.stringify({ [articleId]: String(amount || 1) }));
+    body.set('idArticle', JSON.stringify(ids));
+    body.set('amount', JSON.stringify(amounts));
 
     for (let i = 0; i < ADD_ENDPOINTS.length; i += 1) {
       const index = (preferredEndpoint + i) % ADD_ENDPOINTS.length;
@@ -850,6 +858,36 @@
     throw new CardmarketError('no_endpoint');
   }
 
+  /**
+   * Take copies of an article out of the cart, the way the cart's trash button
+   * does (`idArticle`, `idSeller`, `amount-<id>`). Resolves when Cardmarket
+   * answered; read the cart afterwards to know the result.
+   */
+  async function removeArticle({ lang, game, articleId, sellerId, amount, token }) {
+    const body = new URLSearchParams();
+    body.set('__cmtkn', token);
+    body.set('idArticle', articleId);
+    if (sellerId) body.set('idSeller', sellerId);
+    body.set(`amount-${articleId}`, String(amount || 1));
+    const res = await request(`${ORIGIN}/${lang}/${game}/AjaxAction/ShoppingCart_RemoveArticle`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+        'X-Requested-With': 'XMLHttpRequest',
+      },
+      body: body.toString(),
+    });
+    if (res.status === 429) throw new CardmarketError('rate_limited', null, { retryAfter: retryAfterSeconds(res) });
+    if (isChallenge(res.status, res.text, res.headers)) throw new CardmarketError('challenge', null, { detail: describe(res) });
+    if (!res.ok) throw new CardmarketError('http_error', `HTTP ${res.status}`, { status: res.status, detail: describe(res) });
+    return { ok: true };
+  }
+
+  /** Put one article in the cart; see addArticles. */
+  function addArticle({ lang, game, articleId, amount, token }) {
+    return addArticles({ lang, game, articles: [{ articleId, amount }], token });
+  }
+
   CMCS.cm = {
     ORIGIN,
     LANGUAGES,
@@ -881,6 +919,8 @@
     fetchDocument,
     fetchCart,
     addArticle,
+    addArticles,
+    removeArticle,
     endpointPreference,
   };
 })(globalThis);

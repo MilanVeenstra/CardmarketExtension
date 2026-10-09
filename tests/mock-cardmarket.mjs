@@ -151,6 +151,35 @@ export const ARTICLES = [
     sellerId: '4004',
     foil: true,
   },
+  // Offers that only exist once a test lists them (state.available): candidates
+  // to replace a sold Sol Ring — the same seller, a seller already in the cart,
+  // and a cheaper stranger.
+  ...[
+    ['1611110003', 'Kärtchen-Laden', '2002', 1.59],
+    ['1611110004', 'snowc', '1001', 1.79],
+    ['1611110005', 'BudgetCards', '5005', 1.29],
+  ].map(([articleId, seller, sellerId, price]) => ({
+    articleId,
+    productId: '500100',
+    game: 'Magic',
+    name: 'Sol Ring',
+    expansion: 'Commander Masters',
+    expansionSlug: 'Commander-Masters',
+    cardSlug: 'Sol-Ring',
+    number: '410',
+    rarity: 'Uncommon',
+    condition: 2,
+    conditionLabel: 'NM',
+    conditionTitle: 'Near Mint',
+    language: 1,
+    languageLabel: 'English',
+    price,
+    available: 2,
+    seller,
+    sellerId,
+    foil: false,
+    extra: true,
+  })),
 ];
 
 export function createMockCardmarket() {
@@ -160,7 +189,7 @@ export function createMockCardmarket() {
     /** articleId → amount */
     cart: new Map(),
     /** articleId → article (offers that still exist) */
-    available: new Map(ARTICLES.map((a) => [a.articleId, a])),
+    available: new Map(ARTICLES.filter((a) => !a.extra).map((a) => [a.articleId, a])),
     /** which add endpoint exists (the other one 404s) */
     addEndpoint: 'ShoppingCart_Add_AddArticlesFromUserOffers',
     /** answer adds with a Cloudflare challenge */

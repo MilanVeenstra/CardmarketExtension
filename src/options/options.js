@@ -53,10 +53,11 @@
   $('export').addEventListener('click', async () => {
     const payload = {
       format: 'cardmarket-cart-saver',
-      version: 2,
+      version: 3,
       exportedAt: new Date().toISOString(),
       items: await store.getItems(),
       favorites: await store.getFavorites(),
+      carts: await store.getCarts(),
     };
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
     const a = document.createElement('a');
@@ -98,7 +99,11 @@
       const incoming = data && typeof data.items === 'object' ? data.items : data;
       const validItems = Object.values(incoming || {}).filter(isArticle).map(cleanLinks);
       const validFavorites = Object.values((data && data.favorites) || {}).filter(isArticle).map(cleanLinks);
-      if (!validItems.length && !validFavorites.length) throw new Error('nothing to import');
+      const validCarts = (Array.isArray(data && data.carts) ? data.carts : [])
+        .filter((cart) => cart && typeof cart.id === 'string' && typeof cart.name === 'string' && Array.isArray(cart.items))
+        .map((cart) => ({ ...cart, items: cart.items.filter(isArticle).map(cleanLinks) }))
+        .filter((cart) => cart.items.length);
+      if (!validItems.length && !validFavorites.length && !validCarts.length) throw new Error('nothing to import');
       let added = 0;
       await store.updateItems((items) => {
         const next = { ...items };
@@ -118,6 +123,14 @@
         }
         return next;
       });
+      if (validCarts.length) {
+        await store.updateCarts((carts) => {
+          const known = new Set(carts.map((cart) => cart.id));
+          const fresh = validCarts.filter((cart) => !known.has(cart.id));
+          added += fresh.length;
+          return [...carts, ...fresh].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+        });
+      }
       $('dataMessage').textContent = t('importDone', added);
     } catch {
       $('dataMessage').textContent = t('importFailed');
@@ -128,6 +141,7 @@
     if (!confirm(t('clearConfirm'))) return;
     await store.setItems({});
     await store.setFavorites({});
+    await store.updateCarts(() => []);
     await store.setJob(null);
     $('dataMessage').textContent = t('cleared');
   });

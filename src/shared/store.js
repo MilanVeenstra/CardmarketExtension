@@ -22,7 +22,11 @@
     job: 'cmcs.job',
     settings: 'cmcs.settings',
     favorites: 'cmcs.favorites',
+    /** Named copies of the list ("Commander deck"), to put back later. */
+    carts: 'cmcs.carts',
   };
+
+  const MAX_CARTS = 30;
 
   const STATUS = {
     IN_CART: 'in_cart',
@@ -272,6 +276,45 @@
     return `${value.toFixed(2).replace('.', ',')} €`;
   }
 
+  /** One line per article: "2x Bojuka Bog (Commander 2018 #238) · NM · English · 0,99 € · snowc". */
+  function exportText(list) {
+    return list
+      .map((item) => {
+        const set = [item.expansion, item.number ? `#${item.number}` : null].filter(Boolean).join(' ');
+        return [
+          `${item.wantedAmount || item.amount || 1}x ${item.name}${set ? ` (${set})` : ''}`,
+          item.conditionLabel,
+          item.languageLabel,
+          ...(item.extras || []),
+          formatPrice(item.price),
+          item.seller,
+        ]
+          .filter(Boolean)
+          .join(' · ');
+      })
+      .join('\n');
+  }
+
+  /** A spreadsheet of the list (semicolons and decimal commas, as Excel expects in Dutch). */
+  function exportCsv(list) {
+    const cell = (value) => `"${String(value == null ? '' : value).replace(/"/g, '""')}"`;
+    const header = ['Name', 'Expansion', 'Number', 'Condition', 'Language', 'Extras', 'Amount', 'Price', 'Seller', 'Status', 'URL'];
+    const rows = list.map((item) => [
+      item.name,
+      item.expansion,
+      item.number,
+      item.conditionLabel,
+      item.languageLabel,
+      (item.extras || []).join(', '),
+      item.wantedAmount || item.amount || 1,
+      item.price == null ? '' : item.price.toFixed(2).replace('.', ','),
+      item.seller,
+      item.status || '',
+      item.productUrl,
+    ]);
+    return [header, ...rows].map((row) => row.map(cell).join(';')).join('\r\n');
+  }
+
   // ---------------------------------------------------------------------------
   // Storage API
   // ---------------------------------------------------------------------------
@@ -295,6 +338,8 @@
     toFavorite,
     favoriteMatches,
     groupBy,
+    exportText,
+    exportCsv,
     formatPrice,
 
     getItems: () => get(KEYS.items, {}),
@@ -364,24 +409,29 @@
     },
 
     /**
-     * Make sure favourites exist as saved cart items so a refill job can add
-     * them. New ones are added once (amount 1) and flagged, so a failed add can
+     * Make sure articles exist as saved cart items so a refill job can add
+     * them (favourites, a saved cart). Articles already (partly) in the cart
+     * are left alone; others become "missing" with the wanted amount.
+     * Favourites are added once (amount 1) and flagged, so a failed add can
      * drop them again instead of cluttering the cart list.
      */
-    async ensureItemsFromFavorites(favorites) {
+    async ensureItems(articles, { viaFavorite = false } = {}) {
       return update(KEYS.items, {}, (items) => {
         const next = { ...items };
         const now = Date.now();
-        for (const fav of favorites) {
-          const prev = next[fav.articleId];
+        for (const source of articles) {
+          const prev = next[source.articleId];
           if (prev && (prev.status === STATUS.IN_CART || prev.status === STATUS.PARTIAL)) continue;
-          const { favoritedAt, lastSeenAt, unavailable, unavailableMessage, available, ...article } = fav;
-          next[fav.articleId] = {
+          const { favoritedAt, lastSeenAt, unavailable, unavailableMessage, available, ...article } = source;
+          const wanted = viaFavorite ? 1 : source.wantedAmount || source.amount || 1;
+          next[source.articleId] = {
             ...article,
             ...(prev || {}),
-            amount: (prev && prev.amount) || 1,
+            amount: (prev && prev.amount) || wanted,
+            wantedAmount: (prev && prev.wantedAmount) || wanted,
             status: STATUS.MISSING,
-            viaFavorite: prev ? Boolean(prev.viaFavorite) : true,
+            missingReason: null,
+            viaFavorite: prev ? Boolean(prev.viaFavorite) : viaFavorite,
             firstSavedAt: (prev && prev.firstSavedAt) || now,
             missingSince: now,
           };
@@ -389,6 +439,57 @@
         return next;
       });
     },
+
+    ensureItemsFromFavorites(favorites) {
+      return store.ensureItems(favorites, { viaFavorite: true });
+    },
+
+    /** Remove items and hand them back, so the removal can be undone. */
+    async takeItems(articleIds) {
+      const ids = new Set(articleIds);
+      const taken = [];
+      await update(KEYS.items, {}, (items) => {
+        const next = {};
+        for (const [id, item] of Object.entries(items)) {
+          if (ids.has(id)) taken.push(item);
+          else next[id] = item;
+        }
+        return taken.length ? next : undefined;
+      });
+      return taken;
+    },
+
+    /** Put items taken with takeItems() back, unless the article came back meanwhile. */
+    restoreItems(list) {
+      return update(KEYS.items, {}, (items) => {
+        const next = { ...items };
+        for (const item of list) if (!next[item.articleId]) next[item.articleId] = item;
+        return next;
+      });
+    },
+
+    getCarts: () => get(KEYS.carts, []),
+    updateCarts: (fn) => update(KEYS.carts, [], fn),
+
+    /** Keep a named copy of articles (a "saved cart"). Newest first; the oldest go beyond MAX_CARTS. */
+    async saveCart(name, articles) {
+      const now = Date.now();
+      const cart = {
+        id: `cart-${now.toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
+        name: String(name || '').trim().slice(0, 80) || new Date(now).toISOString().slice(0, 10),
+        createdAt: now,
+        game: articles[0] ? articles[0].game : null,
+        items: articles.map((item) => {
+          // No pictures: a saved cart must stay small (storage is limited); they are made again later.
+          const { status, missingSince, missingReason, lastAttempt, priceChange, viaFavorite, thumb, thumbTriedAt, ...rest } = item;
+          return { ...rest, wantedAmount: item.wantedAmount || item.amount || 1 };
+        }),
+      };
+      await update(KEYS.carts, [], (carts) => [cart, ...carts].slice(0, MAX_CARTS));
+      return cart;
+    },
+
+    removeCart: (id) => update(KEYS.carts, [], (carts) => carts.filter((cart) => cart.id !== id)),
 
     getFavorites: () => get(KEYS.favorites, {}),
     setFavorites: (favorites) => set(KEYS.favorites, favorites),

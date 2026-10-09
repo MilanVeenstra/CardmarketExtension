@@ -147,6 +147,16 @@ Na een update vragen open Cardmarket-tabbladen om te verversen, via het label
   verschil terug. Ook zie je **waarom** iets uit je mandje verdween (mandje
   geleegd, verkoper weg, of alleen dit artikel: waarschijnlijk verkocht) en of
   de **prijs** veranderde.
+- Terugzetten gaat **per verkoper in één verzoek**; wat daarbij niet aankomt,
+  wordt daarna los geprobeerd. Spijt? *Ongedaan maken* haalt precies de
+  toegevoegde exemplaren weer uit je mandje.
+- Is een artikel verkocht, dan zoekt *Vervanging zoeken* (het ⇄-knopje in het
+  paneel op de mandjepagina) hetzelfde kaartje bij dezelfde verkoper, of bij
+  een verkoper die al in je mandje zit, of het goedkoopste vergelijkbare
+  aanbod.
+- In de popup-tab **Mandjes** bewaar je je lijst onder een naam
+  (bijvoorbeeld per deck) en zet je hem later met één klik terug. Lijsten zijn
+  ook te kopiëren als tekst of te downloaden als CSV.
 - Er draait altijd maar één terugzet-actie tegelijk, ook met meerdere tabs.
   Sluit je de tab halverwege, dan biedt de volgende Cardmarket-pagina
   *Doorgaan* aan; het mandje wordt dan eerst opnieuw gecontroleerd.
@@ -188,6 +198,7 @@ manifest.json
 src/
   shared/      store.js (datamodel + opslag), ui.js (gedeelde weergave), i18n.js
   content/     cardmarket.js (kennis van de site), refill.js (terugzetten),
+               replace.js (vervanging zoeken),
                widget.js (paneel op de site), favorites.js (sterren bij aanbiedingen),
                main.js (opstarten)
   popup/       popup.html/css/js
@@ -221,7 +232,9 @@ endpoints als de echte site. Getest worden:
 - uitgelogd zijn, of ingelogd met een ander account;
 - aantallen ("1 van 2"), redenen en prijswijzigingen;
 - weigeringen: verkocht, te weinig exemplaren of onduidelijk;
-- één actie tegelijk, en doorgaan na een gesloten tab.
+- één actie tegelijk, en doorgaan na een gesloten tab;
+- batches per verkoper, ongedaan maken, vervanging zoeken, mandjes bewaren
+  en exporteren.
 
 ```bash
 npm install

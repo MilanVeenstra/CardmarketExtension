@@ -58,7 +58,7 @@ Notatie:
 | FR-18 | Het terugzetten draait in een Cardmarket-tab, met je eigen sessie. Start je het vanuit de popup terwijl je niet op Cardmarket zit, dan opent de extensie je winkelmandje en start het daar vanzelf (de actie wacht maximaal 2 minuten). | ✔ |
 | FR-19 | Vooraf wordt het actuele mandje gecontroleerd. Alleen de exemplaren die nog ontbreken gaan terug; artikelen die er al (helemaal) in zitten, worden overgeslagen, zodat aantallen nooit verdubbelen. | ✔ |
 | FR-20 | Is het mandje niet betrouwbaar te lezen, dan weigert de extensie te starten en markeert ze niets als ontbrekend. Onbetrouwbaar is: geen rijen terwijl de header iets telt, een verkopersblok zonder leesbare rijen, of minder artikelen dan de header telt. | ✔ |
-| FR-21 | Artikelen gaan één voor één terug, met een instelbare pauze (standaard 1,2 s plus een willekeurige 0–0,4 s). | ✔ |
+| FR-21 | Heeft een verkoper meerdere artikelen om terug te zetten, dan gaan die in **één verzoek** (batch). Daarna wordt het mandje gelezen; wat niet aankwam gaat alsnog één voor één. Tussen alle verzoeken zit een instelbare pauze (standaard 1,2 s plus een willekeurige 0–0,4 s). | ✔ |
 | FR-22 | De extensie gebruikt het CSRF-token van de pagina. Bij elke weigering zonder bekende reden zoekt ze een vers token en probeert ze het één keer opnieuw (maximaal 3 keer per actie). | ✔ |
 | FR-22a | Weigeringen worden ingedeeld: *verkocht* (niet beschikbaar), *te weinig exemplaren* (opnieuw met 1 exemplaar; het artikel wordt dan *deels in mandje*) of *onbekend* (blijft *ontbreekt*, met de melding; pas de tweede onbekende weigering op rij telt als niet beschikbaar). | ✔ |
 | FR-23 | Er zijn twee bekende toevoeg-endpoints. Werkt het eerste niet, dan volgt het tweede, en het werkende endpoint wordt onthouden. | ✔ |
@@ -70,6 +70,8 @@ Notatie:
 | FR-27b | Een actie uit de popup start alleen in een zichtbare, ingelogde Cardmarket-tab. Op de loginpagina stopt ze met de melding dat je niet bent ingelogd. | ✔ |
 | FR-28 | Na het terugzetten op de mandjepagina herlaadt de pagina vanzelf, met een samenvatting ("X in je mandje gezet, Y niet gelukt"). De telling komt uit de controle achteraf. | ✔ |
 | FR-29 | *Zoek vergelijkbaar aanbod* opent de productpagina, gefilterd op dezelfde taal, minimaal dezelfde conditie en dezelfde foil-status. | ✔ |
+| FR-29a | **Vervanging zoeken** (paneel op Cardmarket, bij niet-beschikbare artikelen): eerst bij dezelfde verkoper (tot +25%), daarna het gefilterde aanbod. Verkopers die al in je mandje zitten krijgen voorrang (geen extra verzending). Maximaal drie voorstellen met de reden en het prijsverschil; *Toevoegen* zet de vervanging in je mandje en haalt het verkochte origineel uit de lijst. | ✔ |
+| FR-29b | **Ongedaan maken**: na het terugzetten haalt één klik precies de toegevoegde exemplaren weer uit je mandje (via het verwijderverzoek van de site). Ze blijven op je lijst als *ontbreekt*. | ✔ |
 
 ### A4. Favorieten
 
@@ -94,6 +96,9 @@ Notatie:
 | FR-41 | Heb je artikelen uit meerdere spellen, dan is er een spelkeuze. | — |
 | FR-42 | Instellingen: automatisch opslaan aan/uit, melding aan/uit, pauze tussen artikelen (0,5–10 s). | ✔ |
 | FR-43 | Export naar JSON (artikelen en favorieten). Bij import worden nieuwe artikelen toegevoegd zonder bestaande te overschrijven. *Alles wissen* vraagt eerst om bevestiging. | — |
+| FR-43a | **Mandjes bewaren**: in de popup-tab *Mandjes* bewaar je de huidige lijst onder een naam (bijv. "Commander-deck"). Later zet *In mandje zetten* hem met één klik terug. Ook te kopiëren als tekst of te downloaden als CSV, en mee in de JSON-export. | ✔ |
+| FR-43b | De lijst van de tab *Winkelmandje* is te kopiëren als tekst ("2x Bojuka Bog (Commander 2018 #238) · NM · English · 0,99 € · snowc") of te downloaden als CSV (puntkomma's, decimale komma). | ✔ |
+| FR-43c | Iets uit de lijst verwijderen kan ongedaan worden gemaakt (melding met *Ongedaan maken*). | ✔ |
 | FR-44 | De interface is Nederlands of Engels, afhankelijk van de taal van de browser, en ondersteunt een lichte en een donkere modus. | ✔ (NL) |
 
 ### A6. Niet-functioneel
@@ -106,7 +111,7 @@ Notatie:
 | NFR-04 | **Liever niets doen dan iets fout doen.** Bij twijfel (onleesbare pagina, uitgelogd, controle van Cardmarket) worden geen statussen aangepast en geen artikelen toegevoegd. |
 | NFR-05 | **Platform:** Chrome, Edge, Brave en Opera (Manifest V3), zonder build-stap. |
 | NFR-06 | **Isolatie.** De interface op Cardmarket draait in een shadow DOM, zodat de CSS van de site en die van de extensie elkaar niet raken. |
-| NFR-07 | **Testbaarheid.** Er zijn 52 end-to-end-tests met Playwright, tegen een nagebootste Cardmarket. |
+| NFR-07 | **Testbaarheid.** Er zijn 58 end-to-end-tests met Playwright, tegen een nagebootste Cardmarket. |
 
 ### A7. Bekende beperkingen
 

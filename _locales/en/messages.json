@@ -20,6 +20,33 @@
   "cartSavedLead": {
     "message": "$1 article(s) in your cart are saved."
   },
+  "cartsDelete": {
+    "message": "Delete"
+  },
+  "cartsEmptyLead": {
+    "message": "Save your list under a name (for example per deck) and put it back in your cart later with one click."
+  },
+  "cartsEmptyTitle": {
+    "message": "No saved carts yet"
+  },
+  "cartsMeta": {
+    "message": "$1 article(s) · $2 · $3"
+  },
+  "cartsNamePlaceholder": {
+    "message": "Name, e.g. Commander deck"
+  },
+  "cartsNothing": {
+    "message": "There is nothing in the list to save."
+  },
+  "cartsRestore": {
+    "message": "Put in cart"
+  },
+  "cartsSave": {
+    "message": "Save list"
+  },
+  "cartsSaved": {
+    "message": "Saved as “$1”."
+  },
   "clearAll": {
     "message": "Delete everything"
   },
@@ -91,6 +118,15 @@
   },
   "errorUnknown": {
     "message": "Something went wrong. Try again."
+  },
+  "exportCopied": {
+    "message": "Copied to the clipboard."
+  },
+  "exportCopy": {
+    "message": "Copy as text"
+  },
+  "exportCsv": {
+    "message": "Download CSV"
   },
   "exportData": {
     "message": "Export (JSON)"
@@ -278,6 +314,42 @@
   "removeFromSaved": {
     "message": "Remove from saved list"
   },
+  "removedMany": {
+    "message": "$1 articles removed from the list."
+  },
+  "removedOne": {
+    "message": "“$1” removed from the list."
+  },
+  "replaceAdd": {
+    "message": "Add"
+  },
+  "replaceCheapest": {
+    "message": "Cheapest similar offer"
+  },
+  "replaceFind": {
+    "message": "Find a replacement"
+  },
+  "replaceInCart": {
+    "message": "Seller already in your cart: no extra shipping"
+  },
+  "replaceLess": {
+    "message": "$1 cheaper"
+  },
+  "replaceMore": {
+    "message": "$1 more"
+  },
+  "replaceNone": {
+    "message": "No similar offer found."
+  },
+  "replaceSameSeller": {
+    "message": "Same seller"
+  },
+  "replaceSearching": {
+    "message": "Looking for a replacement…"
+  },
+  "replaceTitle": {
+    "message": "Replacement"
+  },
   "retryUnavailable": {
     "message": "Try again anyway"
   },
@@ -338,8 +410,23 @@
   "tabCart": {
     "message": "Cart"
   },
+  "tabCarts": {
+    "message": "Carts ($1)"
+  },
   "tabFavorites": {
     "message": "Favourites ($1)"
+  },
+  "undo": {
+    "message": "Undo"
+  },
+  "undoDone": {
+    "message": "$1 article(s) taken out of your cart again."
+  },
+  "undoRunning": {
+    "message": "Taking the added articles out of your cart again…"
+  },
+  "undoTitle": {
+    "message": "Undo refill"
   },
   "updatedPill": {
     "message": "Cart Saver updated · reload the page"

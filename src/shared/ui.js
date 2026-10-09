@@ -35,6 +35,7 @@
     cart: '<path d="M3.5 5h2l1.8 9.2a1 1 0 0 0 1 .8h7.6a1 1 0 0 0 1-.8L18.5 8H7"/><circle cx="9.5" cy="19" r="1.2"/><circle cx="16" cy="19" r="1.2"/>',
     external: '<path d="M14 4h6v6"/><path d="M20 4l-9 9"/><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/>',
     user: '<circle cx="12" cy="8.5" r="3.5"/><path d="M5 20c.8-3.6 3.6-5.5 7-5.5s6.2 1.9 7 5.5"/>',
+    swap: '<path d="M4 8h14l-3.5-3.5"/><path d="M20 16H6l3.5 3.5"/>',
   };
 
   /** A 16px line icon (inline SVG, inherits the text colour). */
@@ -299,6 +300,11 @@
     .cmcs-muted { color: var(--cmcs-muted); }
     .cmcs-error { color: var(--cmcs-bad); }
     .cmcs-detail { color: var(--cmcs-muted); font-size: 11px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; word-break: break-word; user-select: all; margin-top: 2px; }
+    .cmcs-btn--small { min-height: 26px; padding: 3px 10px; font-size: 12px; }
+    .cmcs-replace { margin: 0 0 8px 40px; padding: 6px 10px; border-radius: 8px; background: var(--cmcs-surface); }
+    .cmcs-replace .cmcs-item { padding: 6px 0; }
+    .cmcs-replace .cmcs-item-meta:last-child { white-space: normal; }
+    .cmcs-replace-title { font-size: 12px; font-weight: 700; color: var(--cmcs-muted); margin: 2px 0; }
     .cmcs-group-title { font-size: 12px; font-weight: 700; color: var(--cmcs-muted); text-transform: uppercase; letter-spacing: 0.03em; margin: 12px 0 2px; }
   `;
 

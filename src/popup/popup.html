@@ -17,6 +17,7 @@
     <nav class="tabs" role="tablist">
       <button type="button" id="tab-cart" class="tab" role="tab" aria-controls="view-cart" data-i18n="tabCart"></button>
       <button type="button" id="tab-fav" class="tab" role="tab" aria-controls="view-fav"></button>
+      <button type="button" id="tab-carts" class="tab" role="tab" aria-controls="view-carts"></button>
     </nav>
 
     <main>
@@ -28,6 +29,10 @@
         <section id="actions" class="actions"></section>
         <nav id="filters" class="filters" hidden></nav>
         <section id="list" class="list"></section>
+        <section id="export" class="export" hidden>
+          <button type="button" id="export-text" class="cmcs-linklike" data-i18n="exportCopy"></button>
+          <button type="button" id="export-csv" class="cmcs-linklike" data-i18n="exportCsv"></button>
+        </section>
         <section id="empty" class="empty" hidden>
           <p class="empty-title" data-i18n="emptyTitle"></p>
           <p class="cmcs-muted" data-i18n="emptyLead"></p>
@@ -43,7 +48,21 @@
           <p class="cmcs-muted" data-i18n="favEmptyLead"></p>
         </section>
       </div>
+
+      <div id="view-carts" role="tabpanel" aria-labelledby="tab-carts" hidden>
+        <form id="cart-form" class="cart-form">
+          <input id="cart-name" class="search" type="text" maxlength="80" autocomplete="off" data-i18n-placeholder="cartsNamePlaceholder" />
+          <button type="submit" class="cmcs-btn" data-i18n="cartsSave"></button>
+        </form>
+        <section id="carts-list" class="list"></section>
+        <section id="carts-empty" class="empty" hidden>
+          <p class="empty-title" data-i18n="cartsEmptyTitle"></p>
+          <p class="cmcs-muted" data-i18n="cartsEmptyLead"></p>
+        </section>
+      </div>
     </main>
+
+    <div id="toast" class="toast" role="status" hidden></div>
 
     <footer class="foot cmcs-muted" data-i18n="privacyNote"></footer>
 
