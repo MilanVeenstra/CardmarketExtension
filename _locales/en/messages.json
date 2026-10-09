@@ -269,9 +269,6 @@
   "groupUnavailable": {
     "message": "No longer available ($1)"
   },
-  "hide": {
-    "message": "Hide"
-  },
   "how1": {
     "message": "Put articles in your Cardmarket cart as usual, from any game. Cart Saver remembers them by itself."
   },
@@ -616,9 +613,6 @@
   },
   "shippingTracked": {
     "message": "over 25 €: usually tracked shipping (dearer)"
-  },
-  "show": {
-    "message": "Show"
   },
   "soldOnlyLead": {
     "message": "They cannot go back. Find a replacement, or take them off the list."

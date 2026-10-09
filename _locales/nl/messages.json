@@ -269,9 +269,6 @@
   "groupUnavailable": {
     "message": "Niet meer beschikbaar ($1)"
   },
-  "hide": {
-    "message": "Verberg"
-  },
   "how1": {
     "message": "Leg artikelen zoals altijd in je winkelmandje op Cardmarket, uit elk spel. Cart Saver onthoudt ze vanzelf."
   },
@@ -616,9 +613,6 @@
   },
   "shippingTracked": {
     "message": "boven 25 €: meestal verzending met tracking (duurder)"
-  },
-  "show": {
-    "message": "Toon"
   },
   "soldOnlyLead": {
     "message": "Die kunnen niet meer terug. Zoek een vervanging, of haal ze uit de lijst."

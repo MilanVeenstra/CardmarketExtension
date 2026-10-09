@@ -93,7 +93,7 @@ Notatie:
 
 | ID | Requirement | Test |
 |---|---|---|
-| FR-40 | De tab *Winkelmandje* in de popup (ontwerp 1.5): bovenaan de samenvatting ("5 kaart(en) kunnen terug · 9,79 € bij 3 verkoper(s) · je hele mandje werd geleegd"), daaronder per verkoper een rustige lijst met subtotaal (in te klappen tot één regel met kaartjes), een sectie *Niet meer beschikbaar* met de stempel VERKOCHT, en "4 in je mandje — Toon". Elke rij toont naam, één metaregel en één korte extra regel (rood alleen bij een waarschuwing); een klik klapt hem open met alle details en de knoppen *Alleen deze terug*, *Op Cardmarket*, ☆ en ×. Onderaan de zwarte knop "Zet 5 terug in je mandje · 9,79 €". | ✔ |
+| FR-40 | De tab *Winkelmandje* in de popup (ontwerp 1.5): bovenaan de samenvatting ("5 kaart(en) kunnen terug · 9,79 € bij 3 verkoper(s) · je hele mandje werd geleegd"), daaronder per verkoper een rustige lijst met subtotaal (in te klappen tot één regel met kaartjes), een sectie *Niet meer beschikbaar* met de stempel VERKOCHT, en "4 in je mandje" met die artikelen eronder (sinds 1.6.1 altijd uitgeklapt). Elke rij toont naam, één metaregel en één korte extra regel (rood alleen bij een waarschuwing); een klik klapt hem open met alle details en de knoppen *Alleen deze terug*, *Op Cardmarket*, ☆ en ×. Onderaan de zwarte knop "Zet 5 terug in je mandje · 9,79 €". | ✔ |
 | FR-41 | Heb je artikelen uit meerdere spellen, dan is er een spelkeuze. | — |
 | FR-42 | Instellingen: automatisch opslaan aan/uit, melding aan/uit, pauze tussen artikelen (0,5–10 s). | ✔ |
 | FR-43 | Export naar JSON (artikelen en favorieten). Bij import worden nieuwe artikelen toegevoegd zonder bestaande te overschrijven. *Alles wissen* vraagt eerst om bevestiging. | — |

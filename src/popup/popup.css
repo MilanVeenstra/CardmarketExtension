@@ -40,7 +40,6 @@ main { flex: 1; min-height: 0; overflow: auto; padding: 4px 14px 8px; }
 .cmcs-summary { padding-top: 12px; }
 .open-cart { align-self: flex-start; }
 .list { padding-bottom: 4px; }
-.in-cart-line { display: flex; justify-content: space-between; align-items: center; padding: 14px 0 4px; font-size: 12px; color: var(--cmcs-muted); }
 .section-actions { display: flex; gap: 14px; padding: 6px 0 0; }
 .export { display: flex; gap: 14px; padding: 14px 0 2px; }
 .empty { text-align: center; padding: 22px 8px 8px; }

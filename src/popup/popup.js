@@ -40,10 +40,9 @@
   /** Favourites ticked to go to the cart (or into a list) together, and the one unfolded. */
   const favSelected = new Set();
   let favOpenId = null;
-  /** Sellers folded into one line, the opened row, and whether "in your cart" is shown. */
+  /** Sellers folded into one line, and the opened row. */
   const closedSellers = new Set();
   let openId = null;
-  let showInCart = false;
   let notice = null;
   let query = '';
   /** The saved list that is unfolded, and the one being renamed. */
@@ -757,14 +756,9 @@
     }
     if (inCart.length) {
       list.push(
-        h(
-          'div',
-          { class: 'in-cart-line' },
-          h('span', null, t('sectionInCart', store.copiesInCart(inCart))),
-          h('button', { type: 'button', class: 'cmcs-link', 'aria-expanded': String(showInCart), onclick: () => { showInCart = !showInCart; render(); } }, showInCart ? t('hide') : t('show')),
-        ),
+        h('div', { class: 'cmcs-section-title' }, t('sectionInCart', store.copiesInCart(inCart))),
+        groupBySeller(inCart.map((item) => ({ ...item, status: STATUS.IN_CART })), inCartRow),
       );
-      if (showInCart) list.push(groupBySeller(inCart.map((item) => ({ ...item, status: STATUS.IN_CART })), inCartRow));
     }
     $('list').replaceChildren(...list.flat(Infinity).filter(Boolean));
 

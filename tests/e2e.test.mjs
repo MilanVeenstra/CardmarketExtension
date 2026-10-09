@@ -254,11 +254,10 @@ describe('Cardmarket Cart Saver', () => {
     await popup.locator('#tab-cart').click();
     await waitFor(async () => /Alles wat nog te koop is, zit in je mandje/.test(await popup.locator('#summary').innerText()), 'summary');
     assert.match(await popup.locator('#summary').innerText(), /3 artikelen · 2,23 € bij 1 verkoper/);
-    // What is gone carries the stamp; what is in the cart is folded into one line.
+    // What is gone carries the stamp; what is in the cart is listed below it, always unfolded.
     assert.match(await popup.locator('#list').innerText(), /Ephemerate[\s\S]*VERKOCHT[\s\S]*3 in je mandje/);
-    assert.equal(await popup.locator('#list .cmcs-item').count(), 1);
-    await popup.getByRole('button', { name: 'Toon' }).click();
-    await waitFor(async () => (await popup.locator('#list .cmcs-item').count()) === 3, 'three rows');
+    assert.equal(await popup.locator('#list .cmcs-item').count(), 3);
+    assert.equal(await popup.getByRole('button', { name: 'Toon' }).count(), 0);
     await shot(popup, '05-popup');
     await popup.close();
   });
@@ -945,7 +944,8 @@ describe('Cardmarket Cart Saver', () => {
       const popup = await context.newPage();
       await popup.goto(`chrome-extension://${extensionId}/src/popup/popup.html`);
       await popup.locator('#tab-cart').click();
-      await waitFor(async () => (await popup.locator('#list .cmcs-item').count()) === 3, 'three rows');
+      // Three to put back, and the Bog copy that is still in the cart (always shown).
+      await waitFor(async () => (await popup.locator('#list .cmcs-item').count()) === 4, 'four rows');
       const list = await popup.locator('#list').innerText();
       assert.match(list, /Bojuka Bog[\s\S]*1 van 2 in je mandje/);
       assert.match(list, /Portal Mage[\s\S]*Waarschijnlijk verkocht/);
@@ -1387,9 +1387,8 @@ describe('Cardmarket Cart Saver', () => {
       const popup = await context.newPage();
       await popup.goto(`chrome-extension://${extensionId}/src/popup/popup.html`);
       await popup.locator('#tab-cart').click();
-      await popup.getByRole('button', { name: 'Toon' }).click();
+      await waitFor(async () => /Bojuka Bog[\s\S]*98% boven trend/.test(await popup.locator('#list').innerText()), 'trend in the list');
       const list = await popup.locator('#list').innerText();
-      assert.match(list, /Bojuka Bog[\s\S]*98% boven trend/);
       assert.equal(await popup.locator('[title="Trend 0,50 € · deze aanbieding is 98% duurder"]').count(), 1);
       assert.doesNotMatch(list, /Portal Mage[\s\S]*Trend/, 'five cents above the trend is not worth a note');
       await popup.close();
@@ -1509,7 +1508,6 @@ describe('Cardmarket Cart Saver', () => {
       assert.equal(await select.inputValue(), '*');
       assert.deepEqual(await select.locator('option').allInnerTexts(), ['Alle spellen', 'Magic', 'Pokémon']);
       assert.match(await popup.locator('#summary').innerText(), /Alles zit in je mandje/);
-      await popup.getByRole('button', { name: 'Toon' }).click();
       await waitFor(async () => (await popup.locator('#list .cmcs-item').count()) === 3, 'all three');
       assert.match(await popup.locator(`#list .cmcs-item[data-article-id="${PIKACHU}"]`).innerText(), /Pikachu[\s\S]*Base Set · NM · Engels · Pokémon/);
       // One seller, both games, under one header.
