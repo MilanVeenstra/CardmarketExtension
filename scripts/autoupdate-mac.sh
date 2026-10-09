@@ -7,7 +7,7 @@
 #   ./autoupdate-mac.sh uninstall
 #
 # `install` turns the folder Chrome loads the extension from into a git
-# checkout of the branch (in place, so Chrome keeps the same extension and
+# checkout of the repository's main branch (in place, so Chrome keeps the same extension and
 # your saved data), and registers a small background job (launchd) that
 # fetches the latest version every few minutes. The extension notices new
 # files by itself and reloads; open Cardmarket tabs then ask for a refresh.
@@ -17,7 +17,8 @@
 set -euo pipefail
 
 REPO_URL="https://github.com/MilanVeenstra/CardmarketExtension.git"
-BRANCH="claude/cardmarket-cart-extension-fvfwx5"
+# The repository's default branch: `fetch origin HEAD` follows it, whatever it is called.
+LOCAL_BRANCH="cart-saver"
 LABEL="com.cardmarket-cart-saver.autoupdate"
 PLIST="$HOME/Library/LaunchAgents/$LABEL.plist"
 LOG="$HOME/Library/Logs/cart-saver-autoupdate.log"
@@ -59,8 +60,8 @@ install() {
     "$git_bin" -C "$dir" remote add origin "$REPO_URL"
   fi
   echo "Nieuwste versie ophalen…"
-  "$git_bin" -C "$dir" fetch -q origin "$BRANCH"
-  "$git_bin" -C "$dir" checkout -q -f -B "$BRANCH" "origin/$BRANCH"
+  "$git_bin" -C "$dir" fetch -q origin HEAD
+  "$git_bin" -C "$dir" checkout -q -f -B "$LOCAL_BRANCH" FETCH_HEAD
   "$git_bin" -C "$dir" rev-parse HEAD >"$dir/build-id.txt"
 
   # The job: fetch and move to the latest commit. This folder is only a
@@ -68,7 +69,7 @@ install() {
   local quoted_dir="'${dir//\'/\'\\\'\'}'"
   # build-id.txt tells the extension which commit is on disk, so every push
   # triggers a reload (the file is ignored by git).
-  local command="cd $quoted_dir && '$git_bin' fetch -q origin '$BRANCH' && '$git_bin' reset -q --hard 'origin/$BRANCH' && new=\$('$git_bin' rev-parse HEAD) && if [ \"\$new\" != \"\$(cat build-id.txt 2>/dev/null)\" ]; then echo \"\$new\" > build-id.txt && echo \"\$(date '+%Y-%m-%d %H:%M:%S') \$('$git_bin' log -1 --format='%h %s')\"; fi"
+  local command="cd $quoted_dir && '$git_bin' fetch -q origin HEAD && '$git_bin' reset -q --hard FETCH_HEAD && new=\$('$git_bin' rev-parse HEAD) && if [ \"\$new\" != \"\$(cat build-id.txt 2>/dev/null)\" ]; then echo \"\$new\" > build-id.txt && echo \"\$(date '+%Y-%m-%d %H:%M:%S') \$('$git_bin' log -1 --format='%h %s')\"; fi"
 
   mkdir -p "$(dirname "$PLIST")" "$(dirname "$LOG")"
   cat >"$PLIST" <<EOF

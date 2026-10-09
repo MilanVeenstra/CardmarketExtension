@@ -1,6 +1,10 @@
 # Design-prompt — Cardmarket Cart Saver (versie 1.4)
 
-> **Kopieer alles vanaf hier naar Claude Design.** Voeg de screenshots uit
+> **Status:** het nieuwe ontwerp (logo 6a, zwart/rood, popup als combinatie
+> van de opzetten 7a, 7b en 7c) is gebouwd in versie 1.5. De screenshots in
+> `docs/screenshots/` tonen die versie.
+
+> **Kopieer alles vanaf hier naar je designtool.** Voeg de screenshots uit
 > `docs/screenshots/` toe als referentie voor hoe het er nu uitziet.
 
 ---

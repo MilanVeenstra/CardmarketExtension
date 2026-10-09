@@ -77,6 +77,12 @@
   "dataTitle": {
     "message": "Je opgeslagen artikelen en favorieten"
   },
+  "detailOpen": {
+    "message": "Op Cardmarket"
+  },
+  "detailRefillOne": {
+    "message": "Alleen deze terug"
+  },
   "emptyLead": {
     "message": "Open je winkelmandje op Cardmarket; Cart Saver onthoudt de artikelen automatisch."
   },
@@ -158,6 +164,9 @@
   "favEmptyTitle": {
     "message": "Nog geen favorieten"
   },
+  "favInCartNote": {
+    "message": "In je mandje"
+  },
   "favNoMatches": {
     "message": "Geen favorieten gevonden voor deze zoekopdracht."
   },
@@ -197,6 +206,9 @@
   "groupUnavailable": {
     "message": "Niet meer beschikbaar ($1)"
   },
+  "hide": {
+    "message": "Verberg"
+  },
   "how1": {
     "message": "Leg artikelen zoals altijd in je winkelmandje op Cardmarket. Cart Saver slaat ze automatisch op."
   },
@@ -235,6 +247,27 @@
   },
   "notAvailableAnymore": {
     "message": "Niet meer beschikbaar."
+  },
+  "notePriceDown": {
+    "message": "Prijs $1 lager"
+  },
+  "notePriceUp": {
+    "message": "Prijs $1 hoger"
+  },
+  "noteReasonEmptied": {
+    "message": "Mandje werd geleegd"
+  },
+  "noteReasonSeller": {
+    "message": "Verkoper verdween uit je mandje"
+  },
+  "noteReasonSingle": {
+    "message": "Waarschijnlijk verkocht"
+  },
+  "noteTrendAbove": {
+    "message": "$1% boven trend"
+  },
+  "noteTrendBelow": {
+    "message": "$1% onder trend"
   },
   "nothingMissing": {
     "message": "Alles wat je hebt opgeslagen zit in je mandje."
@@ -292,6 +325,9 @@
   },
   "refillAll": {
     "message": "Zet $1 artikel(en) terug"
+  },
+  "refillButton": {
+    "message": "Zet $1 terug in je mandje"
   },
   "refillDoneTitle": {
     "message": "Klaar"
@@ -380,11 +416,20 @@
   "saveCartNow": {
     "message": "Huidig mandje opslaan"
   },
+  "sectionInCart": {
+    "message": "$1 in je mandje"
+  },
+  "sectionUnavailable": {
+    "message": "Niet meer beschikbaar"
+  },
   "selectAll": {
     "message": "Alles selecteren"
   },
   "selectNone": {
     "message": "Niets selecteren"
+  },
+  "sellerPriceChanged": {
+    "message": "prijs gewijzigd"
   },
   "settingAutoTrack": {
     "message": "Mandje automatisch opslaan"
@@ -452,8 +497,14 @@
   "shippingTracked": {
     "message": "boven 25 €: meestal verzending met tracking (duurder)"
   },
+  "show": {
+    "message": "Toon"
+  },
   "soldBy": {
     "message": "Verkoper: $1"
+  },
+  "stampSold": {
+    "message": "VERKOCHT"
   },
   "statusInCart": {
     "message": "In mandje"
@@ -470,14 +521,29 @@
   "stop": {
     "message": "Stoppen"
   },
+  "summaryAllIn": {
+    "message": "Alles zit in je mandje"
+  },
+  "summaryAllInSub": {
+    "message": "$1 kaart(en) · $2 bij $3 verkoper(s)"
+  },
+  "summaryCanReturn": {
+    "message": "$1 kaart(en) kunnen terug"
+  },
+  "summaryEmptied": {
+    "message": "je hele mandje werd geleegd"
+  },
+  "summarySub": {
+    "message": "$1 bij $2 verkoper(s)"
+  },
   "tabCart": {
     "message": "Winkelmandje"
   },
   "tabCarts": {
-    "message": "Mandjes ($1)"
+    "message": "Mandjes $1"
   },
   "tabFavorites": {
-    "message": "Favorieten ($1)"
+    "message": "Favorieten $1"
   },
   "trendAbove": {
     "message": "Trend $1 · deze aanbieding is $2% duurder"

@@ -77,6 +77,12 @@
   "dataTitle": {
     "message": "Your saved articles and favourites"
   },
+  "detailOpen": {
+    "message": "On Cardmarket"
+  },
+  "detailRefillOne": {
+    "message": "Only this one back"
+  },
   "emptyLead": {
     "message": "Open your shopping cart on Cardmarket and Cart Saver remembers its articles automatically."
   },
@@ -158,6 +164,9 @@
   "favEmptyTitle": {
     "message": "No favourites yet"
   },
+  "favInCartNote": {
+    "message": "In your cart"
+  },
   "favNoMatches": {
     "message": "No favourites match your search."
   },
@@ -197,6 +206,9 @@
   "groupUnavailable": {
     "message": "No longer available ($1)"
   },
+  "hide": {
+    "message": "Hide"
+  },
   "how1": {
     "message": "Put articles in your Cardmarket cart as usual. Cart Saver saves them automatically."
   },
@@ -235,6 +247,27 @@
   },
   "notAvailableAnymore": {
     "message": "No longer available."
+  },
+  "notePriceDown": {
+    "message": "Price $1 lower"
+  },
+  "notePriceUp": {
+    "message": "Price $1 higher"
+  },
+  "noteReasonEmptied": {
+    "message": "Cart was emptied"
+  },
+  "noteReasonSeller": {
+    "message": "Seller left your cart"
+  },
+  "noteReasonSingle": {
+    "message": "Probably sold"
+  },
+  "noteTrendAbove": {
+    "message": "$1% above trend"
+  },
+  "noteTrendBelow": {
+    "message": "$1% below trend"
   },
   "nothingMissing": {
     "message": "Everything you saved is in your cart."
@@ -292,6 +325,9 @@
   },
   "refillAll": {
     "message": "Put back $1 article(s)"
+  },
+  "refillButton": {
+    "message": "Put $1 back in your cart"
   },
   "refillDoneTitle": {
     "message": "Done"
@@ -380,11 +416,20 @@
   "saveCartNow": {
     "message": "Save current cart"
   },
+  "sectionInCart": {
+    "message": "$1 in your cart"
+  },
+  "sectionUnavailable": {
+    "message": "No longer available"
+  },
   "selectAll": {
     "message": "Select all"
   },
   "selectNone": {
     "message": "Select none"
+  },
+  "sellerPriceChanged": {
+    "message": "price changed"
   },
   "settingAutoTrack": {
     "message": "Save cart automatically"
@@ -452,8 +497,14 @@
   "shippingTracked": {
     "message": "over 25 €: usually tracked shipping (dearer)"
   },
+  "show": {
+    "message": "Show"
+  },
   "soldBy": {
     "message": "Seller: $1"
+  },
+  "stampSold": {
+    "message": "SOLD"
   },
   "statusInCart": {
     "message": "In cart"
@@ -470,14 +521,29 @@
   "stop": {
     "message": "Stop"
   },
+  "summaryAllIn": {
+    "message": "Everything is in your cart"
+  },
+  "summaryAllInSub": {
+    "message": "$1 card(s) · $2 from $3 seller(s)"
+  },
+  "summaryCanReturn": {
+    "message": "$1 card(s) can go back"
+  },
+  "summaryEmptied": {
+    "message": "your whole cart was emptied"
+  },
+  "summarySub": {
+    "message": "$1 from $2 seller(s)"
+  },
   "tabCart": {
     "message": "Cart"
   },
   "tabCarts": {
-    "message": "Carts ($1)"
+    "message": "Carts $1"
   },
   "tabFavorites": {
-    "message": "Favourites ($1)"
+    "message": "Favourites $1"
   },
   "trendAbove": {
     "message": "Trend $1 · this offer is $2% higher"

@@ -178,7 +178,7 @@ describe('Cardmarket Cart Saver', () => {
 
   it('puts the articles back with one click: one request per seller, spaced out', async () => {
     const before = addRequests().length;
-    await widget(page).getByRole('button', { name: 'Zet 3 artikel(en) terug' }).click();
+    await widget(page).getByRole('button', { name: /^Zet 3 terug in je mandje/ }).click();
 
     const job = await waitFor(async () => {
       const j = (await storage())['cmcs.job'];
@@ -240,10 +240,14 @@ describe('Cardmarket Cart Saver', () => {
     const popup = await context.newPage();
     await popup.setViewportSize({ width: 400, height: 600 });
     await popup.goto(`chrome-extension://${extensionId}/src/popup/popup.html`);
-    await waitFor(async () => (await popup.locator('.cmcs-item').count()) === 3, 'three rows');
-    const stats = await popup.locator('.stat-value').allInnerTexts();
-    assert.deepEqual(stats, ['2', '0', '1']);
-    assert.match(await popup.locator('#list').innerText(), /Ephemerate[\s\S]*Niet beschikbaar/);
+    await popup.locator('#tab-cart').click();
+    await waitFor(async () => /Alles zit in je mandje/.test(await popup.locator('#summary').innerText()), 'summary');
+    assert.match(await popup.locator('#summary').innerText(), /3 kaart\(en\) · 2,23 € bij 1 verkoper\(s\)/);
+    // What is gone carries the stamp; what is in the cart is folded into one line.
+    assert.match(await popup.locator('#list').innerText(), /Ephemerate[\s\S]*VERKOCHT[\s\S]*2 in je mandje/);
+    assert.equal(await popup.locator('#list .cmcs-item').count(), 1);
+    await popup.getByRole('button', { name: 'Toon' }).click();
+    await waitFor(async () => (await popup.locator('#list .cmcs-item').count()) === 3, 'three rows');
     await shot(popup, '05-popup');
     await popup.close();
   });
@@ -266,7 +270,7 @@ describe('Cardmarket Cart Saver', () => {
     const popup = await context.newPage();
     await popup.goto(`chrome-extension://${extensionId}/src/popup/popup.html`);
     const opened = context.waitForEvent('page');
-    await popup.getByRole('button', { name: 'Zet 2 artikel(en) terug' }).click();
+    await popup.getByRole('button', { name: /^Zet 2 terug in je mandje/ }).click();
     const cartTab = await opened;
     assert.match(await popup.locator('#notice').innerText(), /het terugzetten start vanzelf/);
     // Playwright cannot intercept the very first load of a tab the extension
@@ -293,7 +297,7 @@ describe('Cardmarket Cart Saver', () => {
 
     const before = addRequests().length;
     await page.goto(`${CM}/en/Magic`);
-    await widget(page).getByRole('button', { name: 'Zet 1 artikel(en) terug' }).click();
+    await widget(page).getByRole('button', { name: /^Zet 1 terug in je mandje/ }).click();
     await waitFor(async () => (await storage())['cmcs.job']?.state === 'done', 'job done');
 
     assert.ok(mock.state.cart.has(MAGE));
@@ -309,7 +313,7 @@ describe('Cardmarket Cart Saver', () => {
     await sw.evaluate(() => chrome.storage.local.set({ 'cmcs.job': null }));
 
     await page.goto(`${CM}/en/Magic`);
-    await widget(page).getByRole('button', { name: 'Zet 1 artikel(en) terug' }).click();
+    await widget(page).getByRole('button', { name: /^Zet 1 terug in je mandje/ }).click();
     const job = await waitFor(async () => {
       const j = (await storage())['cmcs.job'];
       return j && j.state === 'error' && j;
@@ -339,7 +343,7 @@ describe('Cardmarket Cart Saver', () => {
     await sw.evaluate(() => chrome.storage.local.set({ 'cmcs.job': null }));
     const before = addRequests().length;
     await page.goto(`${CM}/en/Magic`);
-    await widget(page).getByRole('button', { name: 'Zet 1 artikel(en) terug' }).click();
+    await widget(page).getByRole('button', { name: /^Zet 1 terug in je mandje/ }).click();
     const job = await waitFor(async () => {
       const j = (await storage())['cmcs.job'];
       return j && j.state === 'error' && j;
@@ -364,7 +368,7 @@ describe('Cardmarket Cart Saver', () => {
 
     const before = addRequests().length;
     await page.goto(`${CM}/en/Magic`);
-    await widget(page).getByRole('button', { name: 'Zet 2 artikel(en) terug' }).click();
+    await widget(page).getByRole('button', { name: /^Zet 2 terug in je mandje/ }).click();
     await waitFor(async () => (await storage())['cmcs.job']?.state === 'done', 'job done');
 
     const posts = addRequests().slice(before);
@@ -385,7 +389,7 @@ describe('Cardmarket Cart Saver', () => {
 
     const before = addRequests().length;
     await page.goto(`${CM}/en/Magic`);
-    await widget(page).getByRole('button', { name: 'Zet 1 artikel(en) terug' }).click();
+    await widget(page).getByRole('button', { name: /^Zet 1 terug in je mandje/ }).click();
     await waitFor(async () => (await storage())['cmcs.job']?.state === 'done', 'job done');
 
     const tokens = addRequests().slice(before).map((r) => new URLSearchParams(r.body).get('__cmtkn'));
@@ -451,7 +455,7 @@ describe('Cardmarket Cart Saver', () => {
     const popup = await context.newPage();
     await popup.setViewportSize({ width: 400, height: 600 });
     await popup.goto(`chrome-extension://${extensionId}/src/popup/popup.html`);
-    await popup.getByRole('tab', { name: 'Favorieten (2)' }).click();
+    await popup.getByRole('tab', { name: 'Favorieten 2' }).click();
     await waitFor(async () => (await popup.locator('#fav-list .cmcs-item').count()) === 2, 'two favourites');
 
     // Newest first.
@@ -459,8 +463,7 @@ describe('Cardmarket Cart Saver', () => {
     assert.deepEqual(names, [SOL_KINGDOM, SOL_MINT]);
 
     const row = popup.locator(`#fav-list [data-article-id="${SOL_KINGDOM}"]`);
-    assert.match(await row.innerText(), /Verkoper: CardKingdomNL/);
-    assert.match(await row.innerText(), /3 beschikbaar/);
+    assert.match(await row.innerText(), /CardKingdomNL · 3 beschikbaar · bewaard/);
     assert.equal(
       await row.getByRole('link', { name: 'Bekijk aanbieding op Cardmarket' }).getAttribute('href'),
       `${SOL_RING_URL}?language=3&minCondition=3#articleRow${SOL_KINGDOM}`,
@@ -504,7 +507,7 @@ describe('Cardmarket Cart Saver', () => {
     assert.equal(job.state, 'done');
     assert.equal(mock.state.cart.get(SOL_KINGDOM), 1, 'one copy, not all 3 available');
     assert.equal((await items())[SOL_KINGDOM].status, 'in_cart');
-    await waitFor(async () => /In mandje/.test(await row.innerText()), 'popup shows it is in the cart');
+    await waitFor(async () => /In je mandje/.test(await row.innerText()), 'popup shows it is in the cart');
     assert.equal(await row.getByRole('button', { name: 'In winkelmandje leggen' }).count(), 0);
     await popup.close();
   });
@@ -551,7 +554,7 @@ describe('Cardmarket Cart Saver', () => {
       headerCount,
     );
     await target.goto(`${CM}/en/Magic`);
-    await widget(target).getByRole('button', { name: 'Zet 1 artikel(en) terug' }).click();
+    await widget(target).getByRole('button', { name: /^Zet 1 terug in je mandje/ }).click();
     return waitFor(async () => {
       const j = (await storage())['cmcs.job'];
       return j && (j.state === 'done' || j.state === 'error') && j;
@@ -848,16 +851,21 @@ describe('Cardmarket Cart Saver', () => {
       await waitFor(async () => (await popup.locator('#list .cmcs-item').count()) === 3, 'three rows');
       const list = await popup.locator('#list').innerText();
       assert.match(list, /Bojuka Bog[\s\S]*1 van 2 in je mandje/);
-      assert.match(list, /Deels in mandje/);
-      assert.match(list, /Portal Mage[\s\S]*Alleen dit artikel verdween, waarschijnlijk verkocht/);
-      assert.match(list, /Sol Ring[\s\S]*Alles van deze verkoper verdween uit je mandje/);
+      assert.match(list, /Portal Mage[\s\S]*Waarschijnlijk verkocht/);
+      assert.match(list, /Sol Ring[\s\S]*Verkoper verdween uit je mandje/);
+      // The full sentence is in the tooltip, and in the row once it is opened.
+      assert.equal(await popup.locator('[title="Alleen dit artikel verdween, waarschijnlijk verkocht"]').count(), 1);
+      await popup.locator(`#list .cmcs-item[data-article-id="${SOL_RING}"] .cmcs-item-line`).click();
+      const opened = await popup.locator(`#list .cmcs-item[data-article-id="${SOL_RING}"]`).innerText();
+      assert.match(opened, /Alles van deze verkoper verdween uit je mandje/);
+      assert.match(opened, /Alleen deze terug[\s\S]*Op Cardmarket/);
       await shot(popup, '12-popup-reasons');
       await popup.close();
     });
 
     it('puts back only the copies that are missing', async () => {
       const before = addRequests().length;
-      const job = await refillVia(widget(page).getByRole('button', { name: 'Zet 3 artikel(en) terug' }));
+      const job = await refillVia(widget(page).getByRole('button', { name: /^Zet 3 terug in je mandje/ }));
       assert.equal(job.state, 'done');
       assert.equal(job.added, 3);
       const bogPosts = postsFor(before, BOG);
@@ -877,7 +885,7 @@ describe('Cardmarket Cart Saver', () => {
       await waitFor(async () => (await items())[BOG].status === 'missing', 'Bog missing');
 
       const before = addRequests().length;
-      const job = await refillVia(widget(page).getByRole('button', { name: 'Zet 1 artikel(en) terug' }));
+      const job = await refillVia(widget(page).getByRole('button', { name: /^Zet 1 terug in je mandje/ }));
       assert.equal(job.added, 1);
       assert.deepEqual(postsFor(before, BOG).map((post) => amountOf(post, BOG)), ['2', '1']);
       const bog = (await items())[BOG];
@@ -898,7 +906,7 @@ describe('Cardmarket Cart Saver', () => {
       mock.state.genericRefusal = true;
 
       await page.goto(`${CM}/en/Magic`);
-      const job = await refillVia(widget(page).getByRole('button', { name: 'Zet 1 artikel(en) terug' }));
+      const job = await refillVia(widget(page).getByRole('button', { name: /^Zet 1 terug in je mandje/ }));
       assert.equal(job.failed, 1);
       let mage = (await items())[MAGE];
       assert.equal(mage.status, 'missing', 'not written off after one unclear refusal');
@@ -906,7 +914,7 @@ describe('Cardmarket Cart Saver', () => {
       assert.equal(mage.lastAttempt.message, 'Something went wrong. Please try again.');
 
       await widget(page).getByRole('button', { name: 'Sluiten' }).first().click();
-      await refillVia(widget(page).getByRole('button', { name: 'Zet 1 artikel(en) terug' }));
+      await refillVia(widget(page).getByRole('button', { name: /^Zet 1 terug in je mandje/ }));
       mage = (await items())[MAGE];
       assert.equal(mage.status, 'unavailable', 'the second unclear refusal in a row counts as gone');
     });
@@ -940,7 +948,7 @@ describe('Cardmarket Cart Saver', () => {
 
       const runner = await context.newPage();
       await runner.goto(`${CM}/en/Magic`);
-      await widget(runner).getByRole('button', { name: 'Zet 3 artikel(en) terug' }).click();
+      await widget(runner).getByRole('button', { name: /^Zet 3 terug in je mandje/ }).click();
       await waitFor(async () => (await storage())['cmcs.job']?.done >= 1, 'first article added');
 
       // A second tab asking to refill now is told to wait.
@@ -1016,7 +1024,7 @@ describe('Cardmarket Cart Saver', () => {
       await page.goto(`${CM}/en/Magic`);
 
       const before = addRequests().length;
-      const job = await refillVia(widget(page).getByRole('button', { name: 'Zet 3 artikel(en) terug' }));
+      const job = await refillVia(widget(page).getByRole('button', { name: /^Zet 3 terug in je mandje/ }));
       assert.equal(job.added, 2);
       assert.equal(job.failed, 1);
       const sent = addRequests()
@@ -1206,8 +1214,10 @@ describe('Cardmarket Cart Saver', () => {
       const popup = await context.newPage();
       await popup.goto(`chrome-extension://${extensionId}/src/popup/popup.html`);
       await popup.locator('#tab-cart').click();
+      await popup.getByRole('button', { name: 'Toon' }).click();
       const list = await popup.locator('#list').innerText();
-      assert.match(list, /Bojuka Bog[\s\S]*Trend 0,50 € · deze aanbieding is 98% duurder/);
+      assert.match(list, /Bojuka Bog[\s\S]*98% boven trend/);
+      assert.equal(await popup.locator('[title="Trend 0,50 € · deze aanbieding is 98% duurder"]').count(), 1);
       assert.doesNotMatch(list, /Portal Mage[\s\S]*Trend/, 'five cents above the trend is not worth a note');
       await popup.close();
     });
@@ -1296,7 +1306,7 @@ describe('Cardmarket Cart Saver', () => {
       assert.equal((await items())[PIKACHU].missingReason, 'seller');
 
       const before = addRequests().length;
-      const job = await refillVia(widget(page).getByRole('button', { name: 'Zet 2 artikel(en) terug' }));
+      const job = await refillVia(widget(page).getByRole('button', { name: /^Zet 2 terug in je mandje/ }));
       assert.equal(job.state, 'done', job.errorDetail);
       assert.equal(job.added, 2);
       const paths = addRequests()
@@ -1323,9 +1333,13 @@ describe('Cardmarket Cart Saver', () => {
       await waitFor(() => select.isVisible(), 'game picker');
       assert.equal(await select.inputValue(), '*');
       assert.deepEqual(await select.locator('option').allInnerTexts(), ['Alle spellen', 'Magic', 'Pokémon']);
+      assert.match(await popup.locator('#summary').innerText(), /Alles zit in je mandje/);
+      await popup.getByRole('button', { name: 'Toon' }).click();
       await waitFor(async () => (await popup.locator('#list .cmcs-item').count()) === 3, 'all three');
-      assert.match(await popup.locator(`#list .cmcs-item[data-article-id="${PIKACHU}"]`).innerText(), /Pikachu[\s\S]*Pokémon/);
-      assert.match(await popup.locator('#list').innerText(), /snowc \(2\)/, 'one seller, both games');
+      assert.match(await popup.locator(`#list .cmcs-item[data-article-id="${PIKACHU}"]`).innerText(), /Pikachu[\s\S]*Base Set · NM · Engels · Pokémon/);
+      // One seller, both games, under one header.
+      const sellers = await popup.locator('#list .cmcs-seller-name').allInnerTexts();
+      assert.deepEqual(sellers, ['Kärtchen-Laden', 'snowc']);
       await shot(popup, '18-popup-all-games');
 
       await select.selectOption('Pokemon');
@@ -1347,7 +1361,7 @@ describe('Cardmarket Cart Saver', () => {
       await shot(panel, '19-game-chips');
       await panel.getByRole('button', { name: 'Magic (1)' }).click();
       assert.equal(await panel.getByRole('button', { name: 'Magic (1)' }).getAttribute('aria-pressed'), 'false');
-      const job = await refillVia(panel.getByRole('button', { name: 'Zet 1 artikel(en) terug · 3,50 €' }));
+      const job = await refillVia(panel.getByRole('button', { name: /^Zet 1 terug in je mandje.*3,50 €$/ }));
       assert.equal(job.added, 1);
       assert.equal(mock.state.cart.get(PIKACHU), 1);
       assert.equal(mock.state.cart.has(BOG), false, 'Magic was left out');

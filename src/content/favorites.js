@@ -19,17 +19,18 @@
   const OFFER_ROWS = 'div.article-row[id^="articleRow"]';
   const DECORATED = 'data-cmcs-fav';
 
+  // Cardmarket's rows are light, so the star is drawn in ink: outline grey, filled black.
   const STAR_CSS = `
     :host { display: inline-flex; vertical-align: middle; }
     button {
       appearance: none; border: 0; background: transparent; cursor: pointer;
-      width: 28px; height: 28px; padding: 0; border-radius: 6px;
+      width: 28px; height: 28px; padding: 0; border-radius: 0;
       display: inline-flex; align-items: center; justify-content: center;
-      color: #8a94a3;
+      color: #8a8983;
     }
-    button:hover { background: rgba(127, 127, 127, 0.15); color: #e09a00; }
-    button[aria-pressed="true"] { color: #e09a00; }
-    button:focus-visible { outline: 2px solid #1a5fd6; outline-offset: 1px; }
+    button:hover { background: rgba(20, 20, 20, 0.07); color: #141414; }
+    button[aria-pressed="true"] { color: #141414; }
+    button:focus-visible { outline: 2px solid #141414; outline-offset: 1px; }
     svg { width: 18px; height: 18px; }
   `;
 
@@ -128,9 +129,9 @@
     const row = document.getElementById(`articleRow${articleId}`);
     if (row) {
       row.setAttribute('data-cmcs-highlight', '');
-      row.style.outline = '3px solid #e09a00';
-      row.style.outlineOffset = '-3px';
-      row.style.borderRadius = '6px';
+      row.style.outline = '2px solid #141414';
+      row.style.outlineOffset = '-2px';
+      row.style.boxShadow = 'inset 4px 0 0 #b3122b';
       row.scrollIntoView({ block: 'center' });
       return;
     }

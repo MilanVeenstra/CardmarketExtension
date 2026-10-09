@@ -1,6 +1,6 @@
 # Functionele requirements — Cardmarket Cart Saver
 
-Stand van zaken: versie 1.0.0 (branch `claude/cardmarket-cart-extension-fvfwx5`).
+Stand van zaken: versie 1.0.0, met de latere aanpassingen aan het ontwerp (1.5).
 
 Dit document beschrijft:
 
@@ -46,7 +46,7 @@ Notatie:
 |---|---|---|
 | FR-11 | Ontbreken er opgeslagen artikelen, dan verschijnt rechtsonder op Cardmarket een melding met het aantal en de totale waarde, plus de knoppen *Zet terug* en *Bekijken*. | ✔ |
 | FR-12 | Wegklikken onthoudt de melding voor precies deze set ontbrekende artikelen. Verdwijnen er nieuwe artikelen, dan komt hij terug. | — |
-| FR-13 | Het icoon in de werkbalk toont het aantal ontbrekende en deels aanwezige artikelen (badge). | ✔ |
+| FR-13 | Het icoon in de werkbalk (logo: een kaart die in een winkelmandje valt) toont het aantal ontbrekende en deels aanwezige artikelen in een rode badge. | ✔ |
 | FR-14 | Op de mandjepagina toont een paneel de ontbrekende artikelen, elk met een vinkje, plus *alles/niets selecteren* en de totale waarde van de selectie. | ✔ |
 | FR-15 | Niet-beschikbare artikelen staan in een aparte groep. Daarin staan de reden van Cardmarket, de knoppen *Zoek vergelijkbaar aanbod*, *Toch opnieuw proberen* en *Lijst opschonen*. | ✔ |
 | FR-16 | Het paneel kan worden ingeklapt tot een klein label. Die keuze wordt onthouden. | — |
@@ -93,7 +93,7 @@ Notatie:
 
 | ID | Requirement | Test |
 |---|---|---|
-| FR-40 | De tab *Winkelmandje* in de popup toont: tellers (in mandje / ontbreekt / niet beschikbaar), de knoppen *Zet N terug* en *Open winkelmandje*, filters en een lijst per verkoper. Per artikel zijn er acties: ster, vergelijkbaar aanbod, terugzetten en verwijderen. | ✔ |
+| FR-40 | De tab *Winkelmandje* in de popup (ontwerp 1.5): bovenaan de samenvatting ("5 kaart(en) kunnen terug · 9,79 € bij 3 verkoper(s) · je hele mandje werd geleegd"), daaronder per verkoper een rustige lijst met subtotaal (in te klappen tot één regel met kaartjes), een sectie *Niet meer beschikbaar* met de stempel VERKOCHT, en "4 in je mandje — Toon". Elke rij toont naam, één metaregel en één korte extra regel (rood alleen bij een waarschuwing); een klik klapt hem open met alle details en de knoppen *Alleen deze terug*, *Op Cardmarket*, ☆ en ×. Onderaan de zwarte knop "Zet 5 terug in je mandje · 9,79 €". | ✔ |
 | FR-41 | Heb je artikelen uit meerdere spellen, dan is er een spelkeuze. | — |
 | FR-42 | Instellingen: automatisch opslaan aan/uit, melding aan/uit, pauze tussen artikelen (0,5–10 s). | ✔ |
 | FR-43 | Export naar JSON (artikelen en favorieten). Bij import worden nieuwe artikelen toegevoegd zonder bestaande te overschrijven. *Alles wissen* vraagt eerst om bevestiging. | — |

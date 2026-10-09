@@ -40,53 +40,43 @@
       width: 380px; max-width: calc(100vw - 32px); max-height: min(72vh, 640px);
       display: flex; flex-direction: column;
       background: var(--cmcs-bg); color: var(--cmcs-text);
-      border: 1px solid var(--cmcs-border); border-radius: var(--cmcs-radius);
-      box-shadow: var(--cmcs-shadow); overflow: hidden;
+      border: 1px solid var(--cmcs-border); box-shadow: var(--cmcs-shadow); overflow: hidden;
     }
-    .cmcs-head { display: flex; align-items: center; gap: 8px; padding: 10px 10px 8px 14px; }
-    .cmcs-logo { width: 20px; height: 20px; flex: none; }
-    .cmcs-title { font-weight: 700; flex: 1; font-size: 14px; }
-    .cmcs-body { padding: 0 14px 12px; overflow: auto; }
+    .cmcs-head { display: flex; align-items: center; gap: 4px; padding: 10px 8px 6px 14px; }
+    .cmcs-head .cmcs-brand { flex: 1; }
+    .cmcs-body { padding: 2px 14px 12px; overflow: auto; }
+    .cmcs-foot { padding: 10px 14px 12px; border-top: 1px solid var(--cmcs-border); }
+    .cmcs-view-title { font-size: 16px; font-weight: 800; margin: 6px 0 4px; }
+    .cmcs-panel .cmcs-summary-title { font-size: 20px; }
     .cmcs-lead { margin: 0 0 8px; }
-    .cmcs-lead strong { font-weight: 700; }
-    .cmcs-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+    .cmcs-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
     /* Buttons share the row, and move to a new line rather than break their label. */
     .cmcs-actions .cmcs-btn { flex: 1 1 auto; }
-    .cmcs-list { margin-top: 4px; }
     .cmcs-row-between { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
-    .cmcs-linklike { appearance: none; border: 0; background: none; padding: 0; color: var(--cmcs-accent); font: inherit; font-size: 12px; cursor: pointer; }
+    .cmcs-row-between .cmcs-section-title { margin-bottom: 4px; }
+    .cmcs-links { display: flex; gap: 14px; flex-wrap: wrap; padding: 8px 0 0; }
     .cmcs-pill {
       position: fixed; right: 16px; bottom: 16px; z-index: 2147483000;
-      display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px 8px 10px;
+      display: inline-flex; align-items: center; gap: 8px; padding: 8px 12px;
       background: var(--cmcs-bg); color: var(--cmcs-text); border: 1px solid var(--cmcs-border);
-      border-radius: 999px; box-shadow: var(--cmcs-shadow); cursor: pointer; font: inherit; font-weight: 600;
+      box-shadow: var(--cmcs-shadow); cursor: pointer; font: inherit; font-weight: 600;
     }
-    .cmcs-pill .cmcs-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--cmcs-ok); }
-    .cmcs-pill .cmcs-dot--warn { background: #e0a100; }
-    .cmcs-expiry { margin: -4px 0 8px; color: var(--cmcs-muted); font-size: 12px; }
-    .cmcs-expiry--soon { color: var(--cmcs-warn); font-weight: 600; }
-    .cmcs-shipping { margin: 0 0 6px; }
+    .cmcs-pill-count { color: var(--cmcs-red); font-weight: 800; }
+    .cmcs-expiry { margin: 0; color: var(--cmcs-muted); font-size: 12px; }
+    .cmcs-expiry--soon { color: var(--cmcs-red); font-weight: 700; }
+    .cmcs-shipping { margin: 8px 0 2px; }
     .cmcs-shipping-list { margin-top: 4px; }
-    .cmcs-shipping-row { padding: 5px 0; border-top: 1px solid var(--cmcs-border); }
-    .cmcs-shipping-row:first-child { border-top: 0; }
+    .cmcs-shipping-row { padding: 6px 0; border-top: 1px solid var(--cmcs-line); }
     .cmcs-shipping-row .cmcs-item-meta { white-space: normal; }
+    .cmcs-replace { margin: 0 0 8px 40px; padding: 6px 10px; background: var(--cmcs-surface); }
+    .cmcs-replace .cmcs-item:first-of-type { border-top: 0; }
+    .cmcs-replace .cmcs-item-meta:last-child { white-space: normal; }
+    .cmcs-replace-title { font-size: 12px; color: var(--cmcs-muted); margin: 2px 0; }
     @media (max-width: 480px) {
       .cmcs-panel { right: 8px; left: 8px; bottom: 8px; width: auto; max-width: none; }
       .cmcs-pill { right: 8px; bottom: 8px; }
     }
   `;
-
-  const LOGO_SVG =
-    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true">' +
-    '<rect width="24" height="24" rx="6" fill="#1a5fd6"/>' +
-    '<path d="M5 6h2l1.6 8.2a1 1 0 0 0 1 .8h6.6a1 1 0 0 0 1-.8L18.5 9H8" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>' +
-    '<circle cx="10" cy="18" r="1.3" fill="#fff"/><circle cx="16" cy="18" r="1.3" fill="#fff"/></svg>';
-
-  function logo() {
-    const svg = new DOMParser().parseFromString(LOGO_SVG, 'image/svg+xml').documentElement;
-    svg.setAttribute('class', 'cmcs-logo');
-    return document.importNode(svg, true);
-  }
 
   function mount(location) {
     loc = location;
@@ -124,12 +114,7 @@
       clearInterval(timer);
       orphaned = true;
       panel.replaceChildren(
-        h(
-          'button',
-          { type: 'button', class: 'cmcs-pill', title: label, onclick: () => location.reload() },
-          h('span', { class: 'cmcs-dot cmcs-dot--warn' }),
-          label,
-        ),
+        h('button', { type: 'button', class: 'cmcs-pill', title: label, onclick: () => location.reload() }, ui.logo(16), label),
       );
       host.style.display = '';
     }, 3000);
@@ -213,9 +198,6 @@
     }
   }
 
-  /** With several games in view, each row says which game it is. */
-  const gameOf = (item, list) => (new Set(list.map((i) => i.game)).size > 1 ? store.gameName(item.game) : null);
-
   /**
    * With missing articles from several games: one chip per game, to choose
    * which games go back (a chip selects or deselects all its articles).
@@ -265,28 +247,79 @@
   // Views
   // ---------------------------------------------------------------------------
 
-  function shell(title, { onClose, onCollapse } = {}, ...body) {
+  /**
+   * The panel: logo and wordmark on top (with minimise / close), an optional
+   * title, the body, and an optional footer (the big black button).
+   */
+  function shell({ title, onClose, onCollapse, footer } = {}, ...body) {
     return h(
       'section',
       { class: 'cmcs-panel', role: 'region', 'aria-label': 'Cart Saver' },
       h(
         'div',
         { class: 'cmcs-head' },
-        logo(),
-        h('div', { class: 'cmcs-title' }, title),
+        ui.brand(20),
         onCollapse ? ui.iconButton(t('collapse'), 'minus', onCollapse) : null,
         onClose ? ui.iconButton(t('close'), 'close', onClose) : null,
       ),
-      h('div', { class: 'cmcs-body' }, body),
+      h('div', { class: 'cmcs-body' }, title ? h('h2', { class: 'cmcs-view-title' }, title) : null, body),
+      footer ? h('div', { class: 'cmcs-foot' }, footer) : null,
     );
+  }
+
+  const refillValue = (list) => list.reduce((sum, item) => sum + (item.price || 0) * store.refillAmount(item), 0);
+  const bySellerName = (a, b) => (a.seller || '').localeCompare(b.seller || '') || a.name.localeCompare(b.name);
+
+  /** The opened row and the sellers folded into one line. */
+  let openId = null;
+  const closedSellers = new Set();
+  const toggleRow = (id) => () => {
+    openId = openId === id ? null : id;
+    render();
+  };
+
+  /** A seller's articles: a header with the subtotal; folded, one line with the pictures. */
+  function sellerGroup(seller, list, rowFor) {
+    const closed = closedSellers.has(seller);
+    const toggle = () => {
+      if (closed) closedSellers.delete(seller);
+      else closedSellers.add(seller);
+      render();
+    };
+    const subtotal = store.formatPrice(list.reduce((sum, item) => sum + (item.price || 0) * ui.copiesOf(item), 0));
+    if (closed) {
+      const changed = list.some((item) => ui.statusInfo(item).some((line) => line.warn));
+      return h(
+        'button',
+        { type: 'button', class: 'cmcs-seller cmcs-seller--closed', 'aria-expanded': 'false', onclick: toggle },
+        h('span', { class: 'cmcs-stack' }, list.slice(0, 3).map((item) => ui.thumbnail(item))),
+        h(
+          'span',
+          { class: 'cmcs-seller-text' },
+          h('span', { class: 'cmcs-seller-name' }, seller),
+          h('small', null, [t('shippingCopies', list.length), changed ? t('sellerPriceChanged') : null].filter(Boolean).join(' · ')),
+        ),
+        h('span', { class: 'cmcs-seller-sub' }, subtotal),
+        ui.icon('chevronRight'),
+      );
+    }
+    return [
+      h(
+        'button',
+        { type: 'button', class: 'cmcs-seller', 'aria-expanded': 'true', onclick: toggle },
+        h('span', { class: 'cmcs-seller-name' }, seller),
+        h('span', { class: 'cmcs-seller-sub' }, subtotal),
+        ui.icon('chevronDown'),
+      ),
+      list.map(rowFor),
+    ];
   }
 
   function progressView(job) {
     const pct = job.total ? Math.round((job.done / job.total) * 100) : 0;
     return shell(
-      t('refillRunningTitle'),
-      {},
-      h('p', { class: 'cmcs-lead' }, t('refillRunningLead')),
+      { title: t('refillRunningTitle') },
+      h('p', { class: 'cmcs-lead cmcs-muted' }, t('refillRunningLead')),
       h('div', { class: 'cmcs-progress' }, h('div', { style: `width:${pct}%` })),
       h(
         'p',
@@ -308,25 +341,26 @@
       .map(([id]) => state.items[id] || state.favorites[id])
       .filter(Boolean);
     const error = ui.errorText(job.error);
-    const errorLines = ui.jobError(job);
     return shell(
-      error && job.error !== 'cancelled' ? t('refillStoppedTitle') : t('refillDoneTitle'),
-      { onClose: acknowledgeJob },
+      { title: error && job.error !== 'cancelled' ? t('refillStoppedTitle') : t('refillDoneTitle'), onClose: acknowledgeJob },
       h('p', { class: 'cmcs-lead' }, t('refillSummary', job.added || 0, job.failed || 0)),
-      errorLines,
+      ui.jobError(job),
       failedItems.length
         ? h(
             'div',
             { class: 'cmcs-list' },
-            failedItems.map(unavailableRow),
+            // Only what is really gone gets the stamp; an unclear refusal stays an ordinary row.
+            failedItems.map((item, i, list) =>
+              item.status === store.STATUS.UNAVAILABLE || !state.items[item.articleId]
+                ? unavailableRow(item, i, list)
+                : ui.itemRow(item, { actions: [ui.iconButton(t('removeFromSaved'), 'close', () => removeItems([item.articleId]))] }),
+            ),
           )
         : null,
       h(
         'div',
         { class: 'cmcs-actions' },
-        !loc.isCart
-          ? h('a', { class: 'cmcs-btn', href: cm.cartUrl(loc.lang, loc.game) }, t('openCart'))
-          : null,
+        !loc.isCart ? h('a', { class: 'cmcs-btn', href: cm.cartUrl(loc.lang, loc.game) }, t('openCart')) : null,
         job.added > 0 && !job.undone
           ? h('button', { type: 'button', class: 'cmcs-btn cmcs-btn--ghost', onclick: () => undoJob(job) }, t('undo'))
           : null,
@@ -338,8 +372,7 @@
   function interruptedView(job) {
     const ids = CMCS.refill.remainingIds(job, state.items);
     return shell(
-      t('interruptedTitle'),
-      { onClose: () => store.dismissJob() },
+      { title: t('interruptedTitle'), onClose: () => store.dismissJob() },
       h('p', { class: 'cmcs-lead' }, t('interruptedLead', ids.length)),
       h(
         'div',
@@ -354,8 +387,7 @@
 
   function accountView(saved, current) {
     return shell(
-      t('accountTitle'),
-      {},
+      { title: t('accountTitle') },
       h('p', { class: 'cmcs-lead' }, t('accountLead', saved, current)),
       h(
         'div',
@@ -363,15 +395,6 @@
         h('button', { type: 'button', class: 'cmcs-btn cmcs-btn--ghost', onclick: () => useThisAccount(current) }, t('accountUseThis', current)),
       ),
     );
-  }
-
-  function alternativeActions(item) {
-    const url = cm.alternativesUrl(item);
-    return [
-      url ? ui.iconButton(t('replaceFind'), 'swap', () => findReplacement(item)) : null,
-      url ? ui.iconLink(t('findAlternative'), 'search', url) : null,
-      ui.iconButton(t('removeFromSaved'), 'close', () => removeItems([item.articleId])),
-    ].filter(Boolean);
   }
 
   async function findReplacement(item) {
@@ -415,15 +438,11 @@
           { ...offer, status: 'offer' },
           {
             href: cm.offerUrl(offer),
-            showInfo: false,
             note: null,
-            extraMeta: [t(REPLACE_REASONS[offer.reason]), priceNote].filter(Boolean).join(' · '),
+            price: store.formatPrice(offer.price),
+            extraMeta: [offer.seller, t(REPLACE_REASONS[offer.reason]), priceNote].filter(Boolean).join(' · '),
             actions: [
-              h(
-                'button',
-                { type: 'button', class: 'cmcs-btn cmcs-btn--small', onclick: () => useReplacement(item, offer) },
-                t('replaceAdd'),
-              ),
+              h('button', { type: 'button', class: 'cmcs-btn cmcs-btn--small', onclick: () => useReplacement(item, offer) }, t('replaceAdd')),
             ],
           },
         );
@@ -432,11 +451,24 @@
     return h('div', { class: 'cmcs-replace' }, h('div', { class: 'cmcs-replace-title' }, t('replaceTitle')), body);
   }
 
-  /** A sold article with its replacement suggestions (when asked for). */
-  const unavailableRow = (item, _i, list) => [
-    ui.itemRow(item, { extraMeta: list ? gameOf(item, list) : null, actions: alternativeActions(item) }),
-    replacementPanel(item),
-  ];
+  /** A sold article: grey, with the VERKOCHT stamp, "Vervanging zoeken" and its suggestions. */
+  const unavailableRow = (item, _i, list) => {
+    const alt = cm.alternativesUrl(item);
+    const multiGame = list && new Set(list.map((i) => i.game)).size > 1;
+    return [
+      ui.itemRow(item, {
+        sold: true,
+        withGame: multiGame,
+        note: item.lastAttempt && item.lastAttempt.message ? item.lastAttempt.message : null,
+        below: alt ? h('button', { type: 'button', class: 'cmcs-link', onclick: () => findReplacement(item) }, t('replaceFind')) : null,
+        actions: [
+          alt ? ui.iconLink(t('findAlternative'), 'search', alt) : null,
+          ui.iconButton(t('removeFromSaved'), 'close', () => removeItems([item.articleId])),
+        ].filter(Boolean),
+      }),
+      replacementPanel(item),
+    ];
+  };
 
   function cartView(missing, unavailable, inCart) {
     if (state.meta.collapsed) {
@@ -444,32 +476,78 @@
       return h(
         'button',
         { type: 'button', class: 'cmcs-pill', onclick: () => setCollapsed(false) },
-        h('span', { class: `cmcs-dot ${attention ? 'cmcs-dot--warn' : ''}` }),
-        attention ? t('pillAttention', attention) : t('pillSaved', inCart.length),
+        ui.logo(16),
+        attention ? h('span', null, t('pillAttention', attention)) : t('pillSaved', inCart.length),
       );
     }
 
     const selected = missing.filter((item) => !deselected.has(item.articleId));
-    const selectedValue = selected.reduce((sum, item) => sum + (item.price || 0) * store.refillAmount(item), 0);
+    const multiGame = new Set([...missing, ...unavailable].map((item) => item.game)).size > 1;
+    const sellers = (list) => new Set(list.map((item) => item.seller || '—')).size;
 
+    // The big picture first.
     const body = [];
-    body.push(
-      h(
-        'p',
-        { class: 'cmcs-lead' },
-        inCart.length ? t('cartSavedLead', inCart.length) : t('cartEmptyLead'),
-      ),
-      expiryLine(),
-      shippingSection(inCart),
-    );
+    if (missing.length) {
+      const emptied = missing.every((item) => item.missingReason === 'emptied');
+      body.push(
+        h(
+          'div',
+          { class: 'cmcs-summary' },
+          h('h2', { class: 'cmcs-summary-title' }, t('summaryCanReturn', missing.length)),
+          h(
+            'p',
+            { class: 'cmcs-summary-sub' },
+            [t('summarySub', store.formatPrice(refillValue(missing)), sellers(missing)), emptied ? t('summaryEmptied') : null].filter(Boolean).join(' · '),
+          ),
+          expiryLine(),
+        ),
+      );
+    } else {
+      body.push(
+        h(
+          'div',
+          { class: 'cmcs-summary' },
+          h('h2', { class: 'cmcs-summary-title' }, inCart.length ? t('summaryAllIn') : t('nothingToRefill')),
+          h('p', { class: 'cmcs-summary-sub' }, inCart.length ? t('cartSavedLead', inCart.length) : t('cartEmptyLead')),
+          expiryLine(),
+        ),
+      );
+    }
+    body.push(shippingSection(inCart));
 
     if (missing.length) {
       const allSelected = selected.length === missing.length;
+      const row = (item) =>
+        ui.itemRow(item, {
+          withGame: multiGame,
+          open: openId === item.articleId,
+          onToggle: toggleRow(item.articleId),
+          leading: h('input', {
+            type: 'checkbox',
+            checked: !deselected.has(item.articleId),
+            'aria-label': item.name,
+            onchange: (event) => {
+              if (event.target.checked) deselected.delete(item.articleId);
+              else deselected.add(item.articleId);
+              render();
+            },
+          }),
+          details: [
+            ui.detailButton(t('detailRefillOne'), () => refill([item.articleId]), { strong: true }),
+            ui.detailButton(t('detailOpen'), null, { href: cm.offerUrl(item) || item.productUrl }),
+            h(
+              'button',
+              { type: 'button', class: 'cmcs-detail-btn', title: t('removeFromSaved'), 'aria-label': t('removeFromSaved'), onclick: () => removeItems([item.articleId]) },
+              ui.icon('close'),
+            ),
+          ],
+        });
+      const groups = store.groupBy([...missing].sort(bySellerName), (item) => item.seller || '—');
       body.push(
         h(
           'div',
           { class: 'cmcs-row-between' },
-          h('div', { class: 'cmcs-group-title' }, t('groupMissing', missing.length)),
+          h('div', { class: 'cmcs-section-title' }, t('groupMissing', missing.length)),
           h(
             'button',
             {
@@ -484,43 +562,8 @@
           ),
         ),
         gameChips(missing),
-        h(
-          'div',
-          { class: 'cmcs-list' },
-          missing.map((item) =>
-            ui.itemRow(item, {
-              extraMeta: gameOf(item, missing),
-              leading: h('input', {
-                type: 'checkbox',
-                checked: !deselected.has(item.articleId),
-                'aria-label': item.name,
-                onchange: (event) => {
-                  if (event.target.checked) deselected.delete(item.articleId);
-                  else deselected.add(item.articleId);
-                  render();
-                },
-              }),
-              actions: [ui.iconButton(t('removeFromSaved'), 'close', () => removeItems([item.articleId]))],
-            }),
-          ),
-        ),
-        h(
-          'div',
-          { class: 'cmcs-actions' },
-          h(
-            'button',
-            {
-              type: 'button',
-              class: 'cmcs-btn',
-              disabled: !selected.length,
-              onclick: () => refill(selected.map((item) => item.articleId)),
-            },
-            t('refillSelected', selected.length, store.formatPrice(selectedValue)),
-          ),
-        ),
+        h('div', { class: 'cmcs-list' }, [...groups.entries()].map(([seller, list]) => sellerGroup(seller, list, row))),
       );
-    } else if (inCart.length && !unavailable.length) {
-      body.push(h('p', { class: 'cmcs-muted' }, t('nothingMissing')));
     }
 
     if (unavailable.length) {
@@ -528,26 +571,14 @@
         h(
           'div',
           { class: 'cmcs-row-between' },
-          h('div', { class: 'cmcs-group-title' }, t('groupUnavailable', unavailable.length)),
-          h(
-            'button',
-            { type: 'button', class: 'cmcs-linklike', onclick: () => removeItems(unavailable.map((item) => item.articleId)) },
-            t('clearUnavailable'),
-          ),
+          h('div', { class: 'cmcs-section-title' }, t('groupUnavailable', unavailable.length)),
+          h('button', { type: 'button', class: 'cmcs-linklike', onclick: () => removeItems(unavailable.map((item) => item.articleId)) }, t('clearUnavailable')),
         ),
+        h('div', { class: 'cmcs-list' }, unavailable.map(unavailableRow)),
         h(
           'div',
-          { class: 'cmcs-list' },
-          unavailable.map(unavailableRow),
-        ),
-        h(
-          'div',
-          { class: 'cmcs-actions' },
-          h(
-            'button',
-            { type: 'button', class: 'cmcs-btn cmcs-btn--ghost', onclick: () => refill(unavailable.map((item) => item.articleId)) },
-            t('retryUnavailable'),
-          ),
+          { class: 'cmcs-links' },
+          h('button', { type: 'button', class: 'cmcs-link', onclick: () => refill(unavailable.map((item) => item.articleId)) }, t('retryUnavailable')),
         ),
       );
     }
@@ -562,7 +593,12 @@
       );
     }
 
-    return shell('Cart Saver', { onCollapse: () => setCollapsed(true) }, body);
+    const footer = missing.length
+      ? ui.primaryButton(t('refillButton', selected.length), store.formatPrice(refillValue(selected)), () => refill(selected.map((item) => item.articleId)), {
+          disabled: !selected.length,
+        })
+      : null;
+    return shell({ onCollapse: () => setCollapsed(true), footer }, body);
   }
 
   /** "Cardmarket empties your cart at 14:35 (in 23 min)", when the cart page said so. */
@@ -638,8 +674,7 @@
   function noticeView() {
     const close = () => showNotice(null);
     return shell(
-      notice.title,
-      { onClose: close },
+      { title: notice.title !== 'Cart Saver' ? notice.title : null, onClose: close },
       h('p', { class: 'cmcs-lead' }, notice.text),
       notice.detail ? h('p', { class: 'cmcs-detail' }, t('errorDetails', notice.detail)) : null,
       h(
@@ -656,18 +691,16 @@
   }
 
   function reminderView(missing) {
-    const value = missing.reduce((sum, item) => sum + (item.price || 0) * store.refillAmount(item), 0);
+    const value = refillValue(missing);
     return shell(
-      t('reminderTitle'),
-      { onClose: dismissReminder },
-      h('p', { class: 'cmcs-lead' }, t('reminderLead', missing.length, store.formatPrice(value))),
-      h(
-        'div',
-        { class: 'cmcs-actions' },
-        h('button', { type: 'button', class: 'cmcs-btn', onclick: () => refill(missing.map((item) => item.articleId)) }, t('refillAll', missing.length)),
-        h('a', { class: 'cmcs-btn cmcs-btn--ghost', href: cm.cartUrl(loc.lang, loc.game) }, t('viewInCart')),
-      ),
+      {
+        title: t('reminderTitle'),
+        onClose: dismissReminder,
+        footer: ui.primaryButton(t('refillButton', missing.length), store.formatPrice(value), () => refill(missing.map((item) => item.articleId))),
+      },
+      h('p', { class: 'cmcs-lead cmcs-muted' }, t('reminderLead', missing.length, store.formatPrice(value))),
       onlyGameButtons(missing),
+      h('div', { class: 'cmcs-links' }, h('a', { class: 'cmcs-link', href: cm.cartUrl(loc.lang, loc.game) }, t('viewInCart'))),
     );
   }
 

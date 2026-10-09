@@ -10,17 +10,12 @@
   document.head.prepend(style);
   CMCS.localize(document);
   document.documentElement.lang = chrome.i18n.getUILanguage();
+  $('brand').append(ui.brand(20));
+  $('options').append(ui.icon('settings'));
 
   const { STATUS } = store;
-  // "Partly in the cart" shows under both: it is there, and copies can be put back.
-  const FILTERS = [
-    { id: 'all', label: 'filterAll', test: () => true },
-    { id: 'missing', label: 'statusMissing', test: (item) => item.status === STATUS.MISSING || item.status === STATUS.PARTIAL },
-    { id: 'in_cart', label: 'statusInCart', test: (item) => item.status === STATUS.IN_CART || item.status === STATUS.PARTIAL },
-    { id: 'unavailable', label: 'statusUnavailable', test: (item) => item.status === STATUS.UNAVAILABLE },
-  ];
-  const STATUS_ORDER = { missing: 0, partial: 1, unavailable: 2, in_cart: 3 };
   const inCartStatus = (item) => Boolean(item) && (item.status === STATUS.IN_CART || item.status === STATUS.PARTIAL);
+  const bySellerName = (a, b) => (a.seller || '').localeCompare(b.seller || '') || a.name.localeCompare(b.name);
 
   const TAB_KEY = 'cmcs.popupTab';
 
@@ -28,7 +23,7 @@
   let favorites = {};
   let carts = [];
   let job = null;
-  /** The game picked in the cart tab; ALL shows every game together (one cart on Cardmarket). */
+  /** The game picked in the header; ALL shows every game together (one cart on Cardmarket). */
   const ALL = '*';
   const GAME_KEY = 'cmcs.popupGame';
   let game = null;
@@ -39,9 +34,12 @@
   }
   /** The selected game as a filter (undefined = all games). */
   const gameFilter = () => (game === ALL ? undefined : game);
-  let filter = 'all';
   /** Games left out of "put back" in the all-games view. */
   const skippedGames = new Set();
+  /** Sellers folded into one line, the opened row, and whether "in your cart" is shown. */
+  const closedSellers = new Set();
+  let openId = null;
+  let showInCart = false;
   let notice = null;
   let query = '';
   let tab = 'cart';
@@ -105,7 +103,7 @@
   function currentList() {
     return Object.values(items)
       .filter((item) => !gameFilter() || item.game === game)
-      .sort((a, b) => (a.seller || '').localeCompare(b.seller || '') || a.name.localeCompare(b.name));
+      .sort(bySellerName);
   }
 
   async function copyText(text) {
@@ -119,7 +117,7 @@
 
   function download(name, text, type) {
     const a = document.createElement('a');
-    a.href = URL.createObjectURL(new Blob(['\ufeff', text], { type: `${type};charset=utf-8` }));
+    a.href = URL.createObjectURL(new Blob(['﻿', text], { type: `${type};charset=utf-8` }));
     a.download = name;
     a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 1000);
@@ -217,10 +215,8 @@
   }
 
   // ---------------------------------------------------------------------------
-
-  function stat(kind, value, label) {
-    return h('div', { class: `stat stat--${kind}` }, h('span', { class: 'stat-value' }, value), h('span', { class: 'stat-label' }, label));
-  }
+  // The refill in progress (or just finished)
+  // ---------------------------------------------------------------------------
 
   function renderJob() {
     const box = $('job');
@@ -240,9 +236,9 @@
           'div',
           { class: 'job-row' },
           ids.length
-            ? h('button', { type: 'button', class: 'cmcs-btn', onclick: () => continueJob(ids) }, t('continueRefill', ids.length))
+            ? h('button', { type: 'button', class: 'cmcs-btn cmcs-btn--small', onclick: () => continueJob(ids) }, t('continueRefill', ids.length))
             : h('span'),
-          h('button', { type: 'button', class: 'cmcs-btn cmcs-btn--ghost', onclick: () => store.dismissJob() }, t('close')),
+          h('button', { type: 'button', class: 'cmcs-btn cmcs-btn--ghost cmcs-btn--small', onclick: () => store.dismissJob() }, t('close')),
         ),
       );
       return;
@@ -257,7 +253,7 @@
           'div',
           { class: 'job-row' },
           h('span', { class: 'cmcs-muted' }, t('progressCount', job.done, total)),
-          h('button', { type: 'button', class: 'cmcs-btn cmcs-btn--ghost', onclick: cancelJob }, t('stop')),
+          h('button', { type: 'button', class: 'cmcs-btn cmcs-btn--ghost cmcs-btn--small', onclick: cancelJob }, t('stop')),
         ),
       );
       return;
@@ -277,7 +273,7 @@
         'div',
         { class: 'job-row' },
         h('span'),
-        h('button', { type: 'button', class: 'cmcs-btn cmcs-btn--ghost', onclick: acknowledgeJob }, t('close')),
+        h('button', { type: 'button', class: 'cmcs-btn cmcs-btn--ghost cmcs-btn--small', onclick: acknowledgeJob }, t('close')),
       ),
     ];
     box.replaceChildren(...parts.filter(Boolean));
@@ -304,37 +300,76 @@
     await refill(ids.map((id) => items[id]).filter(Boolean));
   }
 
-  function starButton(article) {
+  // ---------------------------------------------------------------------------
+  // Pieces
+  // ---------------------------------------------------------------------------
+
+  function starButton(article, asDetail = false) {
     const on = Boolean(favorites[article.articleId]);
-    return ui.iconButton(
-      t(on ? 'favRemove' : 'favAdd'),
-      on ? 'starFilled' : 'star',
-      () => store.toggleFavorite(article),
-      on ? 'cmcs-icon-btn--star' : '',
-    );
-  }
-
-  function itemActions(item) {
-    const actions = [starButton(item)];
-    if (item.status !== STATUS.IN_CART) {
-      const alt = cm.alternativesUrl(item);
-      if (alt) actions.push(ui.iconLink(t('findAlternative'), 'search', alt));
-      actions.push(ui.iconButton(t('refillOne'), 'refresh', () => refill([item])));
+    const label = t(on ? 'favRemove' : 'favAdd');
+    if (asDetail) {
+      return h('button', { type: 'button', class: 'cmcs-detail-btn', title: label, 'aria-label': label, onclick: () => store.toggleFavorite(article) }, ui.icon(on ? 'starFilled' : 'star'));
     }
-    actions.push(ui.iconButton(t('removeFromSaved'), 'close', () => removeItems([item])));
-    return actions;
+    return ui.iconButton(label, on ? 'starFilled' : 'star', () => store.toggleFavorite(article), on ? 'cmcs-icon-btn--star' : '');
   }
 
-  function favoriteActions(fav, inCart) {
-    const offer = cm.offerUrl(fav);
-    const seller = cm.sellerSearchUrl(fav);
+  const detailIcon = (label, iconName, onClick) =>
+    h('button', { type: 'button', class: 'cmcs-detail-btn', title: label, 'aria-label': label, onclick: onClick }, ui.icon(iconName));
+
+  const toggleRow = (id) => () => {
+    openId = openId === id ? null : id;
+    render();
+  };
+
+  /** Value of what goes back: price × the copies still missing. */
+  const refillValue = (list) => list.reduce((sum, item) => sum + (item.price || 0) * store.refillAmount(item), 0);
+  const rowValue = (list) => list.reduce((sum, item) => sum + (item.price || 0) * ui.copiesOf(item), 0);
+
+  /** A seller's articles: a header with the subtotal; folded, one line with the pictures. */
+  function sellerGroup(seller, list, rowFor) {
+    const closed = closedSellers.has(seller);
+    const toggle = () => {
+      if (closed) closedSellers.delete(seller);
+      else closedSellers.add(seller);
+      render();
+    };
+    const subtotal = store.formatPrice(rowValue(list));
+    if (closed) {
+      const changed = list.some((item) => ui.statusInfo(item).some((line) => line.warn));
+      return h(
+        'button',
+        { type: 'button', class: 'cmcs-seller cmcs-seller--closed', 'aria-expanded': 'false', onclick: toggle },
+        h('span', { class: 'cmcs-stack' }, list.slice(0, 3).map((item) => ui.thumbnail(item))),
+        h(
+          'span',
+          { class: 'cmcs-seller-text' },
+          h('span', { class: 'cmcs-seller-name' }, seller),
+          h('small', null, [t('shippingCopies', list.length), changed ? t('sellerPriceChanged') : null].filter(Boolean).join(' · ')),
+        ),
+        h('span', { class: 'cmcs-seller-sub' }, subtotal),
+        ui.icon('chevronRight'),
+      );
+    }
     return [
-      inCart ? null : ui.iconButton(t('favAddToCart'), 'cart', () => addFavoritesToCart([fav])),
-      offer ? ui.iconLink(t('favOpenOffer'), 'external', offer) : null,
-      seller ? ui.iconLink(t('favSellerOffers'), 'user', seller) : null,
-      ui.iconButton(t('favRemove'), 'starFilled', () => store.removeFavorites([fav.articleId]), 'cmcs-icon-btn--star'),
-    ].filter(Boolean);
+      h(
+        'button',
+        { type: 'button', class: 'cmcs-seller', 'aria-expanded': 'true', onclick: toggle },
+        h('span', { class: 'cmcs-seller-name' }, seller),
+        h('span', { class: 'cmcs-seller-sub' }, subtotal),
+        ui.icon('chevronDown'),
+      ),
+      list.map(rowFor),
+    ];
   }
+
+  function groupBySeller(list, rowFor) {
+    const groups = store.groupBy([...list].sort(bySellerName), (item) => item.seller || '—');
+    return [...groups.entries()].map(([seller, group]) => sellerGroup(seller, group, rowFor));
+  }
+
+  // ---------------------------------------------------------------------------
+  // Tabs
+  // ---------------------------------------------------------------------------
 
   function renderTabs() {
     $('tab-fav').textContent = t('tabFavorites', Object.keys(favorites).length);
@@ -347,89 +382,18 @@
     $('notice').textContent = notice || '';
   }
 
-  function renderFavorites() {
-    const all = Object.values(favorites).sort((a, b) => (b.favoritedAt || 0) - (a.favoritedAt || 0));
-    $('fav-empty').hidden = all.length > 0;
-    $('fav-search').hidden = all.length === 0;
-    const multiGame = new Set(all.map((fav) => fav.game)).size > 1;
-    const visible = all.filter((fav) => store.favoriteMatches(fav, query));
-    $('fav-list').replaceChildren(
-      ...(all.length && !visible.length
-        ? [h('p', { class: 'cmcs-muted' }, t('favNoMatches'))]
-        : visible.map((fav) => {
-            const inCart = inCartStatus(items[fav.articleId]);
-            return ui.itemRow(inCart ? { ...fav, status: STATUS.IN_CART } : fav, {
-              href: cm.offerUrl(fav) || fav.productUrl,
-              showStatus: inCart,
-              extraMeta: [
-                multiGame ? store.gameName(fav.game) : null,
-                fav.available ? t('favAvailable', fav.available) : null,
-                t('favSavedOn', formatDate(fav.favoritedAt)),
-              ]
-                .filter(Boolean)
-                .join(' · '),
-              note: fav.unavailable && !inCart ? fav.unavailableMessage || t('notAvailableAnymore') : null,
-              actions: favoriteActions(fav, inCart),
-            });
-          })),
-    );
-  }
-
-  function renderCarts() {
-    $('carts-empty').hidden = carts.length > 0;
-    $('carts-list').replaceChildren(
-      ...carts.map((cart) => {
-        const value = cart.items.reduce((sum, item) => sum + (item.price || 0) * (item.wantedAmount || item.amount || 1), 0);
-        return h(
-          'div',
-          { class: 'saved-cart' },
-          h('div', { class: 'saved-cart-head' }, h('span', { class: 'saved-cart-name', title: cart.name }, cart.name)),
-          h(
-            'div',
-            { class: 'saved-cart-meta' },
-            t(
-              'cartsMeta',
-              cart.items.length,
-              store.formatPrice(value),
-              [cart.game ? store.gameName(cart.game) : t('allGames'), formatDate(cart.createdAt)].join(' · '),
-            ),
-          ),
-          h(
-            'div',
-            { class: 'saved-cart-actions' },
-            h('button', { type: 'button', class: 'cmcs-btn', disabled: store.isJobActive(job), onclick: () => restoreCart(cart) }, t('cartsRestore')),
-            h('button', { type: 'button', class: 'cmcs-linklike', onclick: () => copyText(store.exportText(cart.items)) }, t('exportCopy')),
-            h(
-              'button',
-              { type: 'button', class: 'cmcs-linklike', onclick: () => download(`${cart.name}.csv`, store.exportCsv(cart.items), 'text/csv') },
-              'CSV',
-            ),
-            h('span', { style: 'flex:1' }),
-            ui.iconButton(t('cartsDelete'), 'close', () => store.removeCart(cart.id)),
-          ),
-        );
-      }),
-    );
-  }
-
-  function render() {
-    renderTabs();
-    renderJob();
-    renderFavorites();
-    renderCart();
-    renderCarts();
-  }
-
   function renderCart() {
     const all = Object.values(items);
     const games = [...new Set(all.map((item) => item.game).filter(Boolean))].sort();
 
     $('empty').hidden = all.length > 0;
-    for (const id of ['summary', 'actions', 'filters', 'list', 'export']) $(id).hidden = all.length === 0;
-    if (!all.length) $('refill-games').hidden = true;
-    if (!all.length || tab !== 'cart') {
+    for (const id of ['summary', 'list', 'export']) $(id).hidden = all.length === 0;
+    const foot = $('foot');
+    foot.hidden = tab !== 'cart' || all.length === 0;
+    if (!all.length) {
+      $('refill-games').hidden = true;
       $('game').hidden = true;
-      if (!all.length) return;
+      return;
     }
 
     // Several games: all of them together, unless you picked one.
@@ -444,17 +408,43 @@
 
     const forGame = all.filter((item) => !gameFilter() || item.game === game);
     const multiGame = new Set(forGame.map((item) => item.game)).size > 1;
-    const summary = store.summarize(items, gameFilter());
-    $('summary').replaceChildren(
-      stat('in_cart', summary.inCart, t('statusInCart')),
-      stat('missing', summary.attention, t('statusMissing')),
-      stat('unavailable', summary.unavailable, t('statusUnavailable')),
-    );
-
     const candidates = store.refillCandidates(items, { game: gameFilter() });
     const candidateGames = [...new Set(candidates.map((item) => item.game))];
-    const missing = candidates.filter((item) => candidateGames.length < 2 || !skippedGames.has(item.game));
+    const toRefill = candidates.filter((item) => candidateGames.length < 2 || !skippedGames.has(item.game));
+    const unavailable = forGame.filter((item) => item.status === STATUS.UNAVAILABLE);
+    const inCart = forGame.filter((item) => item.status === STATUS.IN_CART);
     const busy = store.isJobActive(job);
+
+    // The big picture first.
+    const sellers = (list) => new Set(list.map((item) => item.seller || '—')).size;
+    let title;
+    let sub;
+    if (candidates.length) {
+      title = t('summaryCanReturn', candidates.length);
+      const emptied = candidates.every((item) => item.missingReason === 'emptied');
+      sub = [t('summarySub', store.formatPrice(refillValue(candidates)), sellers(candidates)), emptied ? t('summaryEmptied') : null]
+        .filter(Boolean)
+        .join(' · ');
+    } else if (inCart.length) {
+      title = t('summaryAllIn');
+      const copies = inCart.reduce((sum, item) => sum + (item.amount || 1), 0);
+      sub = t('summaryAllInSub', copies, store.formatPrice(rowValue(inCart)), sellers(inCart));
+    } else {
+      title = t('nothingToRefill');
+      sub = null;
+    }
+    $('summary').replaceChildren(
+      ...[
+        h('h2', { class: 'cmcs-summary-title' }, title),
+        sub ? h('p', { class: 'cmcs-summary-sub' }, sub) : null,
+        h(
+          'button',
+          { type: 'button', class: 'cmcs-link open-cart', onclick: () => openUrl(cm.cartUrl(langFor(forGame), gameFilter() || (tabLoc && tabLoc.game) || forGame[0].game)) },
+          t('openCart'),
+        ),
+      ].filter(Boolean),
+    );
+
     // Several games to put back: choose which.
     const chips = $('refill-games');
     chips.hidden = candidateGames.length < 2;
@@ -481,60 +471,158 @@
             ),
           ]),
     );
-    $('actions').replaceChildren(
-      h(
-        'button',
-        { type: 'button', class: 'cmcs-btn', disabled: !missing.length || busy, onclick: () => refill(missing) },
-        missing.length ? t('refillAll', missing.length) : t('nothingToRefill'),
-      ),
-      h(
-        'button',
-        {
-          type: 'button',
-          class: 'cmcs-btn cmcs-btn--ghost',
-          onclick: () => openUrl(cm.cartUrl(langFor(forGame), gameFilter() || (tabLoc && tabLoc.game) || forGame[0].game)),
-        },
-        t('openCart'),
-      ),
+
+    // Articles that can go back, per seller.
+    const missingRow = (item) =>
+      ui.itemRow(item, {
+        open: openId === item.articleId,
+        onToggle: toggleRow(item.articleId),
+        withGame: multiGame,
+        details: [
+          ui.detailButton(t('detailRefillOne'), () => refill([item]), { strong: true }),
+          ui.detailButton(t('detailOpen'), null, { href: cm.offerUrl(item) || item.productUrl }),
+          cm.alternativesUrl(item) ? h('a', { class: 'cmcs-detail-btn', href: cm.alternativesUrl(item), target: '_blank', rel: 'noopener', title: t('findAlternative'), 'aria-label': t('findAlternative') }, ui.icon('search')) : null,
+          starButton(item, true),
+          detailIcon(t('removeFromSaved'), 'close', () => removeItems([item])),
+        ].filter(Boolean),
+      });
+    const inCartRow = (item) =>
+      ui.itemRow(item, {
+        open: openId === item.articleId,
+        onToggle: toggleRow(item.articleId),
+        withGame: multiGame,
+        details: [
+          ui.detailButton(t('detailOpen'), null, { href: cm.offerUrl(item) || item.productUrl }),
+          starButton(item, true),
+          detailIcon(t('removeFromSaved'), 'close', () => removeItems([item])),
+        ],
+      });
+    const soldRow = (item) => {
+      const alt = cm.alternativesUrl(item);
+      return ui.itemRow(item, {
+        sold: true,
+        hideMeta: false,
+        note: item.lastAttempt && item.lastAttempt.message ? item.lastAttempt.message : null,
+        withGame: multiGame,
+        below: alt ? h('a', { class: 'cmcs-link', href: alt, target: '_blank', rel: 'noopener' }, t('findAlternative')) : null,
+        actions: [
+          ui.iconButton(t('refillOne'), 'refresh', () => refill([item])),
+          ui.iconButton(t('removeFromSaved'), 'close', () => removeItems([item])),
+        ],
+      });
+    };
+
+    const list = [];
+    list.push(groupBySeller(candidates, missingRow));
+    if (unavailable.length) {
+      list.push(
+        h('div', { class: 'cmcs-section-title' }, t('sectionUnavailable')),
+        [...unavailable].sort(bySellerName).map(soldRow),
+        h(
+          'div',
+          { class: 'section-actions' },
+          h('button', { type: 'button', class: 'cmcs-link', onclick: () => refill(unavailable) }, t('retryUnavailable')),
+          h('button', { type: 'button', class: 'cmcs-link', onclick: () => removeItems(unavailable) }, t('clearUnavailable')),
+        ),
+      );
+    }
+    if (inCart.length) {
+      list.push(
+        h(
+          'div',
+          { class: 'in-cart-line' },
+          h('span', null, t('sectionInCart', inCart.length)),
+          h('button', { type: 'button', class: 'cmcs-link', 'aria-expanded': String(showInCart), onclick: () => { showInCart = !showInCart; render(); } }, showInCart ? t('hide') : t('show')),
+        ),
+      );
+      if (showInCart) list.push(groupBySeller(inCart, inCartRow));
+    }
+    $('list').replaceChildren(...list.flat(Infinity).filter(Boolean));
+
+    // The one big button.
+    foot.replaceChildren(
+      toRefill.length
+        ? ui.primaryButton(t('refillButton', toRefill.length), store.formatPrice(refillValue(toRefill)), () => refill(toRefill), { disabled: busy })
+        : ui.primaryButton(t('nothingToRefill'), '', null, { disabled: true }),
     );
-    const filters = $('filters');
-    filters.hidden = false;
-    filters.replaceChildren(
-      ...FILTERS.map((f) => {
-        const count = forGame.filter(f.test).length;
+  }
+
+  function renderFavorites() {
+    const all = Object.values(favorites).sort((a, b) => (b.favoritedAt || 0) - (a.favoritedAt || 0));
+    $('fav-empty').hidden = all.length > 0;
+    $('fav-search').hidden = all.length === 0;
+    const multiGame = new Set(all.map((fav) => fav.game)).size > 1;
+    const visible = all.filter((fav) => store.favoriteMatches(fav, query));
+    $('fav-list').replaceChildren(
+      ...(all.length && !visible.length
+        ? [h('p', { class: 'cmcs-muted' }, t('favNoMatches'))]
+        : visible.map((fav) => {
+            const inCart = inCartStatus(items[fav.articleId]);
+            const sold = fav.unavailable && !inCart;
+            const offer = cm.offerUrl(fav);
+            const seller = cm.sellerSearchUrl(fav);
+            return ui.itemRow(inCart ? { ...fav, status: STATUS.IN_CART } : { ...fav, status: 'offer' }, {
+              href: offer || fav.productUrl,
+              sold,
+              note: sold ? fav.unavailableMessage || t('notAvailableAnymore') : inCart ? t('favInCartNote') : undefined,
+              extraMeta: [
+                multiGame ? store.gameName(fav.game) : null,
+                fav.seller,
+                fav.available ? t('favAvailable', fav.available) : null,
+                t('favSavedOn', formatDate(fav.favoritedAt)),
+              ]
+                .filter(Boolean)
+                .join(' · '),
+              actions: [
+                inCart || sold ? null : ui.iconButton(t('favAddToCart'), 'cart', () => addFavoritesToCart([fav])),
+                offer ? ui.iconLink(t('favOpenOffer'), 'external', offer) : null,
+                seller ? ui.iconLink(t('favSellerOffers'), 'user', seller) : null,
+                ui.iconButton(t('favRemove'), 'starFilled', () => store.removeFavorites([fav.articleId]), 'cmcs-icon-btn--star'),
+              ].filter(Boolean),
+            });
+          })),
+    );
+  }
+
+  function renderCarts() {
+    $('carts-empty').hidden = carts.length > 0;
+    $('carts-list').replaceChildren(
+      ...carts.map((cart) => {
+        const value = cart.items.reduce((sum, item) => sum + (item.price || 0) * (item.wantedAmount || item.amount || 1), 0);
         return h(
-          'button',
-          { type: 'button', class: 'filter', 'aria-pressed': String(filter === f.id), onclick: () => { filter = f.id; render(); } },
-          `${t(f.label)} (${count})`,
+          'div',
+          { class: 'saved-cart' },
+          h('div', { class: 'saved-cart-name', title: cart.name }, cart.name),
+          h(
+            'div',
+            { class: 'saved-cart-meta' },
+            t(
+              'cartsMeta',
+              cart.items.length,
+              store.formatPrice(value),
+              [cart.game ? store.gameName(cart.game) : t('allGames'), formatDate(cart.createdAt)].join(' · '),
+            ),
+          ),
+          h(
+            'div',
+            { class: 'saved-cart-actions' },
+            h('button', { type: 'button', class: 'cmcs-btn cmcs-btn--small', disabled: store.isJobActive(job), onclick: () => restoreCart(cart) }, t('cartsRestore')),
+            h('button', { type: 'button', class: 'cmcs-link', onclick: () => copyText(store.exportText(cart.items)) }, t('exportCopy')),
+            h('button', { type: 'button', class: 'cmcs-link', onclick: () => download(`${cart.name}.csv`, store.exportCsv(cart.items), 'text/csv') }, 'CSV'),
+            h('span', { style: 'flex:1' }),
+            ui.iconButton(t('cartsDelete'), 'close', () => store.removeCart(cart.id)),
+          ),
         );
       }),
     );
+  }
 
-    const active = FILTERS.find((f) => f.id === filter) || FILTERS[0];
-    const visible = forGame
-      .filter(active.test)
-      .sort((a, b) => STATUS_ORDER[a.status] - STATUS_ORDER[b.status] || a.name.localeCompare(b.name));
-    const bySeller = store.groupBy(visible, (item) => item.seller || '—');
-    const sellers = [...bySeller.keys()].sort((a, b) => a.localeCompare(b));
-    $('list').replaceChildren(
-      ...(visible.length
-        ? sellers.flatMap((seller) => [
-            h('div', { class: 'cmcs-group-title seller-title' }, `${seller} (${bySeller.get(seller).length})`),
-            h(
-              'div',
-              null,
-              bySeller.get(seller).map((item) =>
-                ui.itemRow(item, {
-                  showStatus: true,
-                  showSeller: false,
-                  extraMeta: multiGame ? store.gameName(item.game) : null,
-                  actions: itemActions(item),
-                }),
-              ),
-            ),
-          ])
-        : [h('p', { class: 'cmcs-muted' }, t('filterEmpty'))]),
-    );
+  function render() {
+    renderTabs();
+    renderJob();
+    renderFavorites();
+    renderCart();
+    renderCarts();
   }
 
   async function load() {

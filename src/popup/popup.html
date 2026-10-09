@@ -8,10 +8,10 @@
   </head>
   <body class="cmcs-root">
     <header class="top">
-      <img class="logo" src="../../icons/icon32.png" alt="" />
-      <h1 class="title">Cart Saver</h1>
-      <select id="game" class="game" hidden aria-label="Game"></select>
-      <a id="options" class="cmcs-icon-btn" href="#" data-i18n-title="settings">⚙</a>
+      <span id="brand"></span>
+      <span class="spacer"></span>
+      <select id="game" class="game" hidden aria-label="Spel"></select>
+      <a id="options" class="cmcs-icon-btn" href="#" data-i18n-title="settings"></a>
     </header>
 
     <nav class="tabs" role="tablist">
@@ -22,17 +22,15 @@
 
     <main>
       <section id="job" class="job" hidden></section>
-      <p id="notice" class="notice cmcs-muted" hidden></p>
+      <p id="notice" class="notice" hidden></p>
 
       <div id="view-cart" role="tabpanel" aria-labelledby="tab-cart">
-        <section id="summary" class="summary"></section>
-        <section id="actions" class="actions"></section>
+        <section id="summary" class="cmcs-summary"></section>
         <nav id="refill-games" class="cmcs-chips" hidden></nav>
-        <nav id="filters" class="filters" hidden></nav>
         <section id="list" class="list"></section>
         <section id="export" class="export" hidden>
-          <button type="button" id="export-text" class="cmcs-linklike" data-i18n="exportCopy"></button>
-          <button type="button" id="export-csv" class="cmcs-linklike" data-i18n="exportCsv"></button>
+          <button type="button" id="export-text" class="cmcs-link" data-i18n="exportCopy"></button>
+          <button type="button" id="export-csv" class="cmcs-link" data-i18n="exportCsv"></button>
         </section>
         <section id="empty" class="empty" hidden>
           <p class="empty-title" data-i18n="emptyTitle"></p>
@@ -61,11 +59,12 @@
           <p class="cmcs-muted" data-i18n="cartsEmptyLead"></p>
         </section>
       </div>
+
+      <p class="privacy" data-i18n="privacyNote"></p>
     </main>
 
+    <footer id="foot" class="foot" hidden></footer>
     <div id="toast" class="toast" role="status" hidden></div>
-
-    <footer class="foot cmcs-muted" data-i18n="privacyNote"></footer>
 
     <script src="../shared/i18n.js"></script>
     <script src="../shared/store.js"></script>

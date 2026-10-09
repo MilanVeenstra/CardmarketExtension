@@ -1,272 +1,165 @@
-# Cardmarket Cart Saver
-
-Een Chrome-extensie die onthoudt wat je in je
-[Cardmarket](https://www.cardmarket.com)-winkelmandje legt. Als Cardmarket je
-mandje (automatisch) leegt, zet je alles met één klik terug, tenminste zolang
-de artikelen nog te koop zijn.
-
-<p>
-  <img src="docs/screenshots/panel-reminder.png" alt="Melding op Cardmarket als je mandje is geleegd" width="380">
-  <img src="docs/screenshots/panel-result.png" alt="Resultaat na het terugzetten" width="380">
-</p>
-<p>
-  <img src="docs/screenshots/popup-cart.png" alt="Popup met alle opgeslagen artikelen" width="400">
-  <img src="docs/screenshots/popup-favorites.png" alt="Favorieten in de popup" width="400">
+<p align="center">
+  <img src="icons/icon128.png" width="80" alt="">
 </p>
 
-## Wat het doet
+<h1 align="center">CART SAVER</h1>
 
-- **Automatisch opslaan.** Elk artikel dat in je winkelmandje komt, wordt
-  lokaal bewaard met:
-  - verkoper, conditie, taal, foil;
-  - prijs, aantal en link.
+<p align="center">
+  <b>Je Cardmarket-mandje kwijt? Eén klik en het staat er weer in.</b><br>
+  Een Chrome-extensie voor <a href="https://www.cardmarket.com">Cardmarket</a>.
+</p>
 
-  Dat werkt ook als je iets toevoegt met de gewone knoppen van Cardmarket.
-- **Leeg mandje herkennen.** Zodra opgeslagen artikelen uit je mandje
-  verdwijnen:
-  - verschijnt er een melding op Cardmarket;
-  - toont het icoon in de werkbalk hoeveel artikelen ontbreken.
-- **Met één klik terugzetten.**
-  - Artikelen gaan één voor één terug in je mandje, met een pauze ertussen.
-  - Wat al in je mandje zit, wordt overgeslagen.
-  - Wat intussen verkocht is, wordt gemarkeerd als *niet meer beschikbaar*, met
-    een knop om vergelijkbaar aanbod te zoeken (zelfde taal, minimaal dezelfde
-    conditie, zelfde foil).
-- **Favorieten.** Klik op de ☆ bij een aanbieding om dat specifieke artikel
-  van die verkoper te bewaren. Dat kan op productpagina's, kaartpagina's,
-  verkoperspagina's en in je winkelmandje. In de popup onder **Favorieten**
-  kun je zoeken op naam, set of verkoper. Per favoriet kun je:
-  - de aanbieding openen: de pagina scrolt ernaartoe en markeert hem;
-  - bij de verkoper zoeken;
-  - hem met één klik in je winkelmandje leggen (1 exemplaar).
+<p align="center">
+  <img src="docs/screenshots/popup-cart.png" width="380" alt="De popup: wat terug kan, per verkoper">
+  &nbsp;
+  <img src="docs/screenshots/panel-cart.png" width="380" alt="Het paneel op de mandjepagina van Cardmarket">
+</p>
 
-  Prijs en voorraad worden bijgewerkt zodra je de aanbieding weer tegenkomt.
-  Is hij verkocht, dan zie je dat bij de favoriet, met links naar de
-  verkoper en naar vergelijkbaar aanbod.
-- **Gekochte artikelen** verdwijnen vanzelf uit de lijst zodra je de bestelling
-  op Cardmarket opent. Wat je zelf met het prullenbakje uit je mandje haalt,
-  wordt ook vergeten.
-- **Werkt voor alle spellen op Cardmarket** (Magic, Pokémon, Yu-Gi-Oh!, One
-  Piece, Lorcana, …) en in alle sitetalen.
-- **Privacy.**
-  - Alles blijft in je eigen browser (`chrome.storage.local`).
-  - De extensie praat alleen met cardmarket.com, via je eigen ingelogde sessie.
-  - Er worden geen wachtwoorden opgeslagen en er is geen externe server.
+---
+
+## Waarvoor
+
+Wie op Cardmarket een deck bij elkaar zoekt, legt vaak tientallen kaarten van
+verschillende verkopers in zijn mandje, in precies de goede conditie en taal.
+Cardmarket **leegt dat mandje vanzelf**: na verloop van tijd, als een
+verkoper op vakantie gaat of als iets verkocht wordt. Al dat zoekwerk is dan
+weg.
+
+**Cart Saver onthoudt alles wat je in je mandje legt** en zet het met één
+klik terug, zolang het nog te koop is. Is iets verkocht, dan zoekt hij een
+vervanging.
+
+## Wat je krijgt
+
+| | |
+|---|---|
+| **Automatisch onthouden** | Elk artikel in je mandje wordt bewaard: kaart, verkoper, conditie, taal, foil, prijs en aantal. Je hoeft niets te doen. |
+| **Eén klik terug** | Eén verzoek per verkoper, en alleen wat echt ontbreekt. Dus ook "1 van 2 in je mandje" wordt aangevuld. Spijt? *Ongedaan maken*. |
+| **Weten wat er gebeurde** | Per artikel zie je of het mandje werd geleegd, of de verkoper verdween of dat alleen dit artikel verkocht is, en of de prijs veranderde. |
+| **Vervanging voor verkochte kaarten** | Dezelfde kaart bij dezelfde verkoper, bij een verkoper die al in je mandje zit (geen extra verzending), of het goedkoopste vergelijkbare aanbod. |
+| **Alle spellen in één mandje** | Magic, Pokémon, Yu-Gi-Oh!, One Piece, Lorcana… Kies zelf welke spellen terug moeten. |
+| **Favorieten en bewaarde mandjes** | Bewaar een aanbieding met een ☆, of je hele lijst onder een naam ("Commander-deck") om later terug te zetten. |
+| **Op tijd gewaarschuwd** | Hoe laat Cardmarket je mandje leegt, verzendkosten per verkoper, en een melding als er iets verdwijnt. |
+
+## Zo werkt het
+
+**1. Shop zoals altijd.** Cart Saver onthoudt wat je in je mandje legt. Op de
+mandjepagina zie je rechtsonder wat er bewaard is, en wat de verzending per
+verkoper kost.
+
+**2. Mandje geleegd?** Op elke Cardmarket-pagina verschijnt een melding, en
+het icoon in de werkbalk telt mee.
+
+<p align="center">
+  <img src="docs/screenshots/panel-reminder.png" width="380" alt="Melding: je winkelmandje is geleegd">
+</p>
+
+**3. Zet terug.** Eén klik, en de kaarten liggen weer in je mandje. Wat
+verkocht is krijgt een stempel, met een voorstel voor vervanging.
+
+<p align="center">
+  <img src="docs/screenshots/panel-result.png" width="380" alt="Resultaat na het terugzetten">
+  &nbsp;
+  <img src="docs/screenshots/panel-replacement.png" width="380" alt="Vervanging voor een verkochte kaart">
+</p>
+
+In de popup vind je alles terug: wat terug kan (per verkoper, met de details
+als je op een kaart klikt), je **favorieten** en je **bewaarde mandjes**.
+
+<p align="center">
+  <img src="docs/screenshots/popup-favorites.png" width="380" alt="Favorieten in de popup">
+  &nbsp;
+  <img src="docs/screenshots/popup-carts.png" width="380" alt="Bewaarde mandjes in de popup">
+</p>
 
 ## Installeren
 
-De extensie staat (nog) niet in de Chrome Web Store. Je laadt haar als
-"uitgepakte extensie":
+Cart Saver staat (nog) niet in de Chrome Web Store; je laadt hem zelf:
 
-1. Download deze repository, via **Code → Download ZIP** (en pak uit) of met
-   `git clone`.
-2. Ga in Chrome naar `chrome://extensions`.
-3. Zet rechtsboven **Ontwikkelaarsmodus** aan.
-4. Klik op **Uitgepakte extensie laden** en kies de map van deze repository
-   (de map met `manifest.json`).
-5. Optioneel: pin het icoon via het puzzelstukje in de werkbalk.
-6. Ververs tabbladen van Cardmarket die al open stonden.
+1. **Download** de [ZIP](https://github.com/MilanVeenstra/CardmarketExtension/archive/HEAD.zip) en pak hem uit.
+2. Ga in Chrome naar `chrome://extensions` en zet rechtsboven **Ontwikkelaarsmodus** aan.
+3. Klik op **Uitgepakte extensie laden** en kies de uitgepakte map (met `manifest.json`).
+4. Ververs je open Cardmarket-tabbladen.
 
-Dit werkt ook in andere Chromium-browsers zoals Edge, Brave en Opera.
+Werkt ook in Edge, Brave en Opera.
 
-## Gebruik
+<details>
+<summary><b>Automatisch bijwerken (Mac)</b></summary>
 
-1. Log in op Cardmarket en leg zoals altijd kaarten in je winkelmandje. Open
-   je winkelmandje één keer: rechtsonder zie je *Cart Saver · X opgeslagen*.
-2. Wordt je mandje later geleegd? Dan verschijnt op Cardmarket de melding
-   **"Je winkelmandje is geleegd"**. Klik op **Zet terug**, of kies op de
-   winkelmandjepagina zelf welke artikelen je terug wilt.
-3. Zie je een aanbieding die je later misschien wilt kopen? Klik op de ☆
-   ernaast. Je vindt hem terug in de popup onder **Favorieten**.
-4. Je kunt ook het icoon in de werkbalk gebruiken. De popup toont alle
-   opgeslagen artikelen per verkoper en kan het terugzetten starten. Zit je
-   niet op Cardmarket, dan opent hij je winkelmandje en begint het terugzetten
-   vanzelf.
+Wil je elke nieuwe versie vanzelf binnenkrijgen? Eén keer instellen:
 
-**Instellingen** (tandwiel in de popup):
-
-- automatisch opslaan aan/uit;
-- de melding op Cardmarket aan/uit;
-- de pauze tussen artikelen (standaard 1,2 s);
-- export en import (JSON), inclusief favorieten;
-- alles wissen.
-
-## Automatisch bijwerken bij elke push (Mac)
-
-De extensie blijft gewoon lokaal staan en werkt zichzelf bij:
-
-- Een klein achtergrondtaakje op je Mac haalt elke 3 minuten de nieuwste
-  versie van deze branch van GitHub op.
-- De extensie merkt elke minuut dat er nieuwe bestanden zijn en herlaadt
-  zichzelf.
-- Een push is dus binnen een paar minuten actief, zonder Web Store en zonder
-  zelf te downloaden.
-
-**Eenmalig instellen:**
-
-1. Zoek op `chrome://extensions`, bij Cart Saver (met *Ontwikkelaarsmodus*
-   aan), de regel *Geladen vanaf:*. Dat is de map van de extensie.
-2. Open **Terminal** en voer uit (vervang het pad door jouw map):
+1. Zoek op `chrome://extensions` bij Cart Saver de regel **Geladen vanaf**: dat is je extensiemap.
+2. Open **Terminal**, typ `cd ` en sleep die map in het venster. Druk op Enter.
+3. Voer uit:
    ```bash
-   cd "/pad/naar/de/extensiemap"
    bash scripts/autoupdate-mac.sh install "$PWD"
    ```
-   Heb je nog geen git, dan vraagt macOS om de *Command Line Tools* te
-   installeren. Doe dat en voer het commando opnieuw uit.
-3. Klik op `chrome://extensions` één keer op ↻ bij Cart Saver.
+   Vraagt je Mac om de *Command Line Tools*? Installeer ze en herhaal stap 3.
+4. Klik één keer op ↻ bij Cart Saver.
 
-De map wordt ter plekke een git-kopie van de repository. Chrome ziet hem als
-dezelfde extensie, dus je opgeslagen artikelen en favorieten blijven bewaard.
-Na een update vragen open Cardmarket-tabbladen om te verversen, via het label
-*"Cart Saver bijgewerkt · ververs de pagina"*.
+Daarna kijkt je Mac elke 3 minuten of er een nieuwe versie is; de extensie
+herstart zichzelf en open tabbladen vragen om te verversen. Je opgeslagen
+artikelen blijven bewaard. Status: `bash scripts/autoupdate-mac.sh status`,
+uitzetten: `bash scripts/autoupdate-mac.sh uninstall`.
 
-| Wat | Commando |
-|---|---|
-| Status en laatste updates bekijken | `bash scripts/autoupdate-mac.sh status` |
-| Automatisch bijwerken uitzetten | `bash scripts/autoupdate-mac.sh uninstall` |
+</details>
 
-> **Alternatief: de Chrome Web Store (unlisted).** Dan heb je geen script
-> nodig en kunnen anderen de extensie ook installeren. Daar hangt wel iets aan:
-> - een eenmalige ontwikkelaarsbijdrage van $5;
-> - elke update gaat eerst door een review van uren tot dagen, dus niet
->   direct na een push.
+## Privacy
+
+- Alles blijft in je eigen browser. Er is geen server en er wordt niets
+  verstuurd.
+- Cart Saver praat alleen met cardmarket.com, via je eigen ingelogde sessie.
+  Er worden geen wachtwoorden bewaard.
+- Optioneel (standaard uit): één keer per dag de openbare prijsgids van
+  Cardmarket downloaden om prijzen met de trend te vergelijken.
 
 ## Goed om te weten
 
 - Cart Saver is **onofficieel** en niet verbonden aan Cardmarket. Hij gebruikt
-  dezelfde verzoeken als de knoppen op de site zelf, maar als Cardmarket de site
-  verandert, kan de extensie stoppen met werken. In dat geval weigert hij liever
-  iets te doen dan iets fout te doen:
-  - hij markeert niets als ontbrekend als het mandje niet (helemaal) te lezen
-    is, bijvoorbeeld als een verkopersblok geen leesbare rijen heeft;
-  - hij stopt bij een Cloudflare-controle of als je bent uitgelogd;
-  - ben je ingelogd met een ander Cardmarket-account, dan laat hij je lijst
-    met rust tot je zelf voor dat account kiest.
-- Cart Saver onthoudt **hoeveel exemplaren** je wilde. Verkoopt een verkoper
-  er een paar, dan zie je "1 van 2 in je mandje" en zet hij alleen het
-  verschil terug. Ook zie je **waarom** iets uit je mandje verdween (mandje
-  geleegd, verkoper weg, of alleen dit artikel: waarschijnlijk verkocht) en of
-  de **prijs** veranderde.
-- Terugzetten gaat **per verkoper in één verzoek**; wat daarbij niet aankomt,
-  wordt daarna los geprobeerd. Spijt? *Ongedaan maken* haalt precies de
-  toegevoegde exemplaren weer uit je mandje.
-- Is een artikel verkocht, dan zoekt *Vervanging zoeken* (het ⇄-knopje in het
-  paneel op de mandjepagina) hetzelfde kaartje bij dezelfde verkoper, of bij
-  een verkoper die al in je mandje zit, of het goedkoopste vergelijkbare
-  aanbod.
-- In de popup-tab **Mandjes** bewaar je je lijst onder een naam
-  (bijvoorbeeld per deck) en zet je hem later met één klik terug. Lijsten zijn
-  ook te kopiëren als tekst of te downloaden als CSV.
-- Op de mandjepagina zie je **wanneer Cardmarket je mandje leegt** (als de
-  pagina die tijd toont, met 5 minuten vooraf een melding) en **wat de
-  verzending per verkoper kost**, inclusief de grens van 25 € voor verzending
-  met tracking.
-- Instelbaar: **meldingen** als je mandje geleegd wordt terwijl je ergens
-  anders bent, **prijs tegenover trend** (de openbare prijsgids van
-  Cardmarket, één keer per dag) en **controleren als je weg bent** (hooguit
-  elke 10 minuten). De laatste twee staan standaard uit.
-- Cardmarket heeft **één mandje voor alle spellen**. Cart Saver toont
-  daarom alles samen (in de popup: *Alle spellen*, of kies één spel) en je
-  kiest zelf welke spellen terug moeten ("Magic (2)", "Pokémon (1)").
-- Haal je zelf iets uit je mandje (prullenbakje, minder exemplaren, alles van
-  een verkoper), dan verdwijnt het ook uit Cart Saver. Dat werkt via het
-  verzoek van de site én via wat er op de mandjepagina verandert vlak nadat
-  jij klikt, dus ook als Cardmarket zijn verzoeken anders opbouwt.
-- Er draait altijd maar één terugzet-actie tegelijk, ook met meerdere tabs.
-  Sluit je de tab halverwege, dan biedt de volgende Cardmarket-pagina
-  *Doorgaan* aan; het mandje wordt dan eerst opnieuw gecontroleerd.
-- Een opgeslagen artikel is één specifieke aanbieding van één verkoper. Is die
-  verkocht, dan kan Cart Saver hem niet terugzetten. Gebruik dan de knop
-  *Zoek vergelijkbaar aanbod*.
-- Gebruik het met mate. Cardmarket waarschuwt dat tools van derden voor eigen
-  risico zijn, en te veel verzoeken in korte tijd leiden tot een tijdelijke
-  blokkade. De extensie doet alleen iets na een klik van jou, één artikel
-  tegelijk.
+  dezelfde verzoeken als de knoppen op de site. Verandert Cardmarket iets,
+  dan doet hij liever niets dan iets fout: een mandje dat hij niet goed kan
+  lezen markeert hij nergens als leeg.
+- Een opgeslagen artikel is één aanbieding van één verkoper. Is die verkocht,
+  dan kan hij niet terug; gebruik dan *Vervanging zoeken*.
+- Gebruik het met mate: verzoeken gaan alleen na jouw klik (of als je mandje
+  veranderde), één tegelijk en met een pauze ertussen.
 
-## Hoe het werkt
+<details>
+<summary><b>Voor ontwikkelaars</b></summary>
 
-Het volledige vooronderzoek staat in [docs/RESEARCH.md](docs/RESEARCH.md).
-Een overzicht van alle functies en ideeën voor uitbreiding staat in
-[docs/REQUIREMENTS.md](docs/REQUIREMENTS.md). Een brief voor een
-(re)design staat in [docs/DESIGN-BRIEF.md](docs/DESIGN-BRIEF.md). Een analyse
-van hoe de cart saver nog beter kan staat in
-[docs/CART-SAVER-ANALYSE.md](docs/CART-SAVER-ANALYSE.md). Kort
-samengevat:
-
-- Een **content script** op `www.cardmarket.com` doet het werk:
-  - het leest het winkelmandje (`tr[data-article-id]` met `data-*`-attributen);
-  - het houdt de mandjesteller in de header in de gaten;
-  - het zet artikelen terug met dezelfde AJAX-POST als de site
-    (`AjaxAction/ShoppingCart_Add_AddArticlesFromUserOffers` met het
-    `__cmtkn`-CSRF-token van je sessie).
-
-  De verzoeken gaan via een klein script in de pagina zelf
-  (`src/page/bridge.js`), precies zoals de knoppen van Cardmarket. Zo gaan
-  je sessiecookies gewoon mee. Antwoordt dat script niet, dan valt de
-  extensie terug op een eigen verzoek.
-- **`chrome.storage.local`** bewaart de artikelen en de voortgang van het
-  terugzetten. Popup en paneel lezen live mee.
-- De **service worker** doet het badge-getal, de meldingen, het zelf
-  bijwerken, de dagelijkse opruiming en (als je dat aanzet) de prijsgids en
-  het controleren als je weg bent. Verzoeken naar je mandje lopen altijd via
-  een Cardmarket-tab.
+Geen build-stap: Chrome laadt de bestanden direct (Manifest V3, gewone
+HTML/CSS/JS).
 
 ```
 manifest.json
 src/
-  shared/      store.js (datamodel + opslag), ui.js (gedeelde weergave), i18n.js
+  shared/      store.js (gegevens en opslag), ui.js (stijl en componenten), i18n.js
   content/     cardmarket.js (kennis van de site), refill.js (terugzetten),
-               replace.js (vervanging zoeken),
-               widget.js (paneel op de site), favorites.js (sterren bij aanbiedingen),
-               main.js (opstarten)
+               replace.js (vervanging), widget.js (paneel), favorites.js (sterren),
+               thumbs.js (plaatjes), main.js (opstarten, mandje lezen)
+  page/        bridge.js (verzoeken vanuit de pagina zelf, via een privé kanaal)
   popup/       popup.html/css/js
   options/     options.html/css/js
   background/  service-worker.js (badge, meldingen, zelf bijwerken, prijsgids)
-_locales/      en, nl
-tests/         end-to-end-test met een nagebootste Cardmarket
-docs/          RESEARCH.md, screenshots
+_locales/      nl, en
+scripts/       autoupdate-mac.sh, make-icons.mjs
+tests/         end-to-end-tests tegen een nagebootste Cardmarket
+docs/          onderzoek, functionele eisen, design-brief, screenshots
 ```
 
-## Ontwikkelen en testen
-
-Er is geen build-stap: de bestanden worden direct door Chrome geladen.
-
-De end-to-end-test laadt de echte extensie in Chromium (Playwright) en stuurt
-`https://www.cardmarket.com` naar een nagebootste Cardmarket
-(`tests/mock-cardmarket.mjs`). Die gebruikt dezelfde HTML-structuur en
-endpoints als de echte site. Getest worden:
-
-- opslaan;
-- een geleegd mandje herkennen;
-- terugzetten, met pauzes tussen de verzoeken;
-- favorieten: bewaren, terugvinden, in het mandje leggen en verkocht
-  markeren;
-- niet-beschikbare artikelen;
-- de popup en de instellingenpagina;
-- het terugzetten vanuit de popup;
-- de fallback naar het andere endpoint;
-- de Cloudflare-controle;
-- een (gedeeltelijk) onleesbaar mandje;
-- uitgelogd zijn, of ingelogd met een ander account;
-- aantallen ("1 van 2"), redenen en prijswijzigingen;
-- weigeringen: verkocht, te weinig exemplaren of onduidelijk;
-- één actie tegelijk, en doorgaan na een gesloten tab;
-- batches per verkoper, ongedaan maken, vervanging zoeken, mandjes bewaren
-  en exporteren;
-- aftellen en meldingen, verzending per verkoper, de prijsgids, controleren
-  als je weg bent, opruimen, en de privé page bridge;
-- één mandje met meerdere spellen, terugzetten per spel, en verwijderen
-  herkennen via een versleuteld verzoek of via de mandjepagina zelf.
+De tests laden de echte extensie in Chromium (Playwright) en sturen
+`https://www.cardmarket.com` naar een nagebootste site met dezelfde HTML en
+endpoints:
 
 ```bash
 npm install
-npm test
-SCREENSHOT_DIR=shots npm test   # met screenshots
+npm test                          # alle tests
+SCREENSHOT_DIR=shots npm test     # ook screenshots
 ```
 
-Debuggen in Chrome:
+Meer achtergrond: [onderzoek](docs/RESEARCH.md),
+[functionele eisen](docs/REQUIREMENTS.md),
+[analyse van de cart saver](docs/CART-SAVER-ANALYSE.md) en de
+[design-brief](docs/DESIGN-BRIEF.md).
 
-- Content-script-logs staan in de DevTools van het Cardmarket-tabblad.
-- De service worker inspecteer je via de link *service worker* op
-  `chrome://extensions`.
-- Na een wijziging klik je op ↻ bij de extensie en ververs je Cardmarket.
+</details>

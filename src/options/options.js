@@ -8,6 +8,7 @@
   style.textContent = ui.STYLES;
   document.head.prepend(style);
   CMCS.localize(document);
+  $('logo').append(ui.logo(44));
   document.documentElement.lang = chrome.i18n.getUILanguage();
 
   // --- Settings --------------------------------------------------------------

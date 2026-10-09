@@ -26,7 +26,8 @@ const UPDATE_SETTLE_MS = 5000;
 async function updateBadge() {
   const summary = store.summarize(await store.getItems());
   const count = summary.attention;
-  await chrome.action.setBadgeBackgroundColor({ color: '#d97706' });
+  await chrome.action.setBadgeBackgroundColor({ color: '#b3122b' });
+  if (chrome.action.setBadgeTextColor) await chrome.action.setBadgeTextColor({ color: '#ffffff' });
   await chrome.action.setBadgeText({ text: count ? String(count) : '' });
   await chrome.action.setTitle({
     title: count ? chrome.i18n.getMessage('badgeTitle', [String(count)]) : 'Cart Saver',
