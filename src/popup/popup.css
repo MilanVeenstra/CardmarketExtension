@@ -48,7 +48,15 @@ main { flex: 1; min-height: 0; overflow: auto; padding: 4px 14px 8px; }
 .empty .cmcs-btn { margin-top: 12px; }
 .privacy { font-size: 11px; color: var(--cmcs-muted); margin: 16px 0 4px; }
 
+/* Cart tab: when Cardmarket empties the cart, and choosing what goes back */
+.cmcs-expiry { margin: 0; color: var(--cmcs-muted); font-size: 12px; }
+.cmcs-expiry--soon { color: var(--cmcs-red); font-weight: 700; }
+.select-line { display: flex; justify-content: space-between; align-items: center; padding: 10px 0 0; font-size: 12px; color: var(--cmcs-muted); }
+.row-hint { font-size: 12px; color: var(--cmcs-muted); margin: 0; }
+
 /* Favourites */
+.fav-bar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 8px 10px; margin: 0 0 6px; background: var(--cmcs-surface); font-size: 12px; }
+.fav-bar span { flex: 1; color: var(--cmcs-muted); }
 .search {
   width: 100%; font: inherit; color: var(--cmcs-text); background: transparent;
   border: 0; border-bottom: 1px solid var(--cmcs-border-strong); border-radius: 0; padding: 10px 0 8px; margin: 4px 0 6px;

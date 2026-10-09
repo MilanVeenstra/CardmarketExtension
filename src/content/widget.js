@@ -130,7 +130,9 @@
       if (Object.keys(changes).some((key) => watched.includes(key))) refresh();
     });
     watchForUpdate();
-    return refresh();
+    // "Vervanging zoeken" in the popup opens the cart page at #cmcs-replace=<article>.
+    window.addEventListener('hashchange', replaceFromHash);
+    return refresh().then(replaceFromHash);
   }
 
   /**
@@ -238,6 +240,13 @@
         await store.restoreItems(all);
       },
     });
+  }
+
+  /** ☆ in an opened row, as in the popup. */
+  function starButton(article) {
+    const on = Boolean(state.favorites[article.articleId]);
+    const label = t(on ? 'favRemove' : 'favAdd');
+    return h('button', { type: 'button', class: 'cmcs-detail-btn', title: label, 'aria-label': label, onclick: () => store.toggleFavorite(article) }, ui.icon(on ? 'starFilled' : 'star'));
   }
 
   /** Take the star off a favourite (from a result list), with a way back. */
@@ -511,6 +520,16 @@
     );
   }
 
+  function replaceFromHash() {
+    const match = location.hash.match(/^#cmcs-replace=(\d+)$/);
+    const item = match && state.items[match[1]];
+    if (!item || (replacing && replacing.id === item.articleId)) return;
+    findReplacement(item).then(() => {
+      const row = shadow.querySelector(`.cmcs-item[data-article-id="${item.articleId}"]`);
+      if (row) row.scrollIntoView({ block: 'nearest' });
+    });
+  }
+
   async function findReplacement(item) {
     if (replacing && replacing.id === item.articleId && !replacing.loading) {
       replacing = null; // second click closes it
@@ -585,6 +604,7 @@
         noteTitle: why ? why.raw : null,
         below: alt ? h('button', { type: 'button', class: 'cmcs-link', onclick: () => findReplacement(item) }, t('replaceFind')) : null,
         actions: [
+          state.items[item.articleId] ? ui.iconButton(t('refillOne'), 'refresh', () => refill([item.articleId])) : null,
           alt ? ui.iconLink(t('findAlternative'), 'search', alt) : null,
           ui.iconButton(t('removeFromSaved'), 'close', remove),
         ].filter(Boolean),
@@ -682,15 +702,20 @@
               render();
             },
           }),
+          // The same as in the popup: put back, open, similar offers, star, remove.
           details: [
             ui.detailButton(t('detailRefillOne'), () => refill([item.articleId]), { strong: true }),
             ui.detailButton(t('detailOpen'), null, { href: cm.offerUrl(item) || item.productUrl }),
+            cm.alternativesUrl(item)
+              ? h('a', { class: 'cmcs-detail-btn', href: cm.alternativesUrl(item), title: t('findAlternative'), 'aria-label': t('findAlternative') }, ui.icon('search'))
+              : null,
+            starButton(item),
             h(
               'button',
               { type: 'button', class: 'cmcs-detail-btn', title: t('removeFromSaved'), 'aria-label': t('removeFromSaved'), onclick: () => removeItems([item.articleId]) },
               ui.icon('close'),
             ),
-          ],
+          ].filter(Boolean),
         });
       const groups = store.groupBy([...missing].sort(bySellerName), (item) => item.seller || '—');
       body.push(

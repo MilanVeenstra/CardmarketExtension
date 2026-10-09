@@ -83,6 +83,9 @@
   "clearConfirm": {
     "message": "Alle opgeslagen artikelen, favorieten en bewaarde lijsten wissen? Dit kan niet ongedaan worden gemaakt."
   },
+  "clearSelection": {
+    "message": "Wis selectie"
+  },
   "clearUnavailable": {
     "message": "Lijst opschonen"
   },
@@ -206,6 +209,9 @@
   "favAdd": {
     "message": "Bewaar als favoriet"
   },
+  "favAddSelected": {
+    "message": "Zet $1 in mandje"
+  },
   "favAddToCart": {
     "message": "In winkelmandje leggen"
   },
@@ -244,6 +250,9 @@
   },
   "favSearch": {
     "message": "Zoek in favorieten (naam, set, verkoper…)"
+  },
+  "favSelected": {
+    "message": "$1 geselecteerd"
   },
   "favSellerOffers": {
     "message": "Zoek bij deze verkoper"
@@ -473,6 +482,9 @@
   "removeFromSaved": {
     "message": "Verwijderen uit opgeslagen lijst"
   },
+  "removeInCartHint": {
+    "message": "Haal het uit je mandje op Cardmarket; dan vergeet Cart Saver het vanzelf."
+  },
   "removedMany": {
     "message": "$1 artikelen uit de lijst gehaald."
   },
@@ -682,6 +694,9 @@
   },
   "undoDoneOne": {
     "message": "1 artikel weer uit je mandje gehaald."
+  },
+  "undoQueued": {
+    "message": "Cardmarket gaat open; het ongedaan maken start vanzelf."
   },
   "undoRunning": {
     "message": "De toegevoegde artikelen gaan weer uit je mandje…"

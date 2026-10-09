@@ -200,6 +200,13 @@ async function warnExpiry() {
 
 // --- Looking at the cart while you are away from Cardmarket ---------------------------
 
+/** Favourites queued for the cart that no job tried (see store.sweepUntriedFavorites). */
+const SWEEP_ALARM = 'cmcs.sweep';
+
+async function sweepSoon() {
+  if (store.hasUntriedFavorites(await store.getItems())) await chrome.alarms.create(SWEEP_ALARM, { delayInMinutes: 4 });
+}
+
 const AWAY_ALARM = 'cmcs.away';
 const AWAY_MINUTES = 10;
 
@@ -350,10 +357,14 @@ chrome.alarms.onAlarm.addListener((alarm) => {
   else if (alarm.name === EXPIRY_ALARM) warnExpiry();
   else if (alarm.name === AWAY_ALARM) awayCheck();
   else if (alarm.name === DAILY_ALARM) daily();
+  else if (alarm.name === SWEEP_ALARM) store.getJob().then((job) => store.sweepUntriedFavorites(job)).then(sweepSoon);
 });
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area !== 'local') return;
-  if (changes[store.KEYS.items]) updateBadge();
+  if (changes[store.KEYS.items]) {
+    updateBadge();
+    sweepSoon();
+  }
   if (changes[store.KEYS.items] || changes[store.KEYS.favorites] || changes[store.KEYS.carts]) images.captureSoon();
   if (changes[store.KEYS.meta]) {
     const before = (changes[store.KEYS.meta].oldValue || {}).cartExpiry;
@@ -393,4 +404,4 @@ runningFingerprint().catch(() => {});
 
 // Exposed for the end-to-end test.
 self.cmcsCheckForNewVersion = checkForNewVersion;
-self.cmcs = { warnExpiry, scheduleExpiryAlarm, awayCheck, refreshPrices, pruneStale, notify, images };
+self.cmcs = { warnExpiry, scheduleExpiryAlarm, awayCheck, refreshPrices, pruneStale, notify, images, sweepSoon };

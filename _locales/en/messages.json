@@ -83,6 +83,9 @@
   "clearConfirm": {
     "message": "Delete all saved articles, favourites and saved lists? This cannot be undone."
   },
+  "clearSelection": {
+    "message": "Clear selection"
+  },
   "clearUnavailable": {
     "message": "Clear list"
   },
@@ -206,6 +209,9 @@
   "favAdd": {
     "message": "Save as favourite"
   },
+  "favAddSelected": {
+    "message": "Put $1 in cart"
+  },
   "favAddToCart": {
     "message": "Put in cart"
   },
@@ -244,6 +250,9 @@
   },
   "favSearch": {
     "message": "Search favourites (name, set, seller…)"
+  },
+  "favSelected": {
+    "message": "$1 selected"
   },
   "favSellerOffers": {
     "message": "Find at this seller"
@@ -473,6 +482,9 @@
   "removeFromSaved": {
     "message": "Remove from saved list"
   },
+  "removeInCartHint": {
+    "message": "Take it out of your cart on Cardmarket; Cart Saver then forgets it by itself."
+  },
   "removedMany": {
     "message": "$1 articles removed from the list."
   },
@@ -682,6 +694,9 @@
   },
   "undoDoneOne": {
     "message": "1 article taken out of your cart again."
+  },
+  "undoQueued": {
+    "message": "Opening Cardmarket; undoing starts by itself."
   },
   "undoRunning": {
     "message": "Taking the added articles out of your cart again…"

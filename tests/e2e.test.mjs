@@ -1581,6 +1581,129 @@ describe('Cardmarket Cart Saver', () => {
     });
   });
 
+  describe('the popup does what the panel does', () => {
+    const SOL_SAME_SELLER = '1611110003';
+    const openPopup = async () => {
+      const popup = await context.newPage();
+      await popup.setViewportSize({ width: 400, height: 600 });
+      await popup.goto(`chrome-extension://${extensionId}/src/popup/popup.html`);
+      return popup;
+    };
+
+    before(async () => {
+      // A known list: the Bog and the Mage were in the cart, Cardmarket emptied it.
+      for (const id of [BOG, MAGE]) mock.state.available.set(id, mock.article(id));
+      mock.state.cart = new Map([[BOG, 1], [MAGE, 1]]);
+      await sw.evaluate(() => chrome.storage.local.set({ 'cmcs.job': null, 'cmcs.meta': {}, 'cmcs.items': {}, 'cmcs.favorites': {} }));
+      await page.goto(`${CM}/en/Magic/ShoppingCart`);
+      await waitFor(async () => (await items())[MAGE]?.status === 'in_cart', 'saved');
+      mock.state.cart.clear();
+      await page.goto(`${CM}/en/Magic`);
+      await waitFor(async () => (await items())[BOG]?.status === 'missing' && (await items())[MAGE]?.status === 'missing', 'emptied');
+    });
+
+    it('lets you untick what should not go back', async () => {
+      const popup = await openPopup();
+      await popup.getByRole('checkbox', { name: 'Portal Mage' }).uncheck();
+      const job = await runViaNewTab(popup.getByRole('button', { name: /^Zet 1 terug in je mandje/ }));
+      assert.equal(job.added, 1);
+      assert.deepEqual([...mock.state.cart.keys()], [BOG]);
+      assert.equal((await items())[MAGE].status, 'missing', 'the unticked one stays out');
+      await popup.close();
+    });
+
+    it('undoes a refill from the popup, through an open Cardmarket tab', async () => {
+      await sw.evaluate(() => chrome.storage.local.get('cmcs.job').then(({ 'cmcs.job': job }) => chrome.storage.local.set({ 'cmcs.job': { ...job, acknowledged: false } })));
+      const popup = await openPopup();
+      await popup.locator('#job').getByRole('button', { name: 'Ongedaan maken' }).click();
+      await waitFor(async () => /1 artikel weer uit je mandje gehaald/.test(await popup.locator('#toast').innerText()), 'undone');
+      assert.equal(mock.state.cart.size, 0);
+      assert.equal((await items())[BOG].status, 'missing', 'still on the list');
+      await popup.close();
+    });
+
+    it('says when Cardmarket empties the cart, and when you are logged in as someone else', async (t) => {
+      t.after(() => sw.evaluate(() => chrome.storage.local.set({ 'cmcs.meta': {} })));
+      await sw.evaluate((at) => chrome.storage.local.set({ 'cmcs.meta': { account: 'tester', accountMismatch: 'someone-else', cartExpiry: at } }), Date.now() + 30 * 60 * 1000);
+      const popup = await openPopup();
+      await waitFor(async () => /Cardmarket leegt je mandje om/.test(await popup.locator('#summary').innerText()), 'expiry');
+      assert.match(await popup.locator('#account').innerText(), /Ander Cardmarket-account[\s\S]*horen bij tester/);
+      await popup.getByRole('button', { name: 'Voortaan someone-else gebruiken' }).click();
+      await waitFor(async () => (await storage())['cmcs.meta'].account === 'someone-else', 'account switched');
+      await popup.close();
+    });
+
+    it('finds a replacement from the popup: the cart page opens with the suggestions', async (t) => {
+      t.after(async () => {
+        mock.state.available.set(SOL_RING, mock.article(SOL_RING));
+        mock.state.available.delete(SOL_SAME_SELLER);
+      });
+      mock.state.available.delete(SOL_RING);
+      mock.state.available.set(SOL_SAME_SELLER, mock.article(SOL_SAME_SELLER));
+      await sw.evaluate(async (sol) => {
+        const { 'cmcs.items': all } = await chrome.storage.local.get('cmcs.items');
+        all[sol.articleId] = sol;
+        await chrome.storage.local.set({ 'cmcs.items': all, 'cmcs.job': null });
+      }, {
+        articleId: SOL_RING, productId: '500100', game: 'Magic', lang: 'en', name: 'Sol Ring', expansion: 'Commander Masters',
+        productUrl: SOL_RING_URL, condition: 2, conditionLabel: 'NM', language: 1, languageLabel: 'English', foil: false, extras: [],
+        price: 1.49, amount: 1, wantedAmount: 1, seller: 'Kärtchen-Laden', sellerUrl: `${CM}/en/Magic/Users/K%C3%A4rtchen-Laden`, sellerId: '2002',
+        status: 'unavailable', lastAttempt: { at: Date.now(), ok: false, reason: 'sold', message: 'This article is no longer available.' },
+      });
+      const popup = await openPopup();
+      const opened = context.waitForEvent('page');
+      await popup.locator(`#list [data-article-id="${SOL_RING}"]`).getByRole('button', { name: 'Vervanging zoeken' }).click();
+      const tab = await opened;
+      await tab.waitForLoadState();
+      assert.match(tab.url(), new RegExp(`/ShoppingCart#cmcs-replace=${SOL_RING}$`));
+      await tab.goto(`${CM}/en/Magic/ShoppingCart#cmcs-replace=${SOL_RING}`);
+      await waitFor(async () => (await widget(tab).locator('.cmcs-replace .cmcs-item').count()) > 0, 'suggestions shown');
+      assert.match(await widget(tab).locator('.cmcs-replace').innerText(), /Kärtchen-Laden/);
+      await tab.close();
+      await popup.close();
+    });
+
+    it('puts several favourites in the cart at once', async () => {
+      const favs = [SOL_KINGDOM, SOL_SAME_SELLER].map((id) => mock.article(id));
+      mock.state.available.set(SOL_SAME_SELLER, mock.article(SOL_SAME_SELLER));
+      await sw.evaluate(async (list) => {
+        const favorites = {};
+        for (const a of list) {
+          favorites[a.articleId] = {
+            articleId: a.articleId, productId: a.productId, game: a.game, lang: 'en', name: a.name, expansion: a.expansion,
+            productUrl: `https://www.cardmarket.com/en/Magic/Products/Singles/${a.expansionSlug}/${a.cardSlug}`,
+            condition: a.condition, conditionLabel: a.conditionLabel, language: a.language, languageLabel: a.languageLabel,
+            foil: a.foil, extras: [], price: a.price, seller: a.seller, favoritedAt: Date.now(), unavailable: false,
+          };
+        }
+        await chrome.storage.local.set({ 'cmcs.favorites': favorites, 'cmcs.job': null });
+      }, favs);
+      const popup = await openPopup();
+      await popup.locator('#tab-fav').click();
+      for (const id of [SOL_KINGDOM, SOL_SAME_SELLER]) await popup.locator(`#fav-list [data-article-id="${id}"] input[type="checkbox"]`).check();
+      const job = await runViaNewTab(popup.locator('#fav-bar').getByRole('button', { name: 'Zet 2 in mandje' }));
+      assert.equal(job.articleIds.length, 2, 'one job for both');
+      assert.equal(job.added, 2);
+      assert.equal(mock.state.cart.get(SOL_KINGDOM), 1);
+      assert.equal(mock.state.cart.get(SOL_SAME_SELLER), 1);
+      await popup.close();
+    });
+
+    it('takes favourites that never went to the cart off the list again', async () => {
+      const removed = await sw.evaluate(async () => {
+        const { 'cmcs.items': all } = await chrome.storage.local.get('cmcs.items');
+        all['9100000001'] = { articleId: '9100000001', name: 'Waiting favourite', game: 'Magic', status: 'missing', viaFavorite: true, missingSince: Date.now() - 10 * 60 * 1000 };
+        all['9100000002'] = { articleId: '9100000002', name: 'Just queued', game: 'Magic', status: 'missing', viaFavorite: true, missingSince: Date.now() };
+        await chrome.storage.local.set({ 'cmcs.items': all, 'cmcs.job': null });
+        return self.CMCS.store.sweepUntriedFavorites(null);
+      });
+      assert.deepEqual(removed, ['9100000001'], 'only the one that waited too long');
+      await patchItems({ '9100000002': { missingSince: 0 } });
+      await sw.evaluate(() => self.CMCS.store.sweepUntriedFavorites(null));
+      assert.equal((await items())['9100000002'], undefined);
+    });
+  });
+
   describe('a calm panel', () => {
     const FAKE = Array.from({ length: 14 }, (_, i) => String(9000000001 + i));
     const fake = (id, i) => ({

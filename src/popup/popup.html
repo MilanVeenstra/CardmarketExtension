@@ -21,6 +21,7 @@
     </nav>
 
     <main>
+      <section id="account" class="job" hidden></section>
       <section id="job" class="job" hidden></section>
       <p id="notice" class="notice" hidden></p>
       <p id="pruned" class="notice" hidden></p>
@@ -51,6 +52,15 @@
 
       <div id="view-fav" role="tabpanel" aria-labelledby="tab-fav" hidden>
         <input id="fav-search" class="search" type="search" autocomplete="off" data-i18n-placeholder="favSearch" />
+        <div id="fav-bar" class="fav-bar" hidden></div>
+        <form id="fav-list-form" class="list-form" hidden>
+          <p id="fav-list-form-meta" class="cmcs-muted"></p>
+          <div class="cart-form">
+            <input id="fav-list-name" class="search" type="text" maxlength="80" autocomplete="off" data-i18n-placeholder="cartsNamePlaceholder" />
+            <button type="submit" class="cmcs-btn cmcs-btn--small" data-i18n="cartsSave"></button>
+            <button type="button" id="fav-list-cancel" class="cmcs-link" data-i18n="cancel"></button>
+          </div>
+        </form>
         <section id="fav-list" class="list"></section>
         <section id="fav-empty" class="empty" hidden>
           <p class="empty-title" data-i18n="favEmptyTitle"></p>

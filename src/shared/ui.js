@@ -229,6 +229,8 @@
       opts.below || null,
     );
 
+    // The part that opens the row; a checkbox in front and buttons behind it stay
+    // outside it (no buttons inside a button, for screen readers and clicks alike).
     const line = h(
       'div',
       {
@@ -251,11 +253,16 @@
             }
           : null,
       },
-      opts.leading || null,
       thumbnail(item, opts.sold),
       main,
       opts.sold ? stamp() : null,
       h('div', { class: 'cmcs-item-side' }, opts.sold ? null : h('div', { class: 'cmcs-price' }, total || '')),
+    );
+    const row = h(
+      'div',
+      { class: 'cmcs-item-row' },
+      opts.leading || null,
+      line,
       opts.actions && opts.actions.length ? h('div', { class: 'cmcs-item-actions' }, opts.actions) : null,
     );
 
@@ -285,7 +292,7 @@
         class: `cmcs-item cmcs-item--${item.status || 'offer'} ${opts.open ? 'cmcs-item--open' : ''} ${opts.sold ? 'cmcs-item--sold' : ''}`,
         dataset: { articleId: item.articleId },
       },
-      line,
+      row,
       details,
     );
   }
@@ -474,10 +481,11 @@
     /* Article rows */
     .cmcs-item { border-top: 1px solid var(--cmcs-line); }
     .cmcs-item--open { background: var(--cmcs-surface); }
-    .cmcs-item-line { display: flex; align-items: center; gap: 10px; padding: 6px 0; }
+    .cmcs-item-row { display: flex; align-items: center; gap: 10px; }
+    .cmcs-item-line { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; padding: 6px 0; }
     .cmcs-item-line[role="button"] { cursor: pointer; }
-    .cmcs-item--open .cmcs-item-line, .cmcs-item--open .cmcs-item-details { padding-left: 6px; padding-right: 6px; }
-    .cmcs-item-line input[type="checkbox"] { margin: 0; accent-color: var(--cmcs-text); flex: none; }
+    .cmcs-item--open .cmcs-item-row, .cmcs-item--open .cmcs-item-details { padding-left: 6px; padding-right: 6px; }
+    .cmcs-item-row input[type="checkbox"] { margin: 0; accent-color: var(--cmcs-text); flex: none; }
     /* Cards fill the box; square pictures (booster boxes, displays) are shown whole. */
     .cmcs-thumb { width: 30px; height: 42px; object-fit: contain; border-radius: 2px; flex: none; background: var(--cmcs-line); display: block; }
     .cmcs-thumb--empty {

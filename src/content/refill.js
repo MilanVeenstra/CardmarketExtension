@@ -111,6 +111,16 @@
    */
   async function resumePending() {
     const job = await store.getJob();
+    // "Ongedaan maken" asked from the popup while no Cardmarket tab was open.
+    if (job && job.undoRequested && job.finishedAt && !job.undone && document.visibilityState === 'visible' && cm.isSignedIn(document)) {
+      await store.updateJob((current) => (current && current.id === job.id ? { ...current, undoRequested: false } : undefined));
+      const result = await undo(job.id);
+      await store.updateJob((current) =>
+        current && current.id === job.id ? { ...current, undoResult: result, acknowledged: Boolean(result.ok) } : undefined,
+      );
+      if (result.ok && result.removed && cm.parseLocation(location.href).isCart) setTimeout(() => location.reload(), 1200);
+      return result.ok;
+    }
     if (!job || job.state !== 'pending' || !store.isJobActive(job)) return false;
     if (document.visibilityState !== 'visible') {
       if (!waitingForVisible) {

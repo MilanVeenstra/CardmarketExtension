@@ -35,8 +35,11 @@
   }
   /** The selected game as a filter (undefined = all games). */
   const gameFilter = () => (game === ALL ? undefined : game);
-  /** Games left out of "put back" in the all-games view. */
-  const skippedGames = new Set();
+  /** Articles left out of "put back" (unticked, or their game switched off). */
+  const deselected = new Set();
+  /** Favourites ticked to go to the cart (or into a list) together, and the one unfolded. */
+  const favSelected = new Set();
+  let favOpenId = null;
   /** Sellers folded into one line, the opened row, and whether "in your cart" is shown. */
   const closedSellers = new Set();
   let openId = null;
@@ -106,6 +109,30 @@
     $('list-form-meta').textContent = CMCS.tn('listsFormMeta', list.length, String(list.length), game && game !== ALL ? store.gameName(game) : t('allGames'));
     $('list-form').hidden = false;
     $('list-name').focus();
+  });
+  // Ticked favourites as a saved list.
+  const selectedFavorites = () => Object.values(favorites).filter((fav) => favSelected.has(fav.articleId));
+  $('fav-list-cancel').addEventListener('click', () => {
+    $('fav-list-form').hidden = true;
+    $('fav-list-name').value = '';
+  });
+  $('fav-list-form').addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const list = selectedFavorites().map((fav) => ({ ...fav, amount: 1, wantedAmount: 1 }));
+    if (!list.length) return;
+    const saved = await store.saveCart($('fav-list-name').value, list);
+    if (!saved) return showToast(t('cartsFull', String(store.MAX_CARTS)));
+    $('fav-list-name').value = '';
+    $('fav-list-form').hidden = true;
+    favSelected.clear();
+    showToast(t('cartsSaved', saved.name), {
+      label: t('listsView'),
+      onClick: () => {
+        tab = 'carts';
+        openList = saved.id;
+        render();
+      },
+    });
   });
   $('list-cancel').addEventListener('click', () => {
     $('list-form').hidden = true;
@@ -322,7 +349,7 @@
         h(
           'div',
           { class: 'job-row' },
-          h('span', { class: 'cmcs-muted' }, t('progressCount', job.done, total)),
+          h('span', { class: 'cmcs-muted' }, t('progressCount', job.done, total), job.currentName ? ` · ${job.currentName}` : ''),
           h('button', { type: 'button', class: 'cmcs-btn cmcs-btn--ghost cmcs-btn--small', onclick: cancelJob }, t('stop')),
         ),
       );
@@ -339,14 +366,44 @@
         t('refillSummary', job.added || 0, job.failed || 0),
       ),
       ...ui.jobError(job),
+      job.undoResult && !job.undoResult.ok
+        ? h('p', { class: 'cmcs-error' }, job.undoResult.error === 'busy' ? t('errorBusy') : ui.errorText(job.undoResult.error) || t('errorUnknown'))
+        : null,
       h(
         'div',
         { class: 'job-row' },
-        h('span'),
+        job.added > 0 && !job.undone
+          ? h('button', { type: 'button', class: 'cmcs-btn cmcs-btn--ghost cmcs-btn--small', disabled: Boolean(job.undoRequested), onclick: undoFromPopup }, t('undo'))
+          : h('span'),
         h('button', { type: 'button', class: 'cmcs-btn cmcs-btn--ghost cmcs-btn--small', onclick: acknowledgeJob }, t('close')),
       ),
     ];
     box.replaceChildren(...parts.filter(Boolean));
+  }
+
+  /**
+   * Take a finished refill back. That needs a Cardmarket tab (the session):
+   * an open one does it right away, otherwise the cart page opens and does it.
+   */
+  async function undoFromPopup() {
+    const tabs = await chrome.tabs.query({ url: 'https://www.cardmarket.com/*' }).catch(() => []);
+    for (const target of tabs) {
+      try {
+        const result = await chrome.tabs.sendMessage(target.id, { type: 'cmcs.undo', jobId: job.id });
+        if (!result) continue;
+        if (result.ok) {
+          await acknowledgeJob();
+          return showToast(CMCS.tn('undoDone', result.removed, result.removed));
+        }
+        return showToast(result.error === 'busy' ? t('errorBusy') : ui.errorText(result.error) || t('errorUnknown'));
+      } catch {
+        // A tab from before the extension was (re)loaded: try the next one.
+      }
+    }
+    await store.updateJob((current) => (current && current.id === job.id ? { ...current, undoRequested: true } : undefined));
+    showToast(t('undoQueued'));
+    const first = items[job.articleIds.find((id) => items[id])] || {};
+    await openUrl(cm.cartUrl(job.lang, first.game || (tabLoc && tabLoc.game) || 'Magic'));
   }
 
   /** A running job stops after its current article; a queued one is dropped. */
@@ -442,6 +499,40 @@
   // Tabs
   // ---------------------------------------------------------------------------
 
+  /** "Cardmarket empties your cart at 14:35 (in 23 min)", when the cart page said so. */
+  function expiryLine() {
+    const at = typeof meta.cartExpiry === 'number' ? meta.cartExpiry : null;
+    if (!at || at <= Date.now()) return null;
+    const minutes = Math.max(1, Math.round((at - Date.now()) / 60000));
+    const time = new Date(at).toLocaleTimeString(chrome.i18n.getUILanguage(), { hour: '2-digit', minute: '2-digit' });
+    return h('p', { class: `cmcs-expiry ${minutes <= 10 ? 'cmcs-expiry--soon' : ''}` }, t('expiryLine', time, String(minutes)));
+  }
+
+  /** Logged in as someone else than the list belongs to: say so here too, with the way out. */
+  function renderAccount() {
+    const box = $('account');
+    const mismatch = meta.account && meta.accountMismatch;
+    box.hidden = !mismatch;
+    if (!mismatch) return box.replaceChildren();
+    box.replaceChildren(
+      h('p', null, h('strong', null, t('accountTitle')), ' — ', t('accountLead', meta.account, meta.accountMismatch)),
+      h(
+        'div',
+        { class: 'job-row' },
+        h('span'),
+        h(
+          'button',
+          {
+            type: 'button',
+            class: 'cmcs-btn cmcs-btn--ghost cmcs-btn--small',
+            onclick: () => store.updateMeta((current) => ({ ...current, account: current.accountMismatch, accountMismatch: null })),
+          },
+          t('accountUseThis', meta.accountMismatch),
+        ),
+      ),
+    );
+  }
+
   function renderTabs() {
     $('tab-fav').textContent = t('tabFavorites', Object.keys(favorites).length);
     $('tab-carts').textContent = t('tabCarts', carts.length);
@@ -493,7 +584,8 @@
     const multiGame = new Set(forGame.map((item) => item.game)).size > 1;
     const candidates = store.refillCandidates(items, { game: gameFilter() });
     const candidateGames = [...new Set(candidates.map((item) => item.game))];
-    const toRefill = candidates.filter((item) => candidateGames.length < 2 || !skippedGames.has(item.game));
+    // What goes back: everything still ticked (as in the panel on Cardmarket).
+    const toRefill = candidates.filter((item) => !deselected.has(item.articleId));
     const unavailable = forGame.filter((item) => item.status === STATUS.UNAVAILABLE);
     // In the cart: everything that is there, also when more copies of it could go back.
     const inCart = forGame.filter(inCartStatus);
@@ -527,6 +619,7 @@
       ...[
         h('h2', { class: 'cmcs-summary-title' }, title),
         sub ? h('p', { class: 'cmcs-summary-sub' }, sub) : null,
+        expiryLine(),
         h(
           'button',
           { type: 'button', class: 'cmcs-link open-cart', onclick: () => openUrl(cm.cartUrl(langFor(forGame), gameFilter() || (tabLoc && tabLoc.game) || forGame[0].game)) },
@@ -549,10 +642,11 @@
                 {
                   type: 'button',
                   class: 'cmcs-chip',
-                  'aria-pressed': String(!skippedGames.has(g)),
+                  'aria-pressed': String(candidates.some((item) => item.game === g && !deselected.has(item.articleId))),
                   onclick: () => {
-                    if (skippedGames.has(g)) skippedGames.delete(g);
-                    else skippedGames.add(g);
+                    const ofGame = candidates.filter((item) => item.game === g);
+                    const on = ofGame.some((item) => !deselected.has(item.articleId));
+                    ofGame.forEach((item) => (on ? deselected.add(item.articleId) : deselected.delete(item.articleId)));
                     render();
                   },
                 },
@@ -568,6 +662,16 @@
         open: openId === item.articleId,
         onToggle: toggleRow(item.articleId),
         withGame: multiGame,
+        leading: h('input', {
+          type: 'checkbox',
+          checked: !deselected.has(item.articleId),
+          'aria-label': item.name,
+          onchange: (event) => {
+            if (event.target.checked) deselected.delete(item.articleId);
+            else deselected.add(item.articleId);
+            render();
+          },
+        }),
         details: [
           ui.detailButton(t('detailRefillOne'), () => refill([item]), { strong: true }),
           ui.detailButton(t('detailOpen'), null, { href: cm.offerUrl(item) || item.productUrl }),
@@ -582,10 +686,12 @@
         open: openId === item.articleId,
         onToggle: toggleRow(item.articleId),
         withGame: multiGame,
+        // No "remove" here: the next look at the cart would save it again. Taking it
+        // out of the cart on Cardmarket makes Cart Saver forget it by itself.
         details: [
           ui.detailButton(t('detailOpen'), null, { href: cm.offerUrl(item) || item.productUrl }),
           starButton(item, true),
-          detailIcon(t('removeFromSaved'), 'close', () => removeItems([item])),
+          h('p', { class: 'row-hint' }, t('removeInCartHint')),
         ],
       });
     const soldRow = (item) => {
@@ -597,15 +703,45 @@
         note: why ? why.text : null,
         noteTitle: why ? why.raw : null,
         withGame: multiGame,
-        below: alt ? h('a', { class: 'cmcs-link', href: alt, target: '_blank', rel: 'noopener' }, t('findAlternative')) : null,
+        // The suggestions themselves need the cart page (Cardmarket's pages are read there).
+        below: alt
+          ? h(
+              'button',
+              { type: 'button', class: 'cmcs-link', onclick: () => openUrl(`${cm.cartUrl(item.lang || langFor([item]), item.game)}#cmcs-replace=${item.articleId}`) },
+              t('replaceFind'),
+            )
+          : null,
         actions: [
           ui.iconButton(t('refillOne'), 'refresh', () => refill([item])),
+          alt ? ui.iconLink(t('findAlternative'), 'search', alt) : null,
           ui.iconButton(t('removeFromSaved'), 'close', () => removeItems([item])),
-        ],
+        ].filter(Boolean),
       });
     };
 
     const list = [];
+    if (candidates.length) {
+      const allTicked = toRefill.length === candidates.length;
+      list.push(
+        h(
+          'div',
+          { class: 'select-line' },
+          h('span', null, t('groupMissing', store.copiesToReturn(candidates))),
+          h(
+            'button',
+            {
+              type: 'button',
+              class: 'cmcs-link',
+              onclick: () => {
+                candidates.forEach((item) => (allTicked ? deselected.add(item.articleId) : deselected.delete(item.articleId)));
+                render();
+              },
+            },
+            allTicked ? t('selectNone') : t('selectAll'),
+          ),
+        ),
+      );
+    }
     list.push(groupBySeller(candidates, missingRow));
     if (unavailable.length) {
       list.push(
@@ -644,29 +780,93 @@
     const all = Object.values(favorites).sort((a, b) => (b.favoritedAt || 0) - (a.favoritedAt || 0));
     $('fav-empty').hidden = all.length > 0;
     $('fav-search').hidden = all.length === 0;
+    for (const id of [...favSelected]) if (!favorites[id]) favSelected.delete(id);
     const multiGame = new Set(all.map((fav) => fav.game)).size > 1;
     const visible = all.filter((fav) => store.favoriteMatches(fav, query));
+    const inCartFav = (fav) => inCartStatus(items[fav.articleId]);
+    const soldFav = (fav) => fav.unavailable && !inCartFav(fav);
+
+    // Ticked favourites: into the cart together (one job), or kept as a list.
+    const ticked = all.filter((fav) => favSelected.has(fav.articleId));
+    const bar = $('fav-bar');
+    bar.hidden = !ticked.length;
+    const toCart = ticked.filter((fav) => !inCartFav(fav) && !soldFav(fav));
+    bar.replaceChildren(
+      ...(ticked.length
+        ? [
+            h('span', null, t('favSelected', String(ticked.length))),
+            toCart.length
+              ? h(
+                  'button',
+                  {
+                    type: 'button',
+                    class: 'cmcs-btn cmcs-btn--small',
+                    disabled: store.isJobActive(job),
+                    onclick: async () => {
+                      favSelected.clear();
+                      await addFavoritesToCart(toCart);
+                    },
+                  },
+                  t('favAddSelected', String(toCart.length)),
+                )
+              : null,
+            h(
+              'button',
+              {
+                type: 'button',
+                class: 'cmcs-link',
+                onclick: () => {
+                  $('fav-list-form-meta').textContent = CMCS.tn('countFavorites', ticked.length, ticked.length);
+                  $('fav-list-form').hidden = false;
+                  $('fav-list-name').focus();
+                },
+              },
+              t('listsSaveOpen'),
+            ),
+            h('button', { type: 'button', class: 'cmcs-link', onclick: () => { favSelected.clear(); render(); } }, t('clearSelection')),
+          ].filter(Boolean)
+        : []),
+    );
+
     $('fav-list').replaceChildren(
       ...(all.length && !visible.length
         ? [h('p', { class: 'cmcs-muted' }, t('favNoMatches'))]
         : visible.map((fav) => {
-            const inCart = inCartStatus(items[fav.articleId]);
-            const sold = fav.unavailable && !inCart;
+            const inCart = inCartFav(fav);
+            const sold = soldFav(fav);
             const offer = cm.offerUrl(fav);
             const seller = cm.sellerSearchUrl(fav);
+            const facts = [
+              multiGame ? store.gameName(fav.game) : null,
+              fav.seller,
+              fav.available ? t('favAvailable', fav.available) : null,
+              t('favSavedOn', formatDate(fav.favoritedAt)),
+            ]
+              .filter(Boolean)
+              .join(' · ');
+            const open = favOpenId === fav.articleId;
             return ui.itemRow(inCart ? { ...fav, status: STATUS.IN_CART } : { ...fav, status: 'offer' }, {
-              href: offer || fav.productUrl,
               sold,
+              open,
+              // A click unfolds the row: everything that does not fit on one line, in full.
+              onToggle: () => {
+                favOpenId = open ? null : fav.articleId;
+                render();
+              },
+              leading: h('input', {
+                type: 'checkbox',
+                checked: favSelected.has(fav.articleId),
+                'aria-label': fav.name,
+                onchange: (event) => {
+                  if (event.target.checked) favSelected.add(fav.articleId);
+                  else favSelected.delete(fav.articleId);
+                  render();
+                },
+              }),
               note: sold ? t('notAvailableAnymore') : inCart ? t('favInCartNote') : undefined,
               noteTitle: sold ? fav.unavailableMessage || null : null,
-              extraMeta: [
-                multiGame ? store.gameName(fav.game) : null,
-                fav.seller,
-                fav.available ? t('favAvailable', fav.available) : null,
-                t('favSavedOn', formatDate(fav.favoritedAt)),
-              ]
-                .filter(Boolean)
-                .join(' · '),
+              extraMeta: open ? null : facts,
+              details: [h('p', { class: 'row-hint cmcs-wrap' }, facts)],
               actions: [
                 inCart || sold ? null : ui.iconButton(t('favAddToCart'), 'cart', () => addFavoritesToCart([fav])),
                 offer ? ui.iconLink(t('favOpenOffer'), 'external', offer) : null,
@@ -783,6 +983,7 @@
 
   function render() {
     renderTabs();
+    renderAccount();
     renderJob();
     renderFavorites();
     renderCart();

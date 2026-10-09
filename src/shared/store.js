@@ -72,6 +72,8 @@
   const JOB_STALE_MS = 2 * 60 * 1000;
   /** A pending job (opened from the popup) must be picked up within this time. */
   const JOB_PENDING_TTL_MS = 2 * 60 * 1000;
+  /** A favourite queued for the cart that no job tried by then is taken off the list again. */
+  const UNTRIED_FAVORITE_MS = 3 * 60 * 1000;
 
   const storage = () => root.chrome.storage.local;
 
@@ -513,6 +515,31 @@
     ensureItemsFromFavorites(favorites) {
       return store.ensureItems(favorites, { viaFavorite: true });
     },
+
+    /**
+     * Favourites queued for the cart join the list as "missing" until a job
+     * tries them. A job that never ran (logged out, cancelled, expired) would
+     * leave them there, looking like cart articles: those go again, once
+     * they are older than a queued job can wait. Resolves to the ids removed.
+     */
+    async sweepUntriedFavorites(job, now = Date.now()) {
+      const waiting = job && store.isJobActive(job, now) ? new Set(job.articleIds || []) : new Set();
+      const removed = [];
+      await update(KEYS.items, {}, (items) => {
+        const next = { ...items };
+        for (const [id, item] of Object.entries(items)) {
+          const untried = item.viaFavorite && item.status === STATUS.MISSING && !item.lastAttempt;
+          if (untried && !waiting.has(id) && now - (item.missingSince || 0) > UNTRIED_FAVORITE_MS) {
+            delete next[id];
+            removed.push(id);
+          }
+        }
+        return removed.length ? next : undefined;
+      });
+      return removed;
+    },
+
+    hasUntriedFavorites: (items) => Object.values(items || {}).some((item) => item.viaFavorite && item.status === STATUS.MISSING && !item.lastAttempt),
 
     /** Remove items and hand them back, so the removal can be undone. */
     async takeItems(articleIds) {
