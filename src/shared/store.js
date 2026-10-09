@@ -176,6 +176,12 @@
     return wanted;
   }
 
+  /** Copies that would go back for these articles. */
+  const copiesToReturn = (list) => list.reduce((sum, item) => sum + refillAmount(item), 0);
+  /** Copies of these articles that are in the cart now. */
+  const copiesInCart = (list) =>
+    list.reduce((sum, item) => sum + (item.status === STATUS.IN_CART || item.status === STATUS.PARTIAL ? item.amount || 1 : 0), 0);
+
   /** Counts per status, optionally limited to one game. */
   function summarize(items, game) {
     const summary = { total: 0, inCart: 0, partial: 0, missing: 0, unavailable: 0, attention: 0, missingValue: 0 };
@@ -334,14 +340,14 @@
   }
 
   /** One line per article: "2x Bojuka Bog (Commander 2018 #238) · NM · English · 0,99 € · snowc". */
-  function exportText(list) {
+  function exportText(list, { languageName = (item) => item.languageLabel } = {}) {
     return list
       .map((item) => {
         const set = [item.expansion, item.number ? `#${item.number}` : null].filter(Boolean).join(' ');
         return [
           `${item.wantedAmount || item.amount || 1}x ${item.name}${set ? ` (${set})` : ''}`,
           item.conditionLabel,
-          item.languageLabel,
+          languageName(item),
           ...(item.extras || []),
           formatPrice(item.price),
           item.seller,
@@ -352,24 +358,27 @@
       .join('\n');
   }
 
-  /** A spreadsheet of the list (semicolons and decimal commas, as Excel expects in Dutch). */
-  function exportCsv(list) {
+  /**
+   * A spreadsheet of the list (semicolons and decimal commas, as Excel expects
+   * in Dutch). Column names and status words come from the caller, translated.
+   */
+  function exportCsv(list, { header, statusName = (status) => status || '', languageName = (item) => item.languageLabel } = {}) {
     const cell = (value) => `"${String(value == null ? '' : value).replace(/"/g, '""')}"`;
-    const header = ['Name', 'Expansion', 'Number', 'Condition', 'Language', 'Extras', 'Amount', 'Price', 'Seller', 'Status', 'URL'];
+    const columns = header || ['Name', 'Expansion', 'Number', 'Condition', 'Language', 'Extras', 'Amount', 'Price', 'Seller', 'Status', 'URL'];
     const rows = list.map((item) => [
       item.name,
       item.expansion,
       item.number,
       item.conditionLabel,
-      item.languageLabel,
+      languageName(item),
       (item.extras || []).join(', '),
       item.wantedAmount || item.amount || 1,
       item.price == null ? '' : item.price.toFixed(2).replace('.', ','),
       item.seller,
-      item.status || '',
+      statusName(item.status),
       item.productUrl,
     ]);
-    return [header, ...rows].map((row) => row.map(cell).join(';')).join('\r\n');
+    return [columns, ...rows].map((row) => row.map(cell).join(';')).join('\r\n');
   }
 
   // ---------------------------------------------------------------------------
@@ -387,6 +396,8 @@
     applyCartSnapshot,
     summarize,
     refillAmount,
+    copiesToReturn,
+    copiesInCart,
     refillCandidates,
     missingSignature,
     newJob,

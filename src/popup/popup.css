@@ -19,7 +19,6 @@ body {
   background-repeat: no-repeat;
 }
 .game:hover { color: var(--cmcs-text); }
-.game option { color: #141414; }
 .tabs { display: flex; gap: 18px; padding: 8px 14px 0; border-bottom: 1px solid var(--cmcs-border); }
 .tab {
   appearance: none; border: 0; background: transparent; cursor: pointer; font: inherit;

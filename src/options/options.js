@@ -69,8 +69,8 @@
       String(summary.partial),
       String(summary.missing),
       String(summary.unavailable),
-      String(Object.keys(favorites).length),
-      String(carts.length),
+      CMCS.tn('countFavorites', Object.keys(favorites).length, Object.keys(favorites).length),
+      CMCS.tn('countLists', carts.length, carts.length),
     );
   }
   store.onChanged(renderSummary);
@@ -159,7 +159,7 @@
           return [...carts, ...fresh].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
         });
       }
-      $('dataMessage').textContent = t('importDone', String(added), String(lists));
+      $('dataMessage').textContent = t('importDone', CMCS.tn('countArticles', added, added), CMCS.tn('countLists', lists, lists));
     } catch {
       $('dataMessage').textContent = t('importFailed');
     }

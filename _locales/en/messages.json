@@ -15,16 +15,19 @@
     "message": "All games"
   },
   "badgeTitle": {
-    "message": "Cart Saver – $1 saved article(s) not in your cart"
+    "message": "Cart Saver – $1 saved articles not in your cart"
+  },
+  "badgeTitleOne": {
+    "message": "Cart Saver – 1 saved article not in your cart"
   },
   "cancel": {
     "message": "Cancel"
   },
-  "cartEmptyLead": {
-    "message": "Your cart is empty. These saved articles can be put back:"
-  },
   "cartSavedLead": {
-    "message": "$1 article(s) in your cart are saved."
+    "message": "$1 articles in your cart are saved."
+  },
+  "cartSavedLeadOne": {
+    "message": "1 article in your cart is saved."
   },
   "cartsDelete": {
     "message": "Delete"
@@ -42,7 +45,10 @@
     "message": "You already have $1 saved lists. Delete one first."
   },
   "cartsMeta": {
-    "message": "$1 article(s) · $2 · $3"
+    "message": "$1 articles · $2 · $3"
+  },
+  "cartsMetaOne": {
+    "message": "1 article · $2 · $3"
   },
   "cartsNamePlaceholder": {
     "message": "Name, e.g. Commander deck"
@@ -92,8 +98,35 @@
   "continueRefill": {
     "message": "Continue ($1 to go)"
   },
+  "countArticles": {
+    "message": "$1 articles"
+  },
+  "countArticlesOne": {
+    "message": "1 article"
+  },
+  "countFavorites": {
+    "message": "$1 favourites"
+  },
+  "countFavoritesOne": {
+    "message": "1 favourite"
+  },
+  "countLists": {
+    "message": "$1 saved lists"
+  },
+  "countListsOne": {
+    "message": "1 saved list"
+  },
+  "countSellers": {
+    "message": "$1 sellers"
+  },
+  "countSellersOne": {
+    "message": "1 seller"
+  },
+  "csvHeader": {
+    "message": "Name;Expansion;Number;Condition;Language;Extras;Amount;Price;Seller;Status;URL"
+  },
   "dataSummary": {
-    "message": "$1 saved: $2 in your cart, $3 partly, $4 missing, $5 unavailable. $6 favourite(s), $7 saved list(s)."
+    "message": "$1 saved: $2 in your cart, $3 partly, $4 missing, $5 unavailable. $6, $7."
   },
   "dataTitle": {
     "message": "Your saved articles, favourites and lists"
@@ -215,14 +248,11 @@
   "favSellerOffers": {
     "message": "Find at this seller"
   },
-  "filterAll": {
-    "message": "All"
-  },
-  "filterEmpty": {
-    "message": "No articles in this view."
-  },
   "findAlternative": {
     "message": "Find a similar offer"
+  },
+  "gameLabel": {
+    "message": "Game"
   },
   "groupMissing": {
     "message": "Not in your cart ($1)"
@@ -234,19 +264,19 @@
     "message": "Hide"
   },
   "how1": {
-    "message": "Put articles in your Cardmarket cart as usual. Cart Saver saves them automatically."
+    "message": "Put articles in your Cardmarket cart as usual, from any game. Cart Saver remembers them by itself."
   },
   "how2": {
-    "message": "When Cardmarket empties your cart, a reminder appears on the site and the toolbar icon shows how many articles are missing."
+    "message": "When Cardmarket empties your cart, a reminder appears on the site and the icon counts along. Click “Put … back in your cart”, in the popup or in the panel on Cardmarket. Changed your mind? “Undo”."
   },
   "how3": {
-    "message": "Click “Put back” to add them to your cart again. Articles sold in the meantime are marked “no longer available”, with a link to similar offers."
+    "message": "When something was sold meanwhile, it gets a stamp. “Find a replacement” looks for the same card at the same seller, at a seller already in your cart, or the cheapest similar offer."
   },
   "how4": {
-    "message": "Articles you buy disappear from the list automatically once you open the order on Cardmarket."
+    "message": "Save your cart as a list (for example per deck) with “Save as list…”, and put it back later with one click. What you buy leaves the list by itself."
   },
   "how5": {
-    "message": "Click the ☆ next to any offer (or article in your cart) to keep it as a favourite. Find it again under Favourites in the toolbar popup: open the offer, search the seller's stock or put it in your cart."
+    "message": "Click the ☆ next to any offer (or article in your cart) to keep it as a favourite. Find it again under Favourites in the popup."
   },
   "howTitle": {
     "message": "How it works"
@@ -255,7 +285,7 @@
     "message": "Import"
   },
   "importDone": {
-    "message": "$1 article(s) and $2 saved list(s) imported."
+    "message": "$1 and $2 imported."
   },
   "importFailed": {
     "message": "That file could not be read."
@@ -273,7 +303,10 @@
     "message": "Everything on this list is already in your cart."
   },
   "listsFormMeta": {
-    "message": "$1 article(s) · $2"
+    "message": "$1 articles · $2"
+  },
+  "listsFormMetaOne": {
+    "message": "1 article · $2"
   },
   "listsSaveOpen": {
     "message": "Save as list…"
@@ -305,20 +338,23 @@
   "noteTrendBelow": {
     "message": "$1% below trend"
   },
-  "nothingMissing": {
-    "message": "Everything you saved is in your cart."
-  },
   "nothingToRefill": {
     "message": "Nothing to put back"
   },
   "notifyEmptiedText": {
-    "message": "$1 saved article(s) are no longer in your cart. Click to put them back."
+    "message": "$1 saved articles are no longer in your cart. Click to put them back."
+  },
+  "notifyEmptiedTextOne": {
+    "message": "1 saved article is no longer in your cart. Click to put it back."
   },
   "notifyEmptiedTitle": {
     "message": "Articles left your Cardmarket cart"
   },
   "notifyExpiryText": {
     "message": "In about $1 minutes. Click to open your cart."
+  },
+  "notifyExpiryTextOne": {
+    "message": "In about 1 minute. Click to open your cart."
   },
   "notifyExpiryTitle": {
     "message": "Your Cardmarket cart is about to be emptied"
@@ -366,7 +402,10 @@
     "message": "$1 of $2"
   },
   "prunedNote": {
-    "message": "$1 sold article(s) left the list: not looked at for a month."
+    "message": "$1 sold articles left the list: not looked at for a month."
+  },
+  "prunedNoteOne": {
+    "message": "1 sold article left the list: not looked at for a month."
   },
   "reasonEmptied": {
     "message": "Your whole cart was emptied"
@@ -376,9 +415,6 @@
   },
   "reasonSingle": {
     "message": "Only this article left your cart, probably sold"
-  },
-  "refillAll": {
-    "message": "Put back $1 article(s)"
   },
   "refillButton": {
     "message": "Put $1 back in your cart"
@@ -404,9 +440,6 @@
   "refillRunningTitle": {
     "message": "Putting back"
   },
-  "refillSelected": {
-    "message": "Put back $1 article(s) · $2"
-  },
   "refillStoppedTitle": {
     "message": "Stopped"
   },
@@ -416,11 +449,23 @@
   "refillWaiting": {
     "message": "Waiting for Cardmarket to open…"
   },
+  "refusedAmount": {
+    "message": "Not enough copies left"
+  },
+  "refusedSold": {
+    "message": "Sold or no longer for sale"
+  },
   "refusedUnknown": {
     "message": "Cardmarket did not accept it. It stays on your list, try again later."
   },
+  "refusedUnknownWith": {
+    "message": "Cardmarket refused it: “$1”"
+  },
   "reminderLead": {
-    "message": "$1 saved article(s) ($2) are no longer in your cart."
+    "message": "$1 saved articles ($2) are no longer in your cart."
+  },
+  "reminderLeadOne": {
+    "message": "1 saved article ($2) is no longer in your cart."
   },
   "reminderTitle": {
     "message": "Your cart was emptied"
@@ -492,7 +537,7 @@
     "message": "Save cart automatically"
   },
   "settingAutoTrackHelp": {
-    "message": "Every article that appears in your cart is saved. When off, only the “Save current cart” button on the cart page saves articles."
+    "message": "Every article that appears in your cart is remembered. When off, read your cart with the “Read the cart now” button in the panel on the cart page."
   },
   "settingAway": {
     "message": "Check the cart while you are away from Cardmarket"
@@ -522,7 +567,7 @@
     "message": "Compare prices with the trend"
   },
   "settingTrendHelp": {
-    "message": "Once a day the public Cardmarket price guide is downloaded (a large file); only your saved cards are kept. Offers clearly above the trend get a note."
+    "message": "Once a day the public Cardmarket price guide is downloaded (a large file); only your saved articles are kept. Offers clearly above the trend get a note."
   },
   "settings": {
     "message": "Settings"
@@ -534,13 +579,16 @@
     "message": "Settings"
   },
   "shippingCopies": {
-    "message": "$1 card(s)"
+    "message": "$1 articles"
+  },
+  "shippingCopiesOne": {
+    "message": "1 article"
   },
   "shippingCost": {
     "message": "shipping $1 ($2%)"
   },
   "shippingMoreThanCards": {
-    "message": "shipping costs more than the cards"
+    "message": "shipping costs more than the articles"
   },
   "shippingNearTracked": {
     "message": "$1 below the 25 € limit for tracked shipping"
@@ -549,7 +597,10 @@
     "message": "Shipping per seller ($1)"
   },
   "shippingSummaryKnown": {
-    "message": "$1 seller(s) · shipping $2 ($3% of the total)"
+    "message": "$1 sellers · shipping $2 ($3% of the total)"
+  },
+  "shippingSummaryKnownOne": {
+    "message": "1 seller · shipping $2 ($3% of the total)"
   },
   "shippingTracked": {
     "message": "over 25 €: usually tracked shipping (dearer)"
@@ -557,8 +608,11 @@
   "show": {
     "message": "Show"
   },
-  "soldBy": {
-    "message": "Seller: $1"
+  "soldOnlyLead": {
+    "message": "They cannot go back. Find a replacement, or take them off the list."
+  },
+  "soldOnlyTitle": {
+    "message": "Only sold articles left"
   },
   "stampSold": {
     "message": "SOLD"
@@ -581,17 +635,23 @@
   "summaryAllIn": {
     "message": "Everything is in your cart"
   },
+  "summaryAllInForSale": {
+    "message": "Everything still for sale is in your cart"
+  },
   "summaryAllInSub": {
-    "message": "$1 card(s) · $2 from $3 seller(s)"
+    "message": "$1 · $2 from $3"
   },
   "summaryCanReturn": {
-    "message": "$1 card(s) can go back"
+    "message": "$1 articles can go back"
+  },
+  "summaryCanReturnOne": {
+    "message": "1 article can go back"
   },
   "summaryEmptied": {
     "message": "your whole cart was emptied"
   },
   "summarySub": {
-    "message": "$1 from $2 seller(s)"
+    "message": "$1 from $2"
   },
   "tabCart": {
     "message": "Cart"
@@ -609,7 +669,7 @@
     "message": "Trend $1 · this offer is $2% lower"
   },
   "trendStatus": {
-    "message": "Last read: $1 ($2 cards)."
+    "message": "Last read: $1 ($2 articles)."
   },
   "trendStatusError": {
     "message": "Could not read the price guide: $1"
@@ -618,13 +678,13 @@
     "message": "Undo"
   },
   "undoDone": {
-    "message": "$1 article(s) taken out of your cart again."
+    "message": "$1 articles taken out of your cart again."
+  },
+  "undoDoneOne": {
+    "message": "1 article taken out of your cart again."
   },
   "undoRunning": {
     "message": "Taking the added articles out of your cart again…"
-  },
-  "undoTitle": {
-    "message": "Undo refill"
   },
   "updatedPill": {
     "message": "Cart Saver updated · reload the page"

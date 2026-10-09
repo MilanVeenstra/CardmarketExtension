@@ -88,16 +88,22 @@
     query = event.target.value;
     renderFavorites();
   });
-  $('export-text').addEventListener('click', () => copyText(store.exportText(currentList())));
+  const STATUS_KEYS = { in_cart: 'statusInCart', partial: 'statusPartial', missing: 'statusMissing', unavailable: 'statusUnavailable' };
+  const exportOptions = {
+    header: t('csvHeader').split(';'),
+    statusName: (status) => (STATUS_KEYS[status] ? t(STATUS_KEYS[status]) : ''),
+    languageName: (item) => ui.languageName(item.languageLabel, item.language),
+  };
+  $('export-text').addEventListener('click', () => copyText(store.exportText(currentList(), exportOptions)));
   $('export-csv').addEventListener('click', () =>
-    download(`cart-saver-${game === ALL ? 'all' : game || 'list'}.csv`, store.exportCsv(currentList()), 'text/csv'),
+    download(`cart-saver-${game === ALL ? 'all' : game || 'list'}.csv`, store.exportCsv(currentList(), exportOptions), 'text/csv'),
   );
   // "Bewaar als lijst…": what the Winkelmandje tab shows (the game picked included), under a name.
   const listToSave = () => currentList().filter((item) => item.status !== STATUS.UNAVAILABLE);
   $('save-list').addEventListener('click', () => {
     const list = listToSave();
     if (!list.length) return showToast(t('cartsNothing'));
-    $('list-form-meta').textContent = t('listsFormMeta', String(list.length), game && game !== ALL ? store.gameName(game) : t('allGames'));
+    $('list-form-meta').textContent = CMCS.tn('listsFormMeta', list.length, String(list.length), game && game !== ALL ? store.gameName(game) : t('allGames'));
     $('list-form').hidden = false;
     $('list-name').focus();
   });
@@ -154,6 +160,8 @@
   function showToast(text, action) {
     const toast = $('toast');
     clearTimeout(toastTimer);
+    // Above the big button, never over it.
+    toast.style.bottom = `${$('foot').hidden ? 12 : $('foot').offsetHeight + 8}px`;
     toast.replaceChildren(
       ...[
         h('span', null, text),
@@ -183,17 +191,13 @@
   async function refill(list) {
     if (!list.length) return;
     const ids = list.map((item) => item.articleId);
-    if (store.isJobActive(job)) {
-      notice = t('errorBusy');
-      return render();
-    }
+    if (store.isJobActive(job)) return showToast(t('errorBusy'));
     if (onCardmarket) {
       try {
         const response = await chrome.tabs.sendMessage(activeTab.id, { type: 'cmcs.refill', articleIds: ids });
         if (response && response.ok) return;
         if (response && response.error) {
-          notice = response.error === 'busy' ? t('errorBusy') : ui.errorText(response.error) || t('errorUnknown');
-          return render();
+          return showToast(response.error === 'busy' ? t('errorBusy') : ui.errorText(response.error) || t('errorUnknown'));
         }
       } catch {
         // The tab was opened before the extension was (re)loaded: no content
@@ -207,12 +211,21 @@
     await openUrl(cm.cartUrl(lang, list[0].game));
   }
 
+  /** Removals right after each other share one undo. */
+  let lastRemoval = null;
+
   async function removeItems(list) {
     const taken = await store.takeItems(list.map((item) => item.articleId));
     if (!taken.length) return;
-    showToast(taken.length === 1 ? t('removedOne', taken[0].name) : t('removedMany', taken.length), {
+    const recent = lastRemoval && !$('toast').hidden && Date.now() - lastRemoval.at < 8000 ? lastRemoval.taken : [];
+    const all = [...recent, ...taken];
+    lastRemoval = { taken: all, at: Date.now() };
+    showToast(all.length === 1 ? t('removedOne', all[0].name) : t('removedMany', all.length), {
       label: t('undo'),
-      onClick: () => store.restoreItems(taken),
+      onClick: () => {
+        lastRemoval = null;
+        return store.restoreItems(all);
+      },
     });
   }
 
@@ -261,10 +274,7 @@
 
   /** Favourites go through the same refill job as saved cart articles (amount 1). */
   async function addFavoritesToCart(list) {
-    if (store.isJobActive(job)) {
-      notice = t('errorBusy');
-      return render();
-    }
+    if (store.isJobActive(job)) return showToast(t('errorBusy'));
     await store.ensureItemsFromFavorites(list);
     const saved = await store.getItems();
     await refill(list.map((fav) => saved[fav.articleId]).filter(Boolean));
@@ -394,6 +404,7 @@
       render();
     };
     const subtotal = store.formatPrice(rowValue(list));
+    const copies = list.reduce((sum, item) => sum + ui.copiesOf(item), 0);
     if (closed) {
       const changed = list.some((item) => ui.statusInfo(item).some((line) => line.warn));
       return h(
@@ -404,7 +415,7 @@
           'span',
           { class: 'cmcs-seller-text' },
           h('span', { class: 'cmcs-seller-name' }, seller),
-          h('small', null, [t('shippingCopies', list.length), changed ? t('sellerPriceChanged') : null].filter(Boolean).join(' · ')),
+          h('small', null, [CMCS.tn('shippingCopies', copies, copies), changed ? t('sellerPriceChanged') : null].filter(Boolean).join(' · ')),
         ),
         h('span', { class: 'cmcs-seller-sub' }, subtotal),
         ui.icon('chevronRight'),
@@ -446,7 +457,7 @@
     $('pruned').replaceChildren(
       ...(pruned
         ? [
-            t('prunedNote', String(pruned)),
+            CMCS.tn('prunedNote', pruned, String(pruned)),
             ' ',
             h('button', { type: 'button', class: 'cmcs-link', onclick: () => store.updateMeta((m) => ({ ...m, pruned: null })) }, t('ok')),
           ]
@@ -484,23 +495,30 @@
     const candidateGames = [...new Set(candidates.map((item) => item.game))];
     const toRefill = candidates.filter((item) => candidateGames.length < 2 || !skippedGames.has(item.game));
     const unavailable = forGame.filter((item) => item.status === STATUS.UNAVAILABLE);
-    const inCart = forGame.filter((item) => item.status === STATUS.IN_CART);
+    // In the cart: everything that is there, also when more copies of it could go back.
+    const inCart = forGame.filter(inCartStatus);
     const busy = store.isJobActive(job);
 
-    // The big picture first.
+    // The big picture first. Counts are copies, like the amounts next to them.
     const sellers = (list) => new Set(list.map((item) => item.seller || '—')).size;
+    const sellerCount = (list) => CMCS.tn('countSellers', sellers(list), sellers(list));
     let title;
     let sub;
     if (candidates.length) {
-      title = t('summaryCanReturn', candidates.length);
+      const copies = store.copiesToReturn(candidates);
+      title = CMCS.tn('summaryCanReturn', copies, copies);
       const emptied = candidates.every((item) => item.missingReason === 'emptied');
-      sub = [t('summarySub', store.formatPrice(refillValue(candidates)), sellers(candidates)), emptied ? t('summaryEmptied') : null]
+      sub = [t('summarySub', store.formatPrice(refillValue(candidates)), sellerCount(candidates)), emptied ? t('summaryEmptied') : null]
         .filter(Boolean)
         .join(' · ');
     } else if (inCart.length) {
-      title = t('summaryAllIn');
-      const copies = inCart.reduce((sum, item) => sum + (item.amount || 1), 0);
-      sub = t('summaryAllInSub', copies, store.formatPrice(rowValue(inCart)), sellers(inCart));
+      title = unavailable.length ? t('summaryAllInForSale') : t('summaryAllIn');
+      const copies = store.copiesInCart(inCart);
+      const value = inCart.reduce((sum, item) => sum + (item.price || 0) * (item.amount || 1), 0);
+      sub = t('summaryAllInSub', CMCS.tn('countArticles', copies, copies), store.formatPrice(value), sellerCount(inCart));
+    } else if (unavailable.length) {
+      title = t('soldOnlyTitle');
+      sub = t('soldOnlyLead');
     } else {
       title = t('nothingToRefill');
       sub = null;
@@ -538,7 +556,7 @@
                     render();
                   },
                 },
-                `${store.gameName(g)} (${candidates.filter((item) => item.game === g).length})`,
+                `${store.gameName(g)} (${store.copiesToReturn(candidates.filter((item) => item.game === g))})`,
               ),
             ),
           ]),
@@ -558,8 +576,9 @@
           detailIcon(t('removeFromSaved'), 'close', () => removeItems([item])),
         ].filter(Boolean),
       });
+    // Shown with the copies that are in the cart (a partly-there article also waits above).
     const inCartRow = (item) =>
-      ui.itemRow(item, {
+      ui.itemRow({ ...item, status: STATUS.IN_CART }, {
         open: openId === item.articleId,
         onToggle: toggleRow(item.articleId),
         withGame: multiGame,
@@ -571,10 +590,12 @@
       });
     const soldRow = (item) => {
       const alt = cm.alternativesUrl(item);
+      const why = (item.lastAttempt && !item.lastAttempt.ok && ui.refusal(item.lastAttempt)) || { text: t('notAvailableAnymore'), raw: null };
       return ui.itemRow(item, {
         sold: true,
         hideMeta: false,
-        note: item.lastAttempt && item.lastAttempt.message ? item.lastAttempt.message : null,
+        note: why ? why.text : null,
+        noteTitle: why ? why.raw : null,
         withGame: multiGame,
         below: alt ? h('a', { class: 'cmcs-link', href: alt, target: '_blank', rel: 'noopener' }, t('findAlternative')) : null,
         actions: [
@@ -603,18 +624,18 @@
         h(
           'div',
           { class: 'in-cart-line' },
-          h('span', null, t('sectionInCart', inCart.length)),
+          h('span', null, t('sectionInCart', store.copiesInCart(inCart))),
           h('button', { type: 'button', class: 'cmcs-link', 'aria-expanded': String(showInCart), onclick: () => { showInCart = !showInCart; render(); } }, showInCart ? t('hide') : t('show')),
         ),
       );
-      if (showInCart) list.push(groupBySeller(inCart, inCartRow));
+      if (showInCart) list.push(groupBySeller(inCart.map((item) => ({ ...item, status: STATUS.IN_CART })), inCartRow));
     }
     $('list').replaceChildren(...list.flat(Infinity).filter(Boolean));
 
     // The one big button.
     foot.replaceChildren(
       toRefill.length
-        ? ui.primaryButton(t('refillButton', toRefill.length), store.formatPrice(refillValue(toRefill)), () => refill(toRefill), { disabled: busy })
+        ? ui.primaryButton(t('refillButton', store.copiesToReturn(toRefill)), store.formatPrice(refillValue(toRefill)), () => refill(toRefill), { disabled: busy })
         : ui.primaryButton(t('nothingToRefill'), '', null, { disabled: true }),
     );
   }
@@ -636,7 +657,8 @@
             return ui.itemRow(inCart ? { ...fav, status: STATUS.IN_CART } : { ...fav, status: 'offer' }, {
               href: offer || fav.productUrl,
               sold,
-              note: sold ? fav.unavailableMessage || t('notAvailableAnymore') : inCart ? t('favInCartNote') : undefined,
+              note: sold ? t('notAvailableAnymore') : inCart ? t('favInCartNote') : undefined,
+              noteTitle: sold ? fav.unavailableMessage || null : null,
               extraMeta: [
                 multiGame ? store.gameName(fav.game) : null,
                 fav.seller,
@@ -663,8 +685,9 @@
       ...carts.map((cart) => {
         const value = cart.items.reduce((sum, item) => sum + (item.price || 0) * (item.wantedAmount || item.amount || 1), 0);
         const open = openList === cart.id;
-        const meta = t(
+        const meta = CMCS.tn(
           'cartsMeta',
+          cart.items.length,
           cart.items.length,
           store.formatPrice(value),
           [cart.game ? store.gameName(cart.game) : t('allGames'), formatDate(cart.updatedAt || cart.createdAt)].join(' · '),
@@ -732,13 +755,20 @@
             'div',
             { class: 'saved-cart-actions' },
             h('button', { type: 'button', class: 'cmcs-btn cmcs-btn--small', disabled: busy, onclick: () => restoreCart(cart) }, t('cartsRestore')),
-            open ? h('button', { type: 'button', class: 'cmcs-link', title: t('cartsUpdateHint'), onclick: () => updateList(cart) }, t('cartsUpdate')) : null,
-            open ? h('button', { type: 'button', class: 'cmcs-link', onclick: () => { renamingList = cart.id; render(); } }, t('cartsRename')) : null,
-            h('button', { type: 'button', class: 'cmcs-link', onclick: () => copyText(store.exportText(cart.items)) }, t('exportCopy')),
-            h('button', { type: 'button', class: 'cmcs-link', onclick: () => download(`${cart.name}.csv`, store.exportCsv(cart.items), 'text/csv') }, 'CSV'),
+            h('button', { type: 'button', class: 'cmcs-link', onclick: () => copyText(store.exportText(cart.items, exportOptions)) }, t('exportCopy')),
+            h('button', { type: 'button', class: 'cmcs-link', onclick: () => download(`${cart.name}.csv`, store.exportCsv(cart.items, exportOptions), 'text/csv') }, 'CSV'),
             h('span', { style: 'flex:1' }),
             ui.iconButton(t('cartsDelete'), 'close', () => deleteCart(cart)),
           ),
+          // Changing the list itself: only when it is open.
+          open
+            ? h(
+                'div',
+                { class: 'saved-cart-actions' },
+                h('button', { type: 'button', class: 'cmcs-link', title: t('cartsUpdateHint'), onclick: () => updateList(cart) }, t('cartsUpdate')),
+                h('button', { type: 'button', class: 'cmcs-link', onclick: () => { renamingList = cart.id; render(); } }, t('cartsRename')),
+              )
+            : null,
         );
       }),
     );
@@ -770,6 +800,8 @@
       store.getMeta(),
     ]);
     ui.setThumbs(thumbs);
+    // "Opening Cardmarket…" only while that job waits to be picked up.
+    if (notice && !store.isJobActive(job)) notice = null;
     render();
   }
 

@@ -45,7 +45,6 @@
     cart: '<circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/>',
     external: '<path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>',
     user: '<path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
-    swap: '<path d="M8 3 4 7l4 4"/><path d="M4 7h16"/><path d="m16 21 4-4-4-4"/><path d="M20 17H4"/>',
     chevronRight: '<path d="m9 18 6-6-6-6"/>',
     chevronDown: '<path d="m6 9 6 6 6-6"/>',
     arrowRight: '<path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>',
@@ -85,6 +84,23 @@
   /** How long "the price changed" stays visible. */
   const PRICE_CHANGE_TTL_MS = 3 * 24 * 60 * 60 * 1000;
 
+  /** A trend older than this (the price guide stopped loading, or was switched off) is not shown. */
+  const TREND_TTL_MS = 3 * 24 * 60 * 60 * 1000;
+
+  /**
+   * Why Cardmarket refused an article, in the interface's language. Its own
+   * words (in the site's language) stay available as `raw`, for a tooltip.
+   */
+  function refusal(attempt) {
+    if (!attempt || attempt.ok) return null;
+    const raw = attempt.message || null;
+    if (attempt.reason === 'sold') return { text: CMCS.t('refusedSold'), raw };
+    if (attempt.reason === 'amount') return { text: CMCS.t('refusedAmount'), raw };
+    if (attempt.reason === 'unknown') return { text: raw ? CMCS.t('refusedUnknownWith', raw) : CMCS.t('refusedUnknown'), raw };
+    // Our own messages ("added, but not in the cart") are already in the right words.
+    return raw ? { text: raw, raw: null } : null;
+  }
+
   /**
    * Everything worth saying about an article, most important first. Each line
    * has a full sentence (`text`), a short one for the quiet row (`short`) and
@@ -94,14 +110,14 @@
     const t = CMCS.t;
     const fmt = CMCS.store.formatPrice;
     const lines = [];
-    const failed = item.lastAttempt && !item.lastAttempt.ok && item.status !== 'in_cart' && item.lastAttempt.message;
-    if (failed) lines.push({ text: item.lastAttempt.message, short: item.lastAttempt.message, warn: true });
+    const failed = item.status !== 'in_cart' && refusal(item.lastAttempt);
+    if (failed) lines.push({ text: failed.text, short: failed.text, warn: true, raw: failed.raw });
     const change = item.priceChange;
     if (change && change.from != null && change.to != null && now - (change.at || 0) < PRICE_CHANGE_TTL_MS && change.to > change.from) {
       const diff = fmt(change.to - change.from);
       lines.push({ text: t('priceUp', diff, fmt(change.from)), short: t('notePriceUp', diff), warn: true });
     }
-    const trend = item.trend && item.trend.value;
+    const trend = item.trend && (!item.trend.at || now - item.trend.at < TREND_TTL_MS) ? item.trend.value : null;
     if (trend && item.price != null) {
       const ratio = item.price / trend - 1;
       const pct = String(Math.round(Math.abs(ratio) * 100));
@@ -168,6 +184,7 @@
    * @param {string}   [opts.href]      name links here (rows that do not open)
    * @param {string}   [opts.extraMeta] an extra grey line (e.g. the game)
    * @param {string|null} [opts.note]   replaces the extra line (null: none)
+   * @param {string}   [opts.noteTitle] tooltip of that line (e.g. Cardmarket's own words)
    * @param {boolean}  [opts.sold]      grey picture and name, with the VERKOCHT stamp
    * @param {boolean}  [opts.showSeller] say who sells it in the details (default true)
    * @param {string}   [opts.price]     price text instead of price × copies
@@ -200,7 +217,14 @@
         : h('div', { class: 'cmcs-item-meta' }, [shortMeta(item), opts.withGame && CMCS.store.gameName ? CMCS.store.gameName(item.game) : null].filter(Boolean).join(' · ')),
       opts.extraMeta ? h('div', { class: 'cmcs-item-meta' }, opts.extraMeta) : null,
       noteText && !opts.open
-        ? h('div', { class: `cmcs-item-note ${noteWarn ? 'cmcs-item-note--warn' : ''}`, title: first && opts.note === undefined ? first.text : null }, noteText)
+        ? h(
+            'div',
+            {
+              class: `cmcs-item-note ${noteWarn ? 'cmcs-item-note--warn' : ''}`,
+              title: opts.note !== undefined ? opts.noteTitle || null : first ? first.raw || first.text : null,
+            },
+            noteText,
+          )
         : null,
       opts.below || null,
     );
@@ -250,7 +274,7 @@
         'div',
         { class: 'cmcs-item-details' },
         h('div', { class: 'cmcs-item-meta cmcs-wrap' }, longMeta),
-        info.map((l) => h('div', { class: `cmcs-item-note ${l.warn ? 'cmcs-item-note--warn' : ''}` }, l.text)),
+        info.map((l) => h('div', { class: `cmcs-item-note ${l.warn ? 'cmcs-item-note--warn' : ''}`, title: l.raw || null }, l.text)),
         opts.details && opts.details.length ? h('div', { class: 'cmcs-item-buttons' }, opts.details) : null,
       );
     }
@@ -373,6 +397,8 @@
       --cmcs-bad: var(--cmcs-red);
       --cmcs-warn: var(--cmcs-red);
       --cmcs-radius: 0;
+      /* Native parts (scrollbars, select lists, number fields) follow the theme too. */
+      color-scheme: light dark;
       font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
       font-size: 13px;
       line-height: 1.35;
@@ -444,8 +470,6 @@
       color: var(--cmcs-text); text-decoration: underline; text-underline-offset: 2px;
     }
     .cmcs-link:hover { color: var(--cmcs-red); }
-    .cmcs-linklike { appearance: none; border: 0; background: none; padding: 0; font: inherit; font-size: 12px; cursor: pointer; color: var(--cmcs-text); text-decoration: underline; text-underline-offset: 2px; }
-    .cmcs-linklike:hover { color: var(--cmcs-red); }
 
     /* Article rows */
     .cmcs-item { border-top: 1px solid var(--cmcs-line); }
@@ -500,7 +524,7 @@
     .cmcs-chip[aria-pressed="true"] { background: var(--cmcs-primary-bg); border-color: var(--cmcs-primary-bg); color: var(--cmcs-primary-text); }
     .cmcs-chip[aria-pressed="true"]::before { content: "✓ "; }
     .cmcs-chip[aria-pressed="false"] { color: var(--cmcs-disabled); text-decoration: line-through; }
-    .cmcs-group-title, .cmcs-section-title { font-size: 12px; color: var(--cmcs-muted); margin: 14px 0 4px; font-weight: 400; }
+    .cmcs-section-title { font-size: 12px; color: var(--cmcs-muted); margin: 14px 0 4px; font-weight: 400; }
     .cmcs-seller {
       appearance: none; border: 0; background: none; font: inherit; color: inherit; cursor: pointer; width: 100%;
       display: flex; align-items: center; gap: 10px; padding: 12px 0 4px; font-size: 12px; text-align: left;
@@ -536,6 +560,7 @@
     stamp,
     itemRow,
     statusInfo,
+    refusal,
     shortMeta,
     languageName,
     copiesOf,

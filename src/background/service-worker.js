@@ -25,13 +25,13 @@ const UPDATE_CHECK_MINUTES = 1;
 const UPDATE_SETTLE_MS = 5000;
 
 async function updateBadge() {
-  const summary = store.summarize(await store.getItems());
-  const count = summary.attention;
+  // Copies that can go back: the same number the popup and the panel show.
+  const count = store.copiesToReturn(store.refillCandidates(await store.getItems()));
   await chrome.action.setBadgeBackgroundColor({ color: '#b3122b' });
   if (chrome.action.setBadgeTextColor) await chrome.action.setBadgeTextColor({ color: '#ffffff' });
   await chrome.action.setBadgeText({ text: count ? String(count) : '' });
   await chrome.action.setTitle({
-    title: count ? chrome.i18n.getMessage('badgeTitle', [String(count)]) : 'Cart Saver',
+    title: count ? tn('badgeTitle', count, [String(count)]) : 'Cart Saver',
   });
 }
 
@@ -137,6 +137,8 @@ async function ensureUpdateAlarm() {
 const EXPIRY_ALARM = 'cmcs.expiry';
 const EXPIRY_WARN_MS = 5 * 60 * 1000;
 const t = (key, subs) => chrome.i18n.getMessage(key, subs) || key;
+/** `<key>One` for exactly one ("1 minuut"), `<key>` otherwise. */
+const tn = (key, count, subs) => t(Number(count) === 1 ? `${key}One` : key, subs);
 
 async function notify(id, title, message, url) {
   const settings = await store.getSettings();
@@ -193,7 +195,7 @@ async function warnExpiry() {
   const inCart = Object.values(items).filter((item) => item.status === store.STATUS.IN_CART || item.status === store.STATUS.PARTIAL);
   if (!inCart.length) return false;
   const minutes = Math.max(1, Math.round((next.at - Date.now()) / 60000));
-  return notify('expiry', t('notifyExpiryTitle'), t('notifyExpiryText', [String(minutes)]), cartUrl(inCart[0].lang, inCart[0].game));
+  return notify('expiry', t('notifyExpiryTitle'), tn('notifyExpiryText', minutes, [String(minutes)]), cartUrl(inCart[0].lang, inCart[0].game));
 }
 
 // --- Looking at the cart while you are away from Cardmarket ---------------------------
@@ -208,11 +210,14 @@ async function ensureAwayAlarm() {
   if (!awayChecks && existing) await chrome.alarms.clear(AWAY_ALARM);
 }
 
-/** Ask one open Cardmarket tab to read its cart, if you are at the computer and it was a while ago. */
-async function awayCheck() {
+/**
+ * Ask one open Cardmarket tab to read its cart, if you are at the computer
+ * and it was a while ago. (`idleState` can be given by the tests.)
+ */
+async function awayCheck({ idleState = (seconds) => chrome.idle.queryState(seconds) } = {}) {
   const { awayChecks } = await store.getSettings();
   if (!awayChecks) return false;
-  if (chrome.idle && (await chrome.idle.queryState(AWAY_MINUTES * 60)) !== 'active') return false;
+  if (chrome.idle && (await idleState(AWAY_MINUTES * 60)) !== 'active') return false;
   const tabs = await chrome.tabs.query({ url: 'https://www.cardmarket.com/*' });
   if (!tabs.length) return false;
   const meta = await store.getMeta();
@@ -255,9 +260,14 @@ async function pruneStale() {
  * trend price on the saved articles and favourites (foil-aware). Only the
  * saved cards are kept from the (large) file.
  */
+/** The price guide is read at most this often (it changes once a day, and is large). */
+const PRICE_GUIDE_MIN_AGE_MS = 20 * 60 * 60 * 1000;
+
 async function refreshPrices({ force = false } = {}) {
   const settings = await store.getSettings();
   if (!settings.priceTrend && !force) return null;
+  const last = (await chrome.storage.local.get('cmcs.prices'))['cmcs.prices'];
+  if (!force && last && !last.error && Date.now() - (last.at || 0) < PRICE_GUIDE_MIN_AGE_MS) return last;
   const [items, favorites] = await Promise.all([store.getItems(), store.getFavorites()]);
   const articles = [...Object.values(items), ...Object.values(favorites)].filter((a) => a.productId);
   const games = [...new Set(articles.map((a) => a.game))].filter((game) => PRICE_GUIDE_GAMES[game]);
@@ -265,7 +275,8 @@ async function refreshPrices({ force = false } = {}) {
   const status = { at: Date.now(), games: {}, error: null };
   for (const game of games) {
     try {
-      const res = await fetch(`${PRICE_GUIDE_URL}${PRICE_GUIDE_GAMES[game]}.json`, { cache: 'no-store' });
+      // "no-cache": asks the server whether it changed (304) instead of downloading it again.
+      const res = await fetch(`${PRICE_GUIDE_URL}${PRICE_GUIDE_GAMES[game]}.json`, { cache: 'no-cache' });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       const wanted = new Set(articles.filter((a) => a.game === game).map((a) => String(a.productId)));
@@ -286,8 +297,11 @@ async function refreshPrices({ force = false } = {}) {
   const trendOf = (article) => {
     const entry = trends[String(article.productId)];
     if (!entry) return undefined;
-    const value = article.foil ? entry.foil : entry.trend;
-    return value != null ? { value, at: now } : undefined;
+    // Pokémon's (reverse) holo prices are the guide's "-holo" column, like foil for Magic.
+    const shiny = article.foil || (article.extras || []).some((label) => /holo/i.test(label));
+    const value = shiny ? entry.foil : entry.trend;
+    // The guide writes 0 where it has no price: no trend, rather than "100% above".
+    return value > 0 ? { value, at: now } : undefined;
   };
   const patch = (list) => {
     const patches = {};
@@ -301,6 +315,15 @@ async function refreshPrices({ force = false } = {}) {
   await store.patchFavorites(patch(Object.values(favorites)));
   await chrome.storage.local.set({ 'cmcs.prices': status });
   return status;
+}
+
+/** Forget every trend price (the price guide is switched off). */
+async function clearTrends() {
+  const strip = (list) => Object.fromEntries(Object.values(list).filter((a) => a.trend).map((a) => [a.articleId, { trend: null }]));
+  const [items, favorites] = await Promise.all([store.getItems(), store.getFavorites()]);
+  await store.patchItems(strip(items));
+  await store.patchFavorites(strip(favorites));
+  await chrome.storage.local.remove('cmcs.prices');
 }
 
 async function daily() {
@@ -340,13 +363,16 @@ chrome.storage.onChanged.addListener((changes, area) => {
   if (changes[store.KEYS.settings]) {
     ensureAwayAlarm();
     const was = (changes[store.KEYS.settings].oldValue || {}).priceTrend;
-    if (!was && (changes[store.KEYS.settings].newValue || {}).priceTrend) refreshPrices().catch(() => {});
+    const now = (changes[store.KEYS.settings].newValue || {}).priceTrend;
+    if (!was && now) refreshPrices({ force: true }).catch(() => {});
+    // Switched off: the notes about the trend go too.
+    if (was && !now) clearTrends().catch(() => {});
   }
 });
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (!message || message.type !== 'cmcs.notify' || message.kind !== 'emptied') return false;
-  const count = String(message.count || 0);
-  notify(`emptied-${message.game}`, t('notifyEmptiedTitle'), t('notifyEmptiedText', [count]), cartUrl(message.lang, message.game)).then(
+  const count = message.count || 0;
+  notify(`emptied-${message.game}`, t('notifyEmptiedTitle'), tn('notifyEmptiedText', count, [String(count)]), cartUrl(message.lang, message.game)).then(
     (shown) => sendResponse({ ok: shown }),
     () => sendResponse({ ok: false }),
   );

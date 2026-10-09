@@ -15,16 +15,19 @@
     "message": "Alle spellen"
   },
   "badgeTitle": {
-    "message": "Cart Saver – $1 opgeslagen artikel(en) niet in je mandje"
+    "message": "Cart Saver – $1 opgeslagen artikelen niet in je mandje"
+  },
+  "badgeTitleOne": {
+    "message": "Cart Saver – 1 opgeslagen artikel niet in je mandje"
   },
   "cancel": {
     "message": "Annuleren"
   },
-  "cartEmptyLead": {
-    "message": "Je winkelmandje is leeg. Deze opgeslagen artikelen kun je terugzetten:"
-  },
   "cartSavedLead": {
-    "message": "$1 artikel(en) in je mandje opgeslagen."
+    "message": "$1 artikelen in je mandje zijn opgeslagen."
+  },
+  "cartSavedLeadOne": {
+    "message": "1 artikel in je mandje is opgeslagen."
   },
   "cartsDelete": {
     "message": "Verwijderen"
@@ -42,7 +45,10 @@
     "message": "Je hebt al $1 bewaarde lijsten. Verwijder er eerst één."
   },
   "cartsMeta": {
-    "message": "$1 artikel(en) · $2 · $3"
+    "message": "$1 artikelen · $2 · $3"
+  },
+  "cartsMetaOne": {
+    "message": "1 artikel · $2 · $3"
   },
   "cartsNamePlaceholder": {
     "message": "Naam, bijv. Commander-deck"
@@ -92,8 +98,35 @@
   "continueRefill": {
     "message": "Doorgaan ($1 te gaan)"
   },
+  "countArticles": {
+    "message": "$1 artikelen"
+  },
+  "countArticlesOne": {
+    "message": "1 artikel"
+  },
+  "countFavorites": {
+    "message": "$1 favorieten"
+  },
+  "countFavoritesOne": {
+    "message": "1 favoriet"
+  },
+  "countLists": {
+    "message": "$1 bewaarde lijsten"
+  },
+  "countListsOne": {
+    "message": "1 bewaarde lijst"
+  },
+  "countSellers": {
+    "message": "$1 verkopers"
+  },
+  "countSellersOne": {
+    "message": "1 verkoper"
+  },
+  "csvHeader": {
+    "message": "Naam;Uitbreiding;Nummer;Conditie;Taal;Extra;Aantal;Prijs;Verkoper;Status;URL"
+  },
   "dataSummary": {
-    "message": "$1 opgeslagen: $2 in je mandje, $3 deels, $4 ontbreken, $5 niet beschikbaar. $6 favoriet(en), $7 bewaarde lijst(en)."
+    "message": "$1 opgeslagen: $2 in je mandje, $3 deels, $4 ontbreken, $5 niet beschikbaar. $6, $7."
   },
   "dataTitle": {
     "message": "Je opgeslagen artikelen, favorieten en lijsten"
@@ -215,14 +248,11 @@
   "favSellerOffers": {
     "message": "Zoek bij deze verkoper"
   },
-  "filterAll": {
-    "message": "Alles"
-  },
-  "filterEmpty": {
-    "message": "Geen artikelen in deze weergave."
-  },
   "findAlternative": {
     "message": "Zoek vergelijkbaar aanbod"
+  },
+  "gameLabel": {
+    "message": "Spel"
   },
   "groupMissing": {
     "message": "Niet meer in je mandje ($1)"
@@ -234,19 +264,19 @@
     "message": "Verberg"
   },
   "how1": {
-    "message": "Leg artikelen zoals altijd in je winkelmandje op Cardmarket. Cart Saver slaat ze automatisch op."
+    "message": "Leg artikelen zoals altijd in je winkelmandje op Cardmarket, uit elk spel. Cart Saver onthoudt ze vanzelf."
   },
   "how2": {
-    "message": "Als Cardmarket je mandje leegt, verschijnt er een melding op de site en toont het icoon hoeveel artikelen ontbreken."
+    "message": "Leegt Cardmarket je mandje, dan verschijnt er een melding op de site en telt het icoon mee. Klik op “Zet … terug in je mandje”, in de popup of in het paneel op Cardmarket. Spijt? “Ongedaan maken”."
   },
   "how3": {
-    "message": "Klik op “Zet terug” om ze opnieuw in je mandje te leggen. Artikelen die intussen verkocht zijn worden gemarkeerd als “niet meer beschikbaar”, met een link naar vergelijkbaar aanbod."
+    "message": "Is iets intussen verkocht, dan krijgt het een stempel. Met “Vervanging zoeken” vind je dezelfde kaart bij dezelfde verkoper, bij een verkoper die al in je mandje zit, of het goedkoopste vergelijkbare aanbod."
   },
   "how4": {
-    "message": "Artikelen die je koopt verdwijnen vanzelf uit de lijst zodra je de bestelling op Cardmarket opent."
+    "message": "Bewaar je mandje als lijst (bijvoorbeeld per deck) met “Bewaar als lijst…”, en zet hem later met één klik terug. Wat je koopt verdwijnt vanzelf uit de lijst."
   },
   "how5": {
-    "message": "Klik op de ☆ bij een aanbieding (of een artikel in je mandje) om hem als favoriet te bewaren. Je vindt hem terug onder Favorieten in de popup: open de aanbieding, zoek bij de verkoper of leg hem in je mandje."
+    "message": "Klik op de ☆ bij een aanbieding (of een artikel in je mandje) om hem als favoriet te bewaren. Je vindt hem terug onder Favorieten in de popup."
   },
   "howTitle": {
     "message": "Zo werkt het"
@@ -255,7 +285,7 @@
     "message": "Importeren"
   },
   "importDone": {
-    "message": "$1 artikel(en) en $2 bewaarde lijst(en) geïmporteerd."
+    "message": "$1 en $2 geïmporteerd."
   },
   "importFailed": {
     "message": "Dat bestand kon niet worden gelezen."
@@ -273,7 +303,10 @@
     "message": "Alles van deze lijst zit al in je mandje."
   },
   "listsFormMeta": {
-    "message": "$1 artikel(en) · $2"
+    "message": "$1 artikelen · $2"
+  },
+  "listsFormMetaOne": {
+    "message": "1 artikel · $2"
   },
   "listsSaveOpen": {
     "message": "Bewaar als lijst…"
@@ -305,20 +338,23 @@
   "noteTrendBelow": {
     "message": "$1% onder trend"
   },
-  "nothingMissing": {
-    "message": "Alles wat je hebt opgeslagen zit in je mandje."
-  },
   "nothingToRefill": {
     "message": "Niets om terug te zetten"
   },
   "notifyEmptiedText": {
-    "message": "$1 opgeslagen artikel(en) staan niet meer in je mandje. Klik om ze terug te zetten."
+    "message": "$1 opgeslagen artikelen staan niet meer in je mandje. Klik om ze terug te zetten."
+  },
+  "notifyEmptiedTextOne": {
+    "message": "1 opgeslagen artikel staat niet meer in je mandje. Klik om het terug te zetten."
   },
   "notifyEmptiedTitle": {
     "message": "Artikelen uit je Cardmarket-mandje verdwenen"
   },
   "notifyExpiryText": {
     "message": "Over ongeveer $1 minuten. Klik om je mandje te openen."
+  },
+  "notifyExpiryTextOne": {
+    "message": "Over ongeveer 1 minuut. Klik om je mandje te openen."
   },
   "notifyExpiryTitle": {
     "message": "Je Cardmarket-mandje wordt zo geleegd"
@@ -366,7 +402,10 @@
     "message": "$1 van $2"
   },
   "prunedNote": {
-    "message": "$1 verkochte artikel(en) uit de lijst gehaald: een maand niet meer bekeken."
+    "message": "$1 verkochte artikelen uit de lijst gehaald: een maand niet meer bekeken."
+  },
+  "prunedNoteOne": {
+    "message": "1 verkocht artikel uit de lijst gehaald: een maand niet meer bekeken."
   },
   "reasonEmptied": {
     "message": "Je hele mandje werd geleegd"
@@ -376,9 +415,6 @@
   },
   "reasonSingle": {
     "message": "Alleen dit artikel verdween, waarschijnlijk verkocht"
-  },
-  "refillAll": {
-    "message": "Zet $1 artikel(en) terug"
   },
   "refillButton": {
     "message": "Zet $1 terug in je mandje"
@@ -404,9 +440,6 @@
   "refillRunningTitle": {
     "message": "Bezig met terugzetten"
   },
-  "refillSelected": {
-    "message": "Zet $1 artikel(en) terug · $2"
-  },
   "refillStoppedTitle": {
     "message": "Gestopt"
   },
@@ -416,11 +449,23 @@
   "refillWaiting": {
     "message": "Wachten tot Cardmarket opent…"
   },
+  "refusedAmount": {
+    "message": "Niet genoeg exemplaren meer"
+  },
+  "refusedSold": {
+    "message": "Verkocht of niet meer te koop"
+  },
   "refusedUnknown": {
     "message": "Cardmarket nam het niet aan. Het blijft op je lijst, probeer het later opnieuw."
   },
+  "refusedUnknownWith": {
+    "message": "Cardmarket weigerde het: “$1”"
+  },
   "reminderLead": {
-    "message": "$1 opgeslagen artikel(en) ($2) zitten niet meer in je winkelmandje."
+    "message": "$1 opgeslagen artikelen ($2) zitten niet meer in je winkelmandje."
+  },
+  "reminderLeadOne": {
+    "message": "1 opgeslagen artikel ($2) zit niet meer in je winkelmandje."
   },
   "reminderTitle": {
     "message": "Je winkelmandje is geleegd"
@@ -492,7 +537,7 @@
     "message": "Mandje automatisch opslaan"
   },
   "settingAutoTrackHelp": {
-    "message": "Elk artikel dat in je mandje verschijnt wordt opgeslagen. Staat dit uit, dan bewaar je alleen via de knop “Huidig mandje opslaan” op de winkelmandjepagina."
+    "message": "Elk artikel dat in je mandje verschijnt wordt onthouden. Staat dit uit, dan lees je je mandje in met de knop “Mandje nu inlezen” in het paneel op de winkelmandjepagina."
   },
   "settingAway": {
     "message": "Mandje controleren als je niet op Cardmarket kijkt"
@@ -522,7 +567,7 @@
     "message": "Prijzen vergelijken met de trend"
   },
   "settingTrendHelp": {
-    "message": "Eén keer per dag wordt de openbare prijsgids van Cardmarket gedownload (een groot bestand); alleen je opgeslagen kaarten worden bewaard. Aanbiedingen die duidelijk boven de trend zitten krijgen een opmerking."
+    "message": "Eén keer per dag wordt de openbare prijsgids van Cardmarket gedownload (een groot bestand); alleen je opgeslagen artikelen worden bewaard. Aanbiedingen die duidelijk boven de trend zitten krijgen een opmerking."
   },
   "settings": {
     "message": "Instellingen"
@@ -534,13 +579,16 @@
     "message": "Instellingen"
   },
   "shippingCopies": {
-    "message": "$1 kaart(en)"
+    "message": "$1 artikelen"
+  },
+  "shippingCopiesOne": {
+    "message": "1 artikel"
   },
   "shippingCost": {
     "message": "verzending $1 ($2%)"
   },
   "shippingMoreThanCards": {
-    "message": "verzending kost meer dan de kaarten"
+    "message": "verzending kost meer dan de artikelen"
   },
   "shippingNearTracked": {
     "message": "nog $1 tot de grens van 25 € (tracking)"
@@ -549,7 +597,10 @@
     "message": "Verzending per verkoper ($1)"
   },
   "shippingSummaryKnown": {
-    "message": "$1 verkoper(s) · verzending $2 ($3% van het totaal)"
+    "message": "$1 verkopers · verzending $2 ($3% van het totaal)"
+  },
+  "shippingSummaryKnownOne": {
+    "message": "1 verkoper · verzending $2 ($3% van het totaal)"
   },
   "shippingTracked": {
     "message": "boven 25 €: meestal verzending met tracking (duurder)"
@@ -557,8 +608,11 @@
   "show": {
     "message": "Toon"
   },
-  "soldBy": {
-    "message": "Verkoper: $1"
+  "soldOnlyLead": {
+    "message": "Die kunnen niet meer terug. Zoek een vervanging, of haal ze uit de lijst."
+  },
+  "soldOnlyTitle": {
+    "message": "Alleen verkochte artikelen over"
   },
   "stampSold": {
     "message": "VERKOCHT"
@@ -581,17 +635,23 @@
   "summaryAllIn": {
     "message": "Alles zit in je mandje"
   },
+  "summaryAllInForSale": {
+    "message": "Alles wat nog te koop is, zit in je mandje"
+  },
   "summaryAllInSub": {
-    "message": "$1 kaart(en) · $2 bij $3 verkoper(s)"
+    "message": "$1 · $2 bij $3"
   },
   "summaryCanReturn": {
-    "message": "$1 kaart(en) kunnen terug"
+    "message": "$1 artikelen kunnen terug"
+  },
+  "summaryCanReturnOne": {
+    "message": "1 artikel kan terug"
   },
   "summaryEmptied": {
     "message": "je hele mandje werd geleegd"
   },
   "summarySub": {
-    "message": "$1 bij $2 verkoper(s)"
+    "message": "$1 bij $2"
   },
   "tabCart": {
     "message": "Winkelmandje"
@@ -609,7 +669,7 @@
     "message": "Trend $1 · deze aanbieding is $2% goedkoper"
   },
   "trendStatus": {
-    "message": "Laatst gelezen: $1 ($2 kaarten)."
+    "message": "Laatst gelezen: $1 ($2 artikelen)."
   },
   "trendStatusError": {
     "message": "Prijsgids kon niet worden gelezen: $1"
@@ -618,13 +678,13 @@
     "message": "Ongedaan maken"
   },
   "undoDone": {
-    "message": "$1 artikel(en) weer uit je mandje gehaald."
+    "message": "$1 artikelen weer uit je mandje gehaald."
+  },
+  "undoDoneOne": {
+    "message": "1 artikel weer uit je mandje gehaald."
   },
   "undoRunning": {
     "message": "De toegevoegde artikelen gaan weer uit je mandje…"
-  },
-  "undoTitle": {
-    "message": "Terugzetten ongedaan maken"
   },
   "updatedPill": {
     "message": "Cart Saver bijgewerkt · ververs de pagina"

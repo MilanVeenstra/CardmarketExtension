@@ -32,10 +32,14 @@
   const deselected = new Set();
   /** The article a replacement is being looked for: { id, loading, offers, error }. */
   let replacing = null;
-  /** "Bewaar als lijst…": the name field while open, and a short line after saving. */
+  /** "Bewaar als lijst…": the name field while open. */
   let listForm = null;
-  let listNote = null;
-  let listNoteTimer = null;
+  /** A short message in a strip at the bottom of the panel, optionally with one action (undo). */
+  let strip = null;
+  let stripTimer = null;
+  /** Redraws wait while a mouse button is down in the panel, so a click is never lost. */
+  let pointerDown = false;
+  let renderLater = false;
 
   const WIDGET_CSS = `
     :host { all: initial; }
@@ -85,6 +89,16 @@
     .cmcs-saved-list { display: flex; align-items: center; gap: 10px; padding: 6px 0; border-top: 1px solid var(--cmcs-line); }
     .cmcs-saved-list-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
     .cmcs-saved-list-name { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .cmcs-strip {
+      display: flex; align-items: center; gap: 10px; padding: 8px 14px;
+      background: var(--cmcs-primary-bg); color: var(--cmcs-primary-text); font-size: 12px;
+    }
+    .cmcs-strip span { flex: 1; }
+    .cmcs-strip button {
+      appearance: none; border: 0; background: none; color: inherit; font: inherit; font-weight: 700; cursor: pointer;
+      text-decoration: underline; text-underline-offset: 2px; padding: 0;
+    }
+    .cmcs-strip button:hover { color: var(--cmcs-red); }
     @media (max-width: 480px) {
       .cmcs-panel { right: 8px; left: 8px; bottom: 8px; width: auto; max-width: none; }
       .cmcs-pill { right: 8px; bottom: 8px; }
@@ -100,6 +114,14 @@
     panel = h('div', { class: 'cmcs-root' });
     shadow.append(style, panel);
     document.documentElement.append(host);
+    shadow.addEventListener('pointerdown', () => (pointerDown = true), true);
+    const released = () => {
+      pointerDown = false;
+      // After the click that this release completes, not before it.
+      if (renderLater) setTimeout(() => (renderLater = false, render()), 0);
+    };
+    window.addEventListener('pointerup', released, true);
+    window.addEventListener('pointercancel', released, true);
 
     // Pictures load straight from Cardmarket here; their copies (for the popup) need no redraw.
     const watched = Object.values(store.KEYS).filter((key) => key !== store.KEYS.thumbs);
@@ -175,7 +197,18 @@
   async function refill(ids) {
     if (!ids.length) return;
     const result = await CMCS.refill.start(ids);
-    if (!result.ok) showNotice({ title: 'Cart Saver', text: t('errorBusy') });
+    if (!result.ok) showStrip(result.error === 'busy' ? t('errorBusy') : ui.errorText(result.error) || t('errorUnknown'));
+  }
+
+  /** A message in the strip at the bottom of the panel; gone after a few seconds. */
+  function showStrip(text, action = null) {
+    strip = { text, action };
+    clearTimeout(stripTimer);
+    stripTimer = setTimeout(() => {
+      strip = null;
+      render();
+    }, action ? 8000 : 4000);
+    render();
   }
 
   /** Continue an interrupted job: the remaining articles become a new job (the cart is checked first). */
@@ -187,15 +220,30 @@
   const useThisAccount = (username) =>
     store.updateMeta((meta) => ({ ...meta, account: username, accountMismatch: null }));
 
-  /** Remove from the saved list, with a way back. */
+  /** What the strip can still bring back: removals right after each other add up. */
+  let lastRemoval = null;
+
+  /** Remove from the saved list, with a way back (one undo for removals in a row). */
   async function removeItems(ids) {
     const taken = await store.takeItems(ids);
     if (!taken.length) return;
-    showNotice({
-      title: 'Cart Saver',
-      text: taken.length === 1 ? t('removedOne', taken[0].name) : t('removedMany', taken.length),
-      actions: [{ label: t('undo'), onClick: () => store.restoreItems(taken).then(() => showNotice(null)) }],
+    const recent = lastRemoval && strip && strip.action && Date.now() - lastRemoval.at < 8000 ? lastRemoval.taken : [];
+    const all = [...recent, ...taken];
+    lastRemoval = { taken: all, at: Date.now() };
+    showStrip(all.length === 1 ? t('removedOne', all[0].name) : t('removedMany', all.length), {
+      label: t('undo'),
+      onClick: async () => {
+        lastRemoval = null;
+        strip = null;
+        await store.restoreItems(all);
+      },
     });
+  }
+
+  /** Take the star off a favourite (from a result list), with a way back. */
+  async function unstar(articleId) {
+    const taken = await store.takeFavorites([articleId]);
+    if (taken.length) showStrip(t('favRemoved', taken[0].name), { label: t('undo'), onClick: () => store.restoreFavorites(taken) });
   }
 
   /** An undo that is running or failed, shown in the result view: { jobId, running, error, detail }. */
@@ -212,7 +260,7 @@
     if (result.ok) {
       undoState = null;
       await acknowledgeJob();
-      showNotice({ title: t('undoTitle'), text: t('undoDone', result.removed) });
+      showStrip(CMCS.tn('undoDone', result.removed, result.removed));
       if (loc.isCart && result.removed) setTimeout(() => location.reload(), 1200);
     } else {
       undoState = { jobId: job.id, error: result.error, detail: result.detail };
@@ -245,30 +293,19 @@
               render();
             },
           },
-          `${store.gameName(game)} (${list.length})`,
+          `${store.gameName(game)} (${store.copiesToReturn(list)})`,
         );
       }),
     );
-  }
-
-  /** A short line in the panel ("Bewaard als …"), gone after a few seconds. */
-  function noteInPanel(text) {
-    listNote = text;
-    clearTimeout(listNoteTimer);
-    listNoteTimer = setTimeout(() => {
-      listNote = null;
-      render();
-    }, 5000);
-    render();
   }
 
   /** Save the list (everything that can still go back, every game) under a name. */
   async function saveList(name) {
     const list = Object.values(state.items).filter((item) => item.status !== store.STATUS.UNAVAILABLE);
     listForm = null;
-    if (!list.length) return noteInPanel(t('cartsNothing'));
+    if (!list.length) return showStrip(t('cartsNothing'));
     const saved = await store.saveCart(name, list);
-    noteInPanel(saved ? t('cartsSaved', saved.name) : t('cartsFull', String(store.MAX_CARTS)));
+    showStrip(saved ? t('cartsSaved', saved.name) : t('cartsFull', String(store.MAX_CARTS)));
   }
 
   /** Put a saved list back: its articles join the list and what is not in the cart goes in. */
@@ -279,7 +316,7 @@
       .map((item) => saved[item.articleId])
       .filter((item) => item && item.status !== store.STATUS.IN_CART)
       .map((item) => item.articleId);
-    if (!ids.length) return noteInPanel(t('listAllInCart'));
+    if (!ids.length) return showStrip(t('listAllInCart'));
     await refill(ids);
   }
 
@@ -317,6 +354,14 @@
         onClose ? ui.iconButton(t('close'), 'close', onClose) : null,
       ),
       h('div', { class: 'cmcs-body' }, title ? h('h2', { class: 'cmcs-view-title' }, title) : null, body),
+      strip
+        ? h(
+            'div',
+            { class: 'cmcs-strip', role: 'status' },
+            h('span', null, strip.text),
+            strip.action ? h('button', { type: 'button', onclick: strip.action.onClick }, strip.action.label) : null,
+          )
+        : null,
       footer ? h('div', { class: 'cmcs-foot' }, footer) : null,
     );
   }
@@ -340,7 +385,7 @@
       else closedSellers.add(seller);
       render();
     };
-    const subtotal = store.formatPrice(list.reduce((sum, item) => sum + (item.price || 0) * ui.copiesOf(item), 0));
+    const subtotal = store.formatPrice(refillValue(list));
     if (closed) {
       const changed = list.some((item) => ui.statusInfo(item).some((line) => line.warn));
       return h(
@@ -351,7 +396,7 @@
           'span',
           { class: 'cmcs-seller-text' },
           h('span', { class: 'cmcs-seller-name' }, seller),
-          h('small', null, [t('shippingCopies', list.length), changed ? t('sellerPriceChanged') : null].filter(Boolean).join(' · ')),
+          h('small', null, [CMCS.tn('shippingCopies', store.copiesToReturn(list), store.copiesToReturn(list)), changed ? t('sellerPriceChanged') : null].filter(Boolean).join(' · ')),
         ),
         h('span', { class: 'cmcs-seller-sub' }, subtotal),
         ui.icon('chevronRight'),
@@ -390,10 +435,11 @@
   }
 
   function summaryView(job) {
-    const failedItems = Object.entries(job.results || {})
+    // What did not make it: saved articles, and favourites (which are not on the list).
+    const failed = Object.entries(job.results || {})
       .filter(([, result]) => !result.ok)
-      .map(([id]) => state.items[id] || state.favorites[id])
-      .filter(Boolean);
+      .map(([id, result]) => ({ item: state.items[id] || state.favorites[id], result, favorite: !state.items[id] }))
+      .filter(({ item }) => item);
     const error = ui.errorText(job.error);
     const undo = undoState && undoState.jobId === job.id ? undoState : null;
     return shell(
@@ -407,16 +453,22 @@
             undo.detail ? h('p', { class: 'cmcs-detail' }, t('errorDetails', undo.detail)) : null,
           ]
         : null,
-      failedItems.length
+      failed.length
         ? h(
             'div',
             { class: 'cmcs-list' },
             // Only what is really gone gets the stamp; an unclear refusal stays an ordinary row.
-            failedItems.map((item, i, list) =>
-              item.status === store.STATUS.UNAVAILABLE || !state.items[item.articleId]
-                ? unavailableRow(item, i, list)
-                : ui.itemRow(item, { actions: [ui.iconButton(t('removeFromSaved'), 'close', () => removeItems([item.articleId]))] }),
-            ),
+            failed.map(({ item, result, favorite }) => {
+              const gone = item.status === store.STATUS.UNAVAILABLE || (favorite && (result.reason === 'sold' || result.reason === 'amount'));
+              const remove = favorite ? () => unstar(item.articleId) : () => removeItems([item.articleId]);
+              if (gone) return unavailableRow(item, { remove, attempt: { ...result, ok: false } });
+              const why = ui.refusal({ ...result, ok: false });
+              return ui.itemRow(favorite ? { ...item, status: 'offer' } : item, {
+                note: why ? why.text : null,
+                noteTitle: why ? why.raw : null,
+                actions: [ui.iconButton(favorite ? t('favRemove') : t('removeFromSaved'), 'close', remove)],
+              });
+            }),
           )
         : null,
       h(
@@ -479,7 +531,7 @@
     replacing = null;
     await acknowledgeJob();
     const result = await CMCS.replace.use(item, offer);
-    if (!result.ok) showNotice({ title: 'Cart Saver', text: t('errorBusy') });
+    if (!result.ok) showStrip(result.error === 'busy' ? t('errorBusy') : ui.errorText(result.error) || t('errorUnknown'));
   }
 
   const REPLACE_REASONS = { sameSeller: 'replaceSameSeller', sellerInCart: 'replaceInCart', cheapest: 'replaceCheapest' };
@@ -521,18 +573,20 @@
   }
 
   /** A sold article: grey, with the VERKOCHT stamp, "Vervanging zoeken" and its suggestions. */
-  const unavailableRow = (item, _i, list) => {
+  const unavailableRow = (item, { remove = () => removeItems([item.articleId]), attempt = item.lastAttempt, multiGame = false } = {}) => {
     const alt = cm.alternativesUrl(item);
-    const multiGame = list && new Set(list.map((i) => i.game)).size > 1;
+    // In the interface's words; Cardmarket's own (in the site's language) in the tooltip.
+    const why = (attempt && !attempt.ok && ui.refusal(attempt)) || { text: t('notAvailableAnymore'), raw: null };
     return [
       ui.itemRow(item, {
         sold: true,
         withGame: multiGame,
-        note: item.lastAttempt && item.lastAttempt.message ? item.lastAttempt.message : null,
+        note: why ? why.text : null,
+        noteTitle: why ? why.raw : null,
         below: alt ? h('button', { type: 'button', class: 'cmcs-link', onclick: () => findReplacement(item) }, t('replaceFind')) : null,
         actions: [
           alt ? ui.iconLink(t('findAlternative'), 'search', alt) : null,
-          ui.iconButton(t('removeFromSaved'), 'close', () => removeItems([item.articleId])),
+          ui.iconButton(t('removeFromSaved'), 'close', remove),
         ].filter(Boolean),
       }),
       replacementPanel(item),
@@ -562,11 +616,16 @@
         h(
           'div',
           { class: 'cmcs-summary' },
-          h('h2', { class: 'cmcs-summary-title' }, t('summaryCanReturn', missing.length)),
+          h('h2', { class: 'cmcs-summary-title' }, CMCS.tn('summaryCanReturn', store.copiesToReturn(missing), store.copiesToReturn(missing))),
           h(
             'p',
             { class: 'cmcs-summary-sub' },
-            [t('summarySub', store.formatPrice(refillValue(missing)), sellers(missing)), emptied ? t('summaryEmptied') : null].filter(Boolean).join(' · '),
+            [
+              t('summarySub', store.formatPrice(refillValue(missing)), CMCS.tn('countSellers', sellers(missing), sellers(missing))),
+              emptied ? t('summaryEmptied') : null,
+            ]
+              .filter(Boolean)
+              .join(' · '),
           ),
           expiryLine(),
         ),
@@ -581,14 +640,26 @@
           h('p', { class: 'cmcs-summary-sub' }, t(state.settings.autoTrack ? 'panelNoItemsLead' : 'panelNoItemsLeadManual')),
         ),
       );
-    } else {
+    } else if (inCart.length) {
+      // Everything that is still for sale is in the cart (sold articles may be listed below).
+      const copies = store.copiesInCart(inCart);
       body.push(
         h(
           'div',
           { class: 'cmcs-summary' },
-          h('h2', { class: 'cmcs-summary-title' }, inCart.length ? t('summaryAllIn') : t('nothingToRefill')),
-          h('p', { class: 'cmcs-summary-sub' }, inCart.length ? t('cartSavedLead', inCart.length) : t('cartEmptyLead')),
+          h('h2', { class: 'cmcs-summary-title' }, unavailable.length ? t('summaryAllInForSale') : t('summaryAllIn')),
+          h('p', { class: 'cmcs-summary-sub' }, CMCS.tn('cartSavedLead', copies, copies)),
           expiryLine(),
+        ),
+      );
+    } else {
+      // Only sold articles are left.
+      body.push(
+        h(
+          'div',
+          { class: 'cmcs-summary' },
+          h('h2', { class: 'cmcs-summary-title' }, t('soldOnlyTitle')),
+          h('p', { class: 'cmcs-summary-sub' }, t('soldOnlyLead')),
         ),
       );
     }
@@ -631,7 +702,7 @@
             'button',
             {
               type: 'button',
-              class: 'cmcs-linklike',
+              class: 'cmcs-link',
               onclick: () => {
                 missing.forEach((item) => (allSelected ? deselected.add(item.articleId) : deselected.delete(item.articleId)));
                 render();
@@ -651,9 +722,9 @@
           'div',
           { class: 'cmcs-row-between' },
           h('div', { class: 'cmcs-section-title' }, t('groupUnavailable', unavailable.length)),
-          h('button', { type: 'button', class: 'cmcs-linklike', onclick: () => removeItems(unavailable.map((item) => item.articleId)) }, t('clearUnavailable')),
+          h('button', { type: 'button', class: 'cmcs-link', onclick: () => removeItems(unavailable.map((item) => item.articleId)) }, t('clearUnavailable')),
         ),
-        h('div', { class: 'cmcs-list' }, unavailable.map(unavailableRow)),
+        h('div', { class: 'cmcs-list' }, unavailable.map((item) => unavailableRow(item, { multiGame }))),
         h(
           'div',
           { class: 'cmcs-links' },
@@ -675,7 +746,7 @@
     }
 
     const footer = missing.length
-      ? ui.primaryButton(t('refillButton', selected.length), store.formatPrice(refillValue(selected)), () => refill(selected.map((item) => item.articleId)), {
+      ? ui.primaryButton(t('refillButton', store.copiesToReturn(selected)), store.formatPrice(refillValue(selected)), () => refill(selected.map((item) => item.articleId)), {
           disabled: !selected.length,
         })
       : null;
@@ -716,7 +787,6 @@
         h('div', { class: 'cmcs-links' }, h('button', { type: 'button', class: 'cmcs-link', onclick: () => { listForm = { name: '' }; render(); } }, t('listsSaveOpen'))),
       );
     }
-    if (listNote) parts.push(h('p', { class: 'cmcs-muted', role: 'status' }, listNote));
     if (carts.length) {
       parts.push(
         h('div', { class: 'cmcs-section-title' }, t('panelListsTitle', String(carts.length))),
@@ -768,14 +838,14 @@
     const totalValue = rows.reduce((sum, r) => sum + r.value, 0);
     const summary =
       totalShipping != null
-        ? t('shippingSummaryKnown', String(rows.length), store.formatPrice(totalShipping), String(Math.round((totalShipping / (totalValue + totalShipping || 1)) * 100)))
+        ? CMCS.tn('shippingSummaryKnown', rows.length, String(rows.length), store.formatPrice(totalShipping), String(Math.round((totalShipping / (totalValue + totalShipping || 1)) * 100)))
         : t('shippingSummary', String(rows.length));
     return h(
       'div',
       { class: 'cmcs-shipping' },
       h(
         'button',
-        { type: 'button', class: 'cmcs-linklike', 'aria-expanded': String(shippingOpen), onclick: () => { shippingOpen = !shippingOpen; render(); } },
+        { type: 'button', class: 'cmcs-link', 'aria-expanded': String(shippingOpen), onclick: () => { shippingOpen = !shippingOpen; render(); } },
         `${shippingOpen ? '▾' : '▸'} ${summary}`,
       ),
       shippingOpen
@@ -795,7 +865,7 @@
                 'div',
                 { class: 'cmcs-shipping-row' },
                 h('div', { class: 'cmcs-row-between' }, h('strong', null, r.seller), h('span', null, store.formatPrice(r.value))),
-                h('div', { class: 'cmcs-item-meta' }, [t('shippingCopies', String(r.copies)), ...notes].join(' · ')),
+                h('div', { class: 'cmcs-item-meta' }, [CMCS.tn('shippingCopies', r.copies, String(r.copies)), ...notes].join(' · ')),
               );
             }),
           )
@@ -833,9 +903,9 @@
       {
         title: t('reminderTitle'),
         onClose: dismissReminder,
-        footer: ui.primaryButton(t('refillButton', missing.length), store.formatPrice(value), () => refill(missing.map((item) => item.articleId))),
+        footer: ui.primaryButton(t('refillButton', store.copiesToReturn(missing)), store.formatPrice(value), () => refill(missing.map((item) => item.articleId))),
       },
-      h('p', { class: 'cmcs-lead cmcs-muted' }, t('reminderLead', missing.length, store.formatPrice(value))),
+      h('p', { class: 'cmcs-lead cmcs-muted' }, CMCS.tn('reminderLead', store.copiesToReturn(missing), store.copiesToReturn(missing), store.formatPrice(value))),
       onlyGameButtons(missing),
       h('div', { class: 'cmcs-links' }, h('a', { class: 'cmcs-link', href: cm.cartUrl(loc.lang, loc.game) }, t('viewInCart'))),
     );
@@ -851,15 +921,28 @@
       h('span', { class: 'cmcs-chips-label' }, t('refillOnlyLabel')),
       games.map((game) => {
         const ids = missing.filter((item) => item.game === game).map((item) => item.articleId);
-        return h('button', { type: 'button', class: 'cmcs-chip', onclick: () => refill(ids) }, `${store.gameName(game)} (${ids.length})`);
+        const copies = store.copiesToReturn(missing.filter((item) => item.game === game));
+        return h('button', { type: 'button', class: 'cmcs-chip', onclick: () => refill(ids) }, `${store.gameName(game)} (${copies})`);
       }),
     );
   }
 
+  /** What identifies a control across redraws: its row, and its label. */
+  function controlKey(el) {
+    if (!el || !el.tagName || el === shadow.host) return null;
+    const row = el.closest('[data-article-id], [data-cart-id]');
+    const where = row ? row.dataset.articleId || row.dataset.cartId : '';
+    return `${el.tagName}|${where}|${el.getAttribute('aria-label') || el.getAttribute('name') || (el.textContent || '').trim().slice(0, 40)}`;
+  }
+
   function render() {
     if (orphaned) return;
+    // A redraw between pressing and releasing the mouse would swallow the click: after it.
+    if (pointerDown) {
+      renderLater = true;
+      return;
+    }
     const { items, job, settings, meta } = state;
-    const game = loc.game;
     const { STATUS } = store;
     // Cardmarket has one cart for all games, so the panel shows every game.
     const forGame = Object.values(items);
@@ -869,34 +952,52 @@
     const inCart = forGame.filter((item) => item.status === STATUS.IN_CART || item.status === STATUS.PARTIAL);
     const otherAccount = meta.account && meta.accountMismatch && cm.readUsername(document) === meta.accountMismatch;
 
-    const sortByName = (a, b) => (a.seller || '').localeCompare(b.seller || '') || a.name.localeCompare(b.name);
-    missing.sort(sortByName);
-    unavailable.sort(sortByName);
+    missing.sort(bySellerName);
+    unavailable.sort(bySellerName);
 
     let view = null;
+    let name = null;
     if (state.interrupted) {
-      view = interruptedView(job);
+      [view, name] = [interruptedView(job), 'interrupted'];
     } else if (store.isJobActive(job)) {
-      view = progressView(job);
+      [view, name] = [progressView(job), 'progress'];
     } else if (job && job.finishedAt && !job.acknowledged && Date.now() - job.finishedAt < SUMMARY_TTL_MS) {
-      view = summaryView(job);
+      [view, name] = [summaryView(job), 'summary'];
     } else if (notice) {
-      view = noticeView();
+      [view, name] = [noticeView(), 'notice'];
     } else if (otherAccount) {
-      view = accountView(meta.account, meta.accountMismatch);
+      [view, name] = [accountView(meta.account, meta.accountMismatch), 'account'];
     } else if (loc.isCart && (forGame.length || (state.carts || []).length || !settings.autoTrack)) {
-      view = cartView(missing, unavailable, inCart);
+      [view, name] = [cartView(missing, unavailable, inCart), 'cart'];
     } else if (
       !loc.isCart &&
       missing.length &&
       settings.showReminder &&
       (meta.dismissed || {})['*'] !== store.missingSignature(items)
     ) {
-      view = reminderView(missing);
+      [view, name] = [reminderView(missing), 'reminder'];
+    } else if (strip) {
+      // The view just went away (the last article removed): keep the message and its undo.
+      [view, name] = [shell({ onClose: () => { strip = null; render(); } }), 'strip'];
     }
 
+    // Keep your place: the same view keeps its scroll position and the focused control.
+    const before = panel.firstElementChild;
+    const sameView = before && before.dataset.view === name;
+    const scrollTop = sameView && before.querySelector('.cmcs-body') ? before.querySelector('.cmcs-body').scrollTop : 0;
+    const focused = sameView ? controlKey(shadow.activeElement) : null;
+    if (view) view.dataset.view = name;
     panel.replaceChildren(...(view ? [view] : []));
     host.style.display = view ? '' : 'none';
+    if (sameView && view) {
+      const body = view.querySelector('.cmcs-body');
+      if (body) body.scrollTop = scrollTop;
+      if (focused) {
+        const tag = focused.split('|')[0].toLowerCase();
+        const match = [...view.querySelectorAll(tag)].find((el) => controlKey(el) === focused);
+        if (match) match.focus({ preventScroll: true });
+      }
+    }
     // A redraw while you type a list name keeps you in the field.
     if (listForm) {
       const input = shadow.querySelector('.cmcs-list-form input');

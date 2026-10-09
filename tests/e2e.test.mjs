@@ -110,13 +110,13 @@ before(async () => {
   // own in 'card pictures'). Anything under /broken/ is refused.
   await context.route('https://product-images.s3.cardmarket.com/**', (r) => {
     const request = r.request();
-    let from = 'extension';
+    let from = 'chrome-extension://'; // a service-worker request has no frame: the extension's background
     try {
-      from = new URL(request.frame().url()).origin;
+      from = request.frame().url();
     } catch {
-      // A service-worker request has no frame: the extension's background.
+      // Keep the default.
     }
-    const allowed = from === 'extension' || from.startsWith('chrome-extension://') || from === CM;
+    const allowed = from.startsWith('chrome-extension://') || from.startsWith(`${CM}/`);
     if (!allowed || request.url().includes('/broken/')) {
       return r.fulfill({ status: 403, contentType: 'text/html', body: '<h1>403 ERROR</h1><h2>The request could not be satisfied.</h2>' });
     }
@@ -166,7 +166,8 @@ describe('Cardmarket Cart Saver', () => {
     assert.equal(saved[EPHEMERATE].expansion, 'Modern Horizons');
 
     await waitFor(() => widget(page).isVisible(), 'cart panel');
-    assert.match(await widget(page).innerText(), /3 artikel\(en\) in je mandje opgeslagen/);
+    // Counted in copies (the Bog twice), like the amounts.
+    assert.match(await widget(page).innerText(), /4 artikelen in je mandje zijn opgeslagen/);
     await shot(page, '01-cart-saved');
   });
 
@@ -181,14 +182,14 @@ describe('Cardmarket Cart Saver', () => {
     await waitFor(() => widget(page).isVisible(), 'reminder');
     const text = await widget(page).innerText();
     assert.match(text, /Je winkelmandje is geleegd/);
-    assert.match(text, /3 opgeslagen artikel\(en\) \(5,78 €\)/);
-    assert.equal(await sw.evaluate(() => chrome.action.getBadgeText({})), '3');
+    assert.match(text, /4 opgeslagen artikelen \(5,78 €\)/);
+    assert.equal(await sw.evaluate(() => chrome.action.getBadgeText({})), '4');
     await shot(widget(page), '02-reminder');
   });
 
   it('puts the articles back with one click: one request per seller, spaced out', async () => {
     const before = addRequests().length;
-    await widget(page).getByRole('button', { name: /^Zet 3 terug in je mandje/ }).click();
+    await widget(page).getByRole('button', { name: /^Zet 4 terug in je mandje/ }).click();
 
     const job = await waitFor(async () => {
       const j = (await storage())['cmcs.job'];
@@ -236,7 +237,7 @@ describe('Cardmarket Cart Saver', () => {
     await page.goto(`${CM}/en/Magic/ShoppingCart`);
     await waitFor(() => widget(page).isVisible(), 'cart panel');
     const text = await widget(page).innerText();
-    assert.match(text, /2 artikel\(en\) in je mandje opgeslagen/);
+    assert.match(text, /3 artikelen in je mandje zijn opgeslagen/);
     assert.match(text, /Niet meer beschikbaar \(1\)/i);
     const alt = widget(page).getByRole('link', { name: 'Zoek vergelijkbaar aanbod' });
     assert.equal(
@@ -251,10 +252,10 @@ describe('Cardmarket Cart Saver', () => {
     await popup.setViewportSize({ width: 400, height: 600 });
     await popup.goto(`chrome-extension://${extensionId}/src/popup/popup.html`);
     await popup.locator('#tab-cart').click();
-    await waitFor(async () => /Alles zit in je mandje/.test(await popup.locator('#summary').innerText()), 'summary');
-    assert.match(await popup.locator('#summary').innerText(), /3 kaart\(en\) · 2,23 € bij 1 verkoper\(s\)/);
+    await waitFor(async () => /Alles wat nog te koop is, zit in je mandje/.test(await popup.locator('#summary').innerText()), 'summary');
+    assert.match(await popup.locator('#summary').innerText(), /3 artikelen · 2,23 € bij 1 verkoper/);
     // What is gone carries the stamp; what is in the cart is folded into one line.
-    assert.match(await popup.locator('#list').innerText(), /Ephemerate[\s\S]*VERKOCHT[\s\S]*2 in je mandje/);
+    assert.match(await popup.locator('#list').innerText(), /Ephemerate[\s\S]*VERKOCHT[\s\S]*3 in je mandje/);
     assert.equal(await popup.locator('#list .cmcs-item').count(), 1);
     await popup.getByRole('button', { name: 'Toon' }).click();
     await waitFor(async () => (await popup.locator('#list .cmcs-item').count()) === 3, 'three rows');
@@ -587,7 +588,9 @@ describe('Cardmarket Cart Saver', () => {
     assert.equal(fav.unavailable, true);
     assert.equal(fav.unavailableMessage, 'This article is no longer available.');
     assert.equal((await items())[SOL_MINT], undefined, 'not added to the saved cart list');
-    await waitFor(async () => /This article is no longer available/.test(await row.innerText()), 'note in popup');
+    // In the interface's words; Cardmarket's own (in the site's language) in the tooltip.
+    await waitFor(async () => /Niet meer beschikbaar/.test(await row.innerText()), 'note in popup');
+    assert.equal(await row.locator('.cmcs-item-note').getAttribute('title'), 'This article is no longer available.');
     await popup.close();
 
     await sw.evaluate(() => chrome.storage.local.set({ 'cmcs.job': null }));
@@ -966,7 +969,8 @@ describe('Cardmarket Cart Saver', () => {
       await waitFor(async () => (await items())[BOG].status === 'missing', 'Bog missing');
 
       const before = addRequests().length;
-      const job = await refillVia(widget(page).getByRole('button', { name: /^Zet 1 terug in je mandje/ }));
+      // Two copies wanted: the button counts copies.
+      const job = await refillVia(widget(page).getByRole('button', { name: /^Zet 2 terug in je mandje/ }));
       assert.equal(job.added, 1);
       assert.deepEqual(postsFor(before, BOG).map((post) => amountOf(post, BOG)), ['2', '1']);
       const bog = (await items())[BOG];
@@ -1153,7 +1157,7 @@ describe('Cardmarket Cart Saver', () => {
       const before = mock.state.requests.length;
       await widget(page).getByRole('button', { name: 'Ongedaan maken' }).click();
       await waitFor(async () => (await storage())['cmcs.job']?.undone, 'undone');
-      await waitFor(() => widget(page).getByText('2 artikel(en) weer uit je mandje gehaald.').isVisible(), 'undo notice');
+      await waitFor(() => widget(page).getByText('2 artikelen weer uit je mandje gehaald.').isVisible(), 'undo notice');
       assert.equal(mock.state.cart.size, 0);
       const removals = removeRequests(before).map((r) => new URLSearchParams(r.body));
       assert.equal(removals.length, 2);
@@ -1215,8 +1219,9 @@ describe('Cardmarket Cart Saver', () => {
       const [download] = await Promise.all([popup.waitForEvent('download'), popup.getByRole('button', { name: 'Download CSV' }).click()]);
       const csv = fs.readFileSync(await download.path(), 'utf8');
       const lines = csv.replace(/^﻿/, '').split('\r\n');
-      assert.equal(lines[0], '"Name";"Expansion";"Number";"Condition";"Language";"Extras";"Amount";"Price";"Seller";"Status";"URL"');
-      assert.ok(lines.some((line) => line.startsWith('"Bojuka Bog";"Commander 2018";"238";"NM";"English";"";"1";"0,99";"snowc";"in_cart";')), csv);
+      // In the interface's language, as Excel shows it.
+      assert.equal(lines[0], '"Naam";"Uitbreiding";"Nummer";"Conditie";"Taal";"Extra";"Aantal";"Prijs";"Verkoper";"Status";"URL"');
+      assert.ok(lines.some((line) => line.startsWith('"Bojuka Bog";"Commander 2018";"238";"NM";"Engels";"";"1";"0,99";"snowc";"In mandje";')), csv);
       await popup.close();
     });
 
@@ -1227,7 +1232,7 @@ describe('Cardmarket Cart Saver', () => {
       // Saving happens where the list is: the Winkelmandje tab.
       await popup.locator('#tab-cart').click();
       await popup.getByRole('button', { name: 'Bewaar als lijst…' }).click();
-      assert.match(await popup.locator('#list-form-meta').innerText(), /^2 artikel\(en\) · /);
+      assert.match(await popup.locator('#list-form-meta').innerText(), /^2 artikelen · /);
       await popup.fill('#list-name', 'Commander-deck');
       await popup.locator('#list-form').getByRole('button', { name: 'Bewaren' }).click();
       await waitFor(async () => ((await storage())['cmcs.carts'] || []).length === 1, 'list saved');
@@ -1239,7 +1244,7 @@ describe('Cardmarket Cart Saver', () => {
       await popup.locator('#toast').getByRole('button', { name: 'Bekijken' }).click();
       const entry = popup.locator(`#carts-list [data-cart-id="${saved.id}"]`);
       await waitFor(async () => (await entry.locator('.cmcs-item').count()) === 2, 'list unfolded with its articles');
-      assert.match(await entry.innerText(), /Commander-deck[\s\S]*2 artikel\(en\) · 2,58 €/);
+      assert.match(await entry.innerText(), /Commander-deck[\s\S]*2 artikelen · 2,58 €/);
       await shot(popup, '16-popup-carts');
 
       // Rename it.
@@ -1271,7 +1276,7 @@ describe('Cardmarket Cart Saver', () => {
       await page.goto(`${CM}/en/Magic/ShoppingCart`);
       const panel = widget(page);
       await waitFor(() => panel.getByText('Bewaarde lijsten (1)').isVisible(), 'saved lists in the panel');
-      assert.match(await panel.locator('.cmcs-saved-list').innerText(), /Commander[\s\S]*2 artikel\(en\)/);
+      assert.match(await panel.locator('.cmcs-saved-list').innerText(), /Commander[\s\S]*2 artikelen/);
 
       await panel.getByRole('button', { name: 'Bewaar als lijst…' }).click();
       await panel.locator('.cmcs-list-form input').fill('Pauper');
@@ -1323,12 +1328,12 @@ describe('Cardmarket Cart Saver', () => {
 
     it('sums up shipping per seller', async () => {
       const panel = widget(page);
-      const toggle = panel.getByRole('button', { name: /2 verkoper\(s\) · verzending 2,30 € \(38% van het totaal\)/ });
+      const toggle = panel.getByRole('button', { name: /2 verkopers · verzending 2,30 € \(38% van het totaal\)/ });
       await toggle.click();
       const rows = await panel.locator('.cmcs-shipping-row').allInnerTexts();
       assert.equal(rows.length, 2);
-      assert.match(rows[0], /snowc[\s\S]*2,23 €[\s\S]*3 kaart\(en\) · verzending 1,15 € \(34%\)/);
-      assert.match(rows[1], /Kärtchen-Laden[\s\S]*1,49 €[\s\S]*1 kaart\(en\) · verzending 1,15 € \(44%\)/);
+      assert.match(rows[0], /snowc[\s\S]*2,23 €[\s\S]*3 artikelen · verzending 1,15 € \(34%\)/);
+      assert.match(rows[1], /Kärtchen-Laden[\s\S]*1,49 €[\s\S]*1 artikel · verzending 1,15 € \(44%\)/);
       await shot(panel, '17-shipping');
     });
 
@@ -1407,7 +1412,9 @@ describe('Cardmarket Cart Saver', () => {
         meta.cartSync.at = Date.now() - 20 * 60 * 1000;
         await chrome.storage.local.set({ 'cmcs.meta': meta });
       });
-      assert.equal(await sw.evaluate(() => self.cmcs.awayCheck()), true);
+      // Only while you are at the computer (whether this test machine is in use does not matter).
+      assert.equal(await sw.evaluate(() => self.cmcs.awayCheck({ idleState: async () => 'idle' })), false, 'not while you are away');
+      assert.equal(await sw.evaluate(() => self.cmcs.awayCheck({ idleState: async () => 'active' })), true);
       await waitFor(async () => (await items())[BOG].status === 'missing', 'emptied cart noticed');
 
       await sw.evaluate(async () => {
@@ -1447,7 +1454,7 @@ describe('Cardmarket Cart Saver', () => {
       assert.equal(all[PIKACHU].game, 'Pokemon');
       assert.equal(all[PIKACHU].seller, 'snowc');
       assert.equal(all[BOG].game, 'Magic');
-      await waitFor(async () => /3 artikel\(en\) in je mandje opgeslagen/.test(await widget(page).innerText()), 'all games in the panel');
+      await waitFor(async () => /3 artikelen in je mandje zijn opgeslagen/.test(await widget(page).innerText()), 'all games in the panel');
     });
 
     it('notices a Pokémon card leaving the cart while on a Magic page, and puts it back', async () => {
@@ -1571,6 +1578,68 @@ describe('Cardmarket Cart Saver', () => {
       await page.goto(`${CM}/en/Magic/ShoppingCart`); // nothing clicked on this page yet
       await page.evaluate((id) => window.cmOp(id, 1), BOG);
       await waitFor(async () => (await items())[BOG]?.status === 'missing', 'marked missing, not forgotten');
+    });
+  });
+
+  describe('a calm panel', () => {
+    const FAKE = Array.from({ length: 14 }, (_, i) => String(9000000001 + i));
+    const fake = (id, i) => ({
+      articleId: id, game: 'Magic', lang: 'en', name: `Testkaart ${i + 1}`, price: 1, amount: 1, wantedAmount: 1,
+      seller: 'Testverkoper', status: i < 12 ? 'missing' : 'unavailable', missingReason: 'emptied', extras: [],
+    });
+    before(async () => {
+      await sw.evaluate(async (list) => {
+        const { 'cmcs.items': items = {} } = await chrome.storage.local.get('cmcs.items');
+        for (const item of list) items[item.articleId] = item;
+        await chrome.storage.local.set({ 'cmcs.items': items, 'cmcs.job': null });
+      }, FAKE.map(fake));
+    });
+    after(async () => {
+      await sw.evaluate(async (ids) => {
+        const { 'cmcs.items': items = {} } = await chrome.storage.local.get('cmcs.items');
+        for (const id of ids) delete items[id];
+        await chrome.storage.local.set({ 'cmcs.items': items });
+      }, FAKE);
+    });
+
+    it('keeps its scroll position when something changes in the background', async () => {
+      await page.goto(`${CM}/en/Magic/ShoppingCart`);
+      const body = widget(page).locator('.cmcs-body');
+      await waitFor(async () => (await widget(page).locator('.cmcs-item').count()) > 10, 'long list');
+      await page.waitForTimeout(1500); // the page has settled (its own cart reading)
+      const set = await body.evaluate((el) => ((el.scrollTop = 250), el.scrollTop));
+      await patchItems({ [FAKE[0]]: { price: 1.01 } }); // the panel redraws
+      await waitFor(async () => /1,01 €/.test(await widget(page).innerText()), 'redrawn');
+      const now = await body.evaluate((el) => el.scrollTop);
+      assert.ok(set >= 240 && now >= 240, `still where you were (${set} → ${now})`);
+    });
+
+    it('says "removed" in a strip with one undo for several, without replacing the panel', async () => {
+      const panel = widget(page);
+      const sold = (id) => panel.locator(`.cmcs-item[data-article-id="${id}"]`).getByRole('button', { name: 'Verwijderen uit opgeslagen lijst' });
+      await sold(FAKE[12]).click();
+      await waitFor(() => panel.locator('.cmcs-strip').isVisible(), 'strip');
+      assert.ok(await panel.locator('.cmcs-summary').isVisible(), 'the cart view stays');
+      await sold(FAKE[13]).click();
+      await waitFor(async () => /2 artikelen uit de lijst gehaald/.test(await panel.locator('.cmcs-strip').innerText()), 'counted together');
+      await panel.locator('.cmcs-strip').getByRole('button', { name: 'Ongedaan maken' }).click();
+      await waitFor(async () => {
+        const all = await items();
+        return all[FAKE[12]] && all[FAKE[13]];
+      }, 'both back');
+    });
+
+    it('counts copies, in the singular for one', async () => {
+      // Only the first test card left to go back.
+      await sw.evaluate(async (keep) => {
+        const { 'cmcs.items': items } = await chrome.storage.local.get('cmcs.items');
+        for (const item of Object.values(items)) if (item.articleId !== keep && item.status !== 'unavailable') item.status = 'in_cart';
+        await chrome.storage.local.set({ 'cmcs.items': items });
+      }, FAKE[0]);
+      await waitFor(async () => /1 artikel kan terug/.test(await widget(page).innerText()), 'singular');
+      await patchItems({ [FAKE[0]]: { wantedAmount: 3, amount: 3 } });
+      await waitFor(async () => /3 artikelen kunnen terug/.test(await widget(page).innerText()), 'copies');
+      assert.ok(await widget(page).getByRole('button', { name: /^Zet 3 terug in je mandje/ }).isVisible());
     });
   });
 
