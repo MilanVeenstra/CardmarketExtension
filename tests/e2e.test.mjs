@@ -269,8 +269,12 @@ describe('Cardmarket Cart Saver', () => {
   });
 
   it('forgets articles once they show up on an order page', async () => {
-    await page.goto(`${CM}/en/Magic/Orders/1234567?ids=${BOG}`);
+    // Bought, so gone from the cart. The Mage was bought once too, but is in the cart again now.
+    mock.state.cart.delete(BOG);
+    mock.state.cart.set(MAGE, 1);
+    await page.goto(`${CM}/en/Magic/Orders/1234567?ids=${BOG},${MAGE}`);
     await waitFor(async () => !(await items())[BOG], 'bought article removed');
+    await waitFor(async () => (await items())[MAGE]?.status === 'in_cart', 'the one in the cart again stays saved');
   });
 
   it('refills from the popup by opening Cardmarket when no Cardmarket tab is active', async () => {
@@ -390,7 +394,7 @@ describe('Cardmarket Cart Saver', () => {
     assert.equal(saved[SOL_RING].status, 'in_cart');
   });
 
-  it('retries once with a fresh token when the page token is outdated', async (t) => {
+  it('uses the fresh token from the cart it just read, not an outdated one on the page', async (t) => {
     t.after(() => (mock.state.stalePageToken = null));
     mock.state.stalePageToken = 'deadbeef'.repeat(8);
     mock.state.cart.delete(MAGE);
@@ -403,7 +407,7 @@ describe('Cardmarket Cart Saver', () => {
     await waitFor(async () => (await storage())['cmcs.job']?.state === 'done', 'job done');
 
     const tokens = addRequests().slice(before).map((r) => new URLSearchParams(r.body).get('__cmtkn'));
-    assert.deepEqual(tokens, [mock.state.stalePageToken, mock.state.token]);
+    assert.deepEqual(tokens, [mock.state.token], 'one request, with the token of the cart page');
     assert.ok(mock.state.cart.has(MAGE));
     assert.equal((await items())[MAGE].status, 'in_cart');
   });
@@ -824,6 +828,15 @@ describe('Cardmarket Cart Saver', () => {
       assert.equal((await items())[BOG].status, 'in_cart');
     });
 
+    it("does not take a click in the site's menu as a removal", async () => {
+      await sw.evaluate(() => chrome.storage.local.get('cmcs.meta').then(({ 'cmcs.meta': meta = {} }) => chrome.storage.local.set({ 'cmcs.meta': { ...meta, userRemoved: {} } })));
+      await page.getByRole('link', { name: 'Purchases' }).click();
+      await page.waitForURL(/Orders\/Purchases/);
+      await new Promise((r) => setTimeout(r, 500));
+      assert.deepEqual((await storage())['cmcs.meta'].userRemoved || {}, {}, 'nothing marked as removed by you');
+      await page.goto(`${CM}/en/Magic/ShoppingCart`);
+    });
+
     it('does not offer to put back what you just bought', async () => {
       const block = page.locator('section.shipment-block', { hasText: 'snowc' });
       await Promise.all([page.waitForNavigation(), block.getByRole('button', { name: 'Commit to purchase' }).click()]);
@@ -963,19 +976,18 @@ describe('Cardmarket Cart Saver', () => {
     });
 
     it('keeps an article on the list after an unclear refusal, and gives up after the second', async (t) => {
-      t.after(() => (mock.state.genericRefusal = false));
-      mock.state.cart = new Map([
-        [BOG, 2],
-        [SOL_RING, 1],
-      ]);
+      t.after(() => mock.state.genericRefusalFor.clear());
+      mock.state.cart = new Map([[BOG, 2]]);
       await page.goto(`${CM}/en/Magic/ShoppingCart`);
-      await waitFor(async () => (await items())[MAGE].status === 'missing' && (await items())[BOG].status === 'in_cart', 'synced');
+      await waitFor(async () => (await items())[MAGE].status === 'missing' && (await items())[SOL_RING].status === 'missing', 'synced');
       await sw.evaluate(() => chrome.storage.local.set({ 'cmcs.job': null }));
-      mock.state.genericRefusal = true;
+      // Cardmarket refuses this one article without a reason, while the other goes back fine.
+      mock.state.genericRefusalFor.add(MAGE);
 
       await page.goto(`${CM}/en/Magic`);
-      const job = await refillVia(widget(page).getByRole('button', { name: /^Zet 1 terug in je mandje/ }));
+      const job = await refillVia(widget(page).getByRole('button', { name: /^Zet 2 terug in je mandje/ }));
       assert.equal(job.failed, 1);
+      assert.equal(job.added, 1);
       let mage = (await items())[MAGE];
       assert.equal(mage.status, 'missing', 'not written off after one unclear refusal');
       assert.equal(mage.lastAttempt.reason, 'unknown');
@@ -985,6 +997,22 @@ describe('Cardmarket Cart Saver', () => {
       await refillVia(widget(page).getByRole('button', { name: /^Zet 1 terug in je mandje/ }));
       mage = (await items())[MAGE];
       assert.equal(mage.status, 'unavailable', 'the second unclear refusal in a row counts as gone');
+    });
+
+    it('never writes the whole list off when Cardmarket refuses everything', async (t) => {
+      t.after(() => (mock.state.genericRefusal = false));
+      mock.state.cart = new Map([[BOG, 2]]);
+      await patchItems({ [MAGE]: { status: 'missing', lastAttempt: null }, [SOL_RING]: { status: 'missing', lastAttempt: null } });
+      await sw.evaluate(() => chrome.storage.local.set({ 'cmcs.job': null }));
+      mock.state.genericRefusal = true;
+      await page.goto(`${CM}/en/Magic`);
+      for (let round = 0; round < 2; round += 1) {
+        await refillVia(widget(page).getByRole('button', { name: /^Zet 2 terug in je mandje/ }));
+        await widget(page).getByRole('button', { name: 'Sluiten' }).first().click();
+      }
+      const all = await items();
+      assert.equal(all[MAGE].status, 'missing', 'still on the list, to try again later');
+      assert.equal(all[SOL_RING].status, 'missing');
     });
 
     it('takes a lowered amount as what you want', async () => {
@@ -1059,6 +1087,20 @@ describe('Cardmarket Cart Saver', () => {
       const all = await items();
       for (const id of [MAGE, SOL_RING, SOL_KINGDOM]) assert.equal(all[id].status, 'in_cart', `${id} untouched`);
       await shot(widget(page), '14-other-account');
+
+      // Putting something back from the popup in the meantime: the job stops at the
+      // other account, and the cart it read never ends up in the list.
+      await patchItems({ [MAGE]: { status: 'missing' } });
+      const popup = await context.newPage();
+      await popup.goto(`chrome-extension://${extensionId}/src/popup/popup.html`);
+      const job = await runViaNewTab(popup.getByRole('button', { name: /^Zet 1 terug in je mandje/ }));
+      assert.equal(job.error, 'other_account');
+      const after = await items();
+      assert.equal(after[MAGE].status, 'missing');
+      for (const id of [SOL_RING, SOL_KINGDOM]) assert.equal(after[id].status, 'in_cart', `${id} not taken from the other account's empty cart`);
+      await popup.close();
+      await patchItems({ [MAGE]: { status: 'in_cart' } });
+      await sw.evaluate(() => chrome.storage.local.set({ 'cmcs.job': null }));
 
       await widget(page).getByRole('button', { name: 'Voortaan someone-else gebruiken' }).click();
       await waitFor(async () => (await storage())['cmcs.meta'].account === 'someone-else', 'account switched');
@@ -1490,7 +1532,10 @@ describe('Cardmarket Cart Saver', () => {
   it('options page shows the saved data and stores settings', async () => {
     const options = await context.newPage();
     await options.goto(`chrome-extension://${extensionId}/src/options/options.html`);
-    await waitFor(async () => /opgeslagen: .* in mandje/.test(await options.locator('#dataSummary').innerText()), 'data summary');
+    await waitFor(async () => /opgeslagen: \d+ in je mandje, \d+ deels, \d+ ontbreken/.test(await options.locator('#dataSummary').innerText()), 'data summary');
+    // Every article is counted once: the parts add up to the total.
+    const [total, ...parts] = (await options.locator('#dataSummary').innerText()).match(/\d+/g).slice(0, 5).map(Number);
+    assert.equal(parts.reduce((a, b) => a + b, 0), total);
     await options.fill('#delay', '2.5');
     await options.locator('#delay').dispatchEvent('change');
     await waitFor(async () => (await storage())['cmcs.settings'].delayMs === 2500, 'delay saved');

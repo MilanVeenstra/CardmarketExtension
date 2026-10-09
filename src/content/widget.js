@@ -184,19 +184,25 @@
     });
   }
 
+  /** An undo that is running or failed, shown in the result view: { jobId, running, error, detail }. */
+  let undoState = null;
+
+  /**
+   * Take a refill back. The result view (with its button) stays until the
+   * undo worked, so a failed one (session expired, busy) can simply be tried again.
+   */
   async function undoJob(job) {
-    showNotice({ title: t('undoTitle'), text: t('undoRunning') });
-    await acknowledgeJob();
+    undoState = { jobId: job.id, running: true };
+    render();
     const result = await CMCS.refill.undo(job.id);
     if (result.ok) {
+      undoState = null;
+      await acknowledgeJob();
       showNotice({ title: t('undoTitle'), text: t('undoDone', result.removed) });
       if (loc.isCart && result.removed) setTimeout(() => location.reload(), 1200);
     } else {
-      showNotice({
-        title: t('undoTitle'),
-        text: result.error === 'busy' ? t('errorBusy') : ui.errorText(result.error) || t('errorUnknown'),
-        detail: result.detail,
-      });
+      undoState = { jobId: job.id, error: result.error, detail: result.detail };
+      render();
     }
   }
 
@@ -343,10 +349,18 @@
       .map(([id]) => state.items[id] || state.favorites[id])
       .filter(Boolean);
     const error = ui.errorText(job.error);
+    const undo = undoState && undoState.jobId === job.id ? undoState : null;
     return shell(
       { title: error && job.error !== 'cancelled' ? t('refillStoppedTitle') : t('refillDoneTitle'), onClose: acknowledgeJob },
       h('p', { class: 'cmcs-lead' }, t('refillSummary', job.added || 0, job.failed || 0)),
       ui.jobError(job),
+      undo && undo.running ? h('p', { class: 'cmcs-muted' }, t('undoRunning')) : null,
+      undo && undo.error
+        ? [
+            h('p', { class: 'cmcs-error' }, undo.error === 'busy' ? t('errorBusy') : ui.errorText(undo.error) || t('errorUnknown')),
+            undo.detail ? h('p', { class: 'cmcs-detail' }, t('errorDetails', undo.detail)) : null,
+          ]
+        : null,
       failedItems.length
         ? h(
             'div',
@@ -364,7 +378,7 @@
         { class: 'cmcs-actions' },
         !loc.isCart ? h('a', { class: 'cmcs-btn', href: cm.cartUrl(loc.lang, loc.game) }, t('openCart')) : null,
         job.added > 0 && !job.undone
-          ? h('button', { type: 'button', class: 'cmcs-btn cmcs-btn--ghost', onclick: () => undoJob(job) }, t('undo'))
+          ? h('button', { type: 'button', class: 'cmcs-btn cmcs-btn--ghost', disabled: Boolean(undo && undo.running), onclick: () => undoJob(job) }, t('undo'))
           : null,
         h('button', { type: 'button', class: 'cmcs-btn cmcs-btn--ghost', onclick: acknowledgeJob }, t('close')),
       ),

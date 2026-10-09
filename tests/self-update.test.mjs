@@ -85,6 +85,15 @@ describe('self-update of an unpacked install', () => {
     assert.equal(await sw.evaluate(() => Boolean(self.__reloaded)), false);
   });
 
+  it('waits while you are in the cart or at checkout on Cardmarket', async () => {
+    await sw.evaluate(() => chrome.storage.local.set({ 'cmcs.job': null }));
+    await page.goto(`${CM}/en/Magic/ShoppingCart`);
+    const result = await sw.evaluate(() => self.cmcsCheckForNewVersion({ settleMs: 50, reload: () => (self.__reloaded = true) }));
+    assert.equal(result, false);
+    assert.equal(await sw.evaluate(() => Boolean(self.__reloaded)), false);
+    await page.goto(`${CM}/en/Magic`);
+  });
+
   it('reloads for every new commit, even when the version number is the same', async () => {
     await sw.evaluate(() => chrome.storage.local.set({ 'cmcs.job': null }));
     const result = await sw.evaluate(() => self.cmcsCheckForNewVersion({ settleMs: 50, reload: () => (self.__reloaded = true) }));

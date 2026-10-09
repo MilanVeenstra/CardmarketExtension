@@ -19,6 +19,8 @@
 
   const HEADER_DEBOUNCE_MS = 1500;
   const USER_REMOVAL_TTL_MS = 10 * 60 * 1000;
+  /** After a reading that could not be used (unreadable page, another account), wait this long before the next. */
+  const RETRY_UNUSABLE_MS = 60 * 1000;
   /** Read the cart again after this long, even when the header count looks the same (a sold card may have been swapped). */
   const SYNC_MAX_AGE_MS = 15 * 60 * 1000;
   // Words on controls that take articles out of the cart on purpose (site languages en/de/fr/es/it).
@@ -26,6 +28,8 @@
   const REMOVE_ICON = '[class*="fonticon-delete"], [class*="fonticon-trash"], [class*="fonticon-remove"], [class*="fonticon-bin"]';
   const CHECKOUT_HINT = /checkout|commit|purchase|buy|kaufen|bestellen|acheter|commander|comprar|acquist|ordina/i;
   const BLOCK = 'section.shipment-block, section[id*="seller"], .shipment-block';
+  /** The site's menus: clicks there never take anything out of the cart. */
+  const SITE_CHROME = 'header, nav, footer, .navbar, #account-dropdown, [role="navigation"], cmcs-cart-saver';
 
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     if (!message || typeof message.type !== 'string') return false;
@@ -53,7 +57,10 @@
    */
   async function applyCart(cart) {
     if (!cart.signedIn) return null;
-    if (!(await checkAccount(cart.username))) return null;
+    if (!(await checkAccount(cart.username))) {
+      await store.updateMeta((current) => ({ ...current, cartTried: Date.now() }));
+      return null;
+    }
     const settings = await store.getSettings();
     const now = Date.now();
     const meta = await store.getMeta();
@@ -92,8 +99,9 @@
       const next = {
         ...current,
         userRemoved,
-        // One cart for all games: one record of the last reading.
-        cartSync: { at: now, headerCount: cart.headerCount },
+        // A reading that could not be trusted does not count: try again soon, not in 15 minutes.
+        cartSync: cart.trustworthy ? { at: now, headerCount: cart.headerCount } : current.cartSync,
+        cartTried: cart.trustworthy ? null : now,
         // The cart page also says when it will be emptied and what shipping costs.
         cartExpiry: cart.items.length ? cart.expiresAt || null : null,
         shipping: { at: now, shipments: cart.shipments || [] },
@@ -103,9 +111,11 @@
     });
 
     // Articles that fell out while you were looking elsewhere: a notification.
-    if (result && result.newlyMissing.length && document.visibilityState !== 'visible') {
+    // What you removed or bought yourself is forgotten above and does not count.
+    const fellOut = result ? result.newlyMissing.filter((id) => !forget.includes(id)) : [];
+    if (fellOut.length && document.visibilityState !== 'visible') {
       chrome.runtime
-        .sendMessage({ type: 'cmcs.notify', kind: 'emptied', count: result.newlyMissing.length, lang: loc.lang, game: loc.game })
+        .sendMessage({ type: 'cmcs.notify', kind: 'emptied', count: fellOut.length, lang: loc.lang, game: loc.game })
         .catch(() => {});
     }
     return result;
@@ -149,6 +159,8 @@
     const meta = await store.getMeta();
     const last = meta.cartSync;
     if (last && last.headerCount === count && Date.now() - last.at < SYNC_MAX_AGE_MS) return;
+    // The last reading was of no use (another account, an unreadable page): not on every page load.
+    if (meta.cartTried && Date.now() - meta.cartTried < RETRY_UNUSABLE_MS) return;
     try {
       await withSyncLock(syncFromServer);
     } catch (err) {
@@ -262,7 +274,8 @@
     let lastInteraction = 0;
     const noteInteraction = (event) => {
       const target = event.target;
-      if (target && target.closest && target.closest('cmcs-cart-saver')) return; // our own panel
+      // Our own panel and the site's menus do not change the cart.
+      if (target && target.closest && target.closest(SITE_CHROME)) return;
       lastInteraction = Date.now();
     };
     document.addEventListener('pointerdown', noteInteraction, true);
@@ -301,9 +314,9 @@
       'click',
       (event) => {
         const control = event.target.closest && event.target.closest('button, a, [onclick], [role="button"], input[type="submit"]');
-        if (!control || control.closest('cmcs-cart-saver')) return;
-        // A link to a product or seller is never a removal, whatever the card is called.
-        if (control.matches('a[href*="/Products/"], a[href*="/Users/"], a[href*="/Expansions/"]')) return;
+        if (!control || control.closest(SITE_CHROME)) return;
+        // A link that opens another page (a product, a seller, "Purchases"…) is never a removal.
+        if (control.matches('a[href]') && !/^\s*(#|javascript:|$)/i.test(control.getAttribute('href') || '')) return;
         const hint = hintOf(control);
         const isRemove = REMOVE_HINT.test(hint) || Boolean(control.matches(REMOVE_ICON) || control.querySelector(REMOVE_ICON));
         // Checkout buttons are recognised by their label too, but only outside article rows.
@@ -333,30 +346,41 @@
     );
   }
 
-  try {
-    if (loc.isOrder) {
-      const bought = cm.parseOrderArticleIds(document);
-      if (bought.length) await store.removeItems(bought);
+  /** Every part on its own: one that fails must not take the others down. */
+  async function safely(what, fn) {
+    try {
+      return await fn();
+    } catch (err) {
+      console.warn(`[Cart Saver] ${what}:`, err);
+      return null;
     }
-
-    watchSiteRemovals();
-    await CMCS.widget.mount(loc);
-    await CMCS.favorites.init(loc);
-
-    if (cm.isSignedIn(document)) {
-      if (loc.isCart) {
-        await syncFromPage();
-        watchCartPageActions();
-        watchCartRows();
-      } else {
-        await syncIfHeaderChanged();
-      }
-      watchHeader();
-    }
-
-    await CMCS.refill.resumePending();
-
-  } catch (err) {
-    console.warn('[Cart Saver]', err);
   }
+
+  const signedIn = cm.isSignedIn(document);
+  if (loc.isOrder) {
+    await safely('order page', async () => {
+      const bought = cm.parseOrderArticleIds(document);
+      if (!bought.length) return;
+      await store.removeItems(bought);
+      // The same offer can be in the cart again (more copies): read the cart, so it is saved again.
+      if (signedIn) await withSyncLock(syncFromServer);
+    });
+  }
+
+  await safely('removal watch', () => watchSiteRemovals());
+  await safely('panel', () => CMCS.widget.mount(loc));
+
+  if (signedIn) {
+    if (loc.isCart) {
+      await safely('cart page', () => syncFromPage());
+      await safely('cart actions', () => watchCartPageActions());
+      await safely('cart rows', () => watchCartRows());
+    } else {
+      await safely('cart check', () => syncIfHeaderChanged());
+    }
+    await safely('header', () => watchHeader());
+  }
+
+  await safely('favourites', () => CMCS.favorites.init(loc));
+  await safely('refill', () => CMCS.refill.resumePending());
 })();

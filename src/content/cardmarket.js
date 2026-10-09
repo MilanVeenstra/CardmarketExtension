@@ -633,7 +633,10 @@
 
   const BRIDGE_PING_MS = 1500;
   const BRIDGE_REQUEST_MS = 30000;
+  /** A busy page may answer the first hello too late: ask once more, then use our own requests. */
+  const BRIDGE_TRIES = 2;
   let bridgePort = null;
+  let bridgeTries = 0;
   const pendingCalls = new Map();
   const bridgeListeners = new Set();
 
@@ -644,13 +647,18 @@
    */
   function connectBridge() {
     if (bridgePort) return bridgePort;
+    bridgeTries += 1;
     bridgePort = new Promise((resolve) => {
       if (typeof window === 'undefined' || location.origin !== ORIGIN || typeof MessageChannel === 'undefined') {
         resolve(null);
         return;
       }
       const { port1, port2 } = new MessageChannel();
-      const timer = setTimeout(() => resolve(null), BRIDGE_PING_MS);
+      const timer = setTimeout(() => {
+        // No answer: the next request asks again (once), instead of giving up for this page.
+        if (bridgeTries < BRIDGE_TRIES) bridgePort = null;
+        resolve(null);
+      }, BRIDGE_PING_MS * bridgeTries);
       port1.onmessage = (event) => {
         const msg = event.data;
         if (!msg) return;
@@ -784,6 +792,8 @@
     return { ...cart, loginPage: looksLikeLoginPage(fetched.doc), detail: describe(fetched.res, fetched.doc) };
   }
 
+  const TOKEN_PAGE_PAUSE_MS = 800;
+
   /**
    * Find the session token wherever it is: this page, the site's own requests
    * (seen by the page bridge), or another signed-in page that carries it.
@@ -810,14 +820,20 @@
     }
 
     const pages = [cartUrl(lang, game), ...extraPages.filter(Boolean), `${ORIGIN}/${lang}/${game}/Wants`, `${ORIGIN}/${lang}/${game}`];
+    let first = true;
     for (const url of [...new Set(pages)]) {
       const path = new URL(url).pathname;
+      // Spaced out like every other request; never a burst of page loads.
+      if (!first) await new Promise((resolve) => setTimeout(resolve, TOKEN_PAGE_PAUSE_MS));
+      first = false;
       try {
         const { doc } = await fetchDocument(url);
         tried.push(path);
         if (!isSignedIn(doc)) continue;
         const token = findToken(doc);
         if (usable(token)) return { token, source: path };
+        // The refused token again: every page has it, so looking further only costs requests.
+        if (exclude && token === exclude) break;
       } catch (err) {
         if (err.kind === 'challenge' || err.kind === 'rate_limited') throw err;
         tried.push(`${path} (${err.kind || 'error'})`);

@@ -24,6 +24,9 @@
 
   const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+  /** A cart page of another account than the one the list belongs to must never change the list. */
+  const otherAccount = (meta, username) => Boolean(meta.account && username && username !== meta.account);
+
   let running = false;
 
   // ---------------------------------------------------------------------------
@@ -87,6 +90,7 @@
   /** Start re-adding `articleIds` from this tab. */
   async function start(articleIds) {
     if (!articleIds.length) return { ok: false, error: 'nothing' };
+    if (otherAccount(await store.getMeta(), cm.readUsername(document))) return { ok: false, error: 'other_account' };
     if (await lockHeld()) return { ok: false, error: 'busy' };
     const current = await store.getJob();
     // A queued job is about to be picked up somewhere. A "running" one without
@@ -196,7 +200,7 @@
       if (!cart.trustworthy) {
         throw new cm.CardmarketError('cart_unreadable', null, { detail: [cart.untrusted, cart.detail].filter(Boolean).join(' · ') });
       }
-      if (meta.account && cart.username && cart.username !== meta.account) {
+      if (otherAccount(meta, cart.username)) {
         throw new cm.CardmarketError('other_account', null, { detail: `${cart.username} ≠ ${meta.account}` });
       }
       cart.items.forEach((item) => amounts.set(item.articleId, item.amount || 1));
@@ -278,7 +282,8 @@
         if (amount > 0) plan.push({ item, amount });
       }
 
-      token = (cm.isSignedIn(document) && cm.findToken(document)) || token;
+      // The token from the cart page just read is fresh; this page's may be hours old.
+      token = token || (cm.isSignedIn(document) && cm.findToken(document)) || null;
       await patchJob({ total: plan.length });
       if (plan.length && !token) {
         // Current Cardmarket pages do not always print the token; look further.
@@ -311,8 +316,8 @@
           if (stopped) break;
           const group = batches[b];
           await patchJob({ currentName: group[0].item.seller || group[0].item.name });
-          try {
-            await withRateLimitRetry(() =>
+          const sendBatch = () =>
+            withRateLimitRetry(() =>
               cm.addArticles({
                 lang,
                 game: group[0].item.game,
@@ -320,6 +325,18 @@
                 token,
               }),
             );
+          try {
+            const answer = await sendBatch();
+            // Refused without a reason: perhaps the token. Look for a fresh one once and send it again.
+            if (!answer.ok && (answer.reason || cm.classifyRefusal(answer.message)) === 'unknown' && tokenRefreshes < MAX_TOKEN_REFRESHES) {
+              tokenRefreshes += 1;
+              const fresh = await freshToken(group[0].item).catch(() => null);
+              if (fresh && fresh !== token) {
+                token = fresh;
+                await sleep(settings.delayMs);
+                await sendBatch();
+              }
+            }
           } catch (err) {
             // An answer we do not understand: the one-by-one round finds out what is wrong.
             if (err.kind !== 'unexpected_response' && err.kind !== 'no_endpoint') throw err;
@@ -408,13 +425,15 @@
   async function verify(job, results, lang) {
     const items = await store.getItems();
     const settings = await store.getSettings();
+    const meta = await store.getMeta();
     const games = [...new Set(job.articleIds.map((id) => items[id] && items[id].game).filter(Boolean))];
     const inCart = new Set();
     const readGames = new Set();
     // One cart for all games: one reading covers every game of the job.
     for (const game of games.slice(0, 1)) {
       const cart = await cm.fetchCart(lang, game);
-      if (!cart.signedIn) continue;
+      // Another account's cart says nothing about this list (and must not end up in it).
+      if (!cart.signedIn || otherAccount(meta, cart.username)) continue;
       games.forEach((g) => readGames.add(g));
       cart.items.forEach((item) => inCart.add(item.articleId));
       await store.syncCart(cart.items, { addNew: settings.autoTrack, markMissing: cart.trustworthy });
@@ -431,9 +450,12 @@
     const replaced = [];
     let added = 0;
     let failed = 0;
+    // Did Cardmarket accept anything in this job? If it refused everything, the
+    // trouble is general (session, token, a new check), not these articles.
+    const jobHadSuccess = Object.values(results).some((result) => result.ok);
     for (const [id, result] of Object.entries(results)) {
       const prev = items[id] || {};
-      const lastAttempt = { at: now, ok: result.ok, message: result.message, reason: result.reason || null };
+      const lastAttempt = { at: now, ok: result.ok, message: result.message, reason: result.reason || null, jobHadSuccess };
       if (result.ok && !readGames.has(prev.game)) {
         // Could not look: believe Cardmarket's "added".
         added += 1;
@@ -465,12 +487,15 @@
       }
       // Only a clear "sold" (or no copies left at all) means gone. A refusal
       // without a known reason keeps the article missing, with the message;
-      // the second one in a row counts as gone too.
+      // the second one in a row counts as gone too — but only when Cardmarket
+      // accepted other articles meanwhile, so a general failure (everything
+      // refused) never writes the whole list off.
       const repeated = prev.lastAttempt && !prev.lastAttempt.ok && prev.lastAttempt.reason === 'unknown';
+      const singledOut = jobHadSuccess || Boolean(prev.lastAttempt && prev.lastAttempt.jobHadSuccess);
       const gone =
         result.reason === 'sold' ||
         result.reason === 'amount' ||
-        (result.reason === 'unknown' && (repeated || prev.status === store.STATUS.UNAVAILABLE));
+        (result.reason === 'unknown' && singledOut && (repeated || prev.status === store.STATUS.UNAVAILABLE));
       const message = result.message || CMCS.t(gone ? 'notAvailableAnymore' : 'refusedUnknown');
       if (gone) favoritePatches[id] = { unavailable: true, unavailableMessage: message };
       // A favourite (or suggested replacement) that never made it into the
@@ -513,7 +538,7 @@
         const added = Object.entries(job.results || {}).filter(([id, result]) => result.ok && items[id]);
         const games = new Set(added.map(([id]) => items[id].game));
         const live = await readLiveCart(job.lang, games, meta);
-        let token = (cm.isSignedIn(document) && cm.findToken(document)) || live.token;
+        let token = live.token || (cm.isSignedIn(document) && cm.findToken(document)) || null;
         if (!token && added.length) {
           const found = await cm.discoverToken({ lang: job.lang, game: items[added[0][0]].game });
           if (!found.token) throw new cm.CardmarketError('no_token', null, { detail: found.detail });
@@ -532,7 +557,7 @@
         const now = new Map();
         for (const game of [...games].slice(0, 1)) {
           const cart = await cm.fetchCart(job.lang, game);
-          if (!cart.signedIn) continue;
+          if (!cart.signedIn || otherAccount(meta, cart.username)) continue;
           cart.items.forEach((item) => now.set(item.articleId, item.amount || 1));
           await store.syncCart(cart.items, { addNew: false, markMissing: cart.trustworthy });
         }

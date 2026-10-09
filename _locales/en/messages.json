@@ -26,11 +26,17 @@
   "cartsDelete": {
     "message": "Delete"
   },
+  "cartsDeleted": {
+    "message": "“$1” deleted."
+  },
   "cartsEmptyLead": {
     "message": "Save your list under a name (for example per deck) and put it back in your cart later with one click."
   },
   "cartsEmptyTitle": {
     "message": "No saved carts yet"
+  },
+  "cartsFull": {
+    "message": "You already have $1 saved lists. Delete one first."
   },
   "cartsMeta": {
     "message": "$1 article(s) · $2 · $3"
@@ -54,13 +60,13 @@
     "message": "Delete everything"
   },
   "clearConfirm": {
-    "message": "Delete all saved articles and favourites? This cannot be undone."
+    "message": "Delete all saved articles, favourites and saved lists? This cannot be undone."
   },
   "clearUnavailable": {
     "message": "Clear list"
   },
   "cleared": {
-    "message": "All saved articles and favourites were deleted."
+    "message": "All saved articles, favourites and saved lists were deleted."
   },
   "close": {
     "message": "Close"
@@ -72,10 +78,10 @@
     "message": "Continue ($1 to go)"
   },
   "dataSummary": {
-    "message": "$1 saved: $2 in cart, $3 missing, $4 unavailable. $5 favourite(s)."
+    "message": "$1 saved: $2 in your cart, $3 partly, $4 missing, $5 unavailable. $6 favourite(s), $7 saved list(s)."
   },
   "dataTitle": {
-    "message": "Your saved articles and favourites"
+    "message": "Your saved articles, favourites and lists"
   },
   "detailOpen": {
     "message": "On Cardmarket"
@@ -182,6 +188,9 @@
   "favRemove": {
     "message": "Remove from favourites"
   },
+  "favRemoved": {
+    "message": "“$1” is no longer a favourite."
+  },
   "favSavedOn": {
     "message": "saved $1"
   },
@@ -231,7 +240,7 @@
     "message": "Import"
   },
   "importDone": {
-    "message": "$1 article(s) imported."
+    "message": "$1 article(s) and $2 saved list(s) imported."
   },
   "importFailed": {
     "message": "That file could not be read."
@@ -287,6 +296,9 @@
   "notifyExpiryTitle": {
     "message": "Your Cardmarket cart is about to be emptied"
   },
+  "ok": {
+    "message": "OK"
+  },
   "openCardmarket": {
     "message": "Open Cardmarket"
   },
@@ -313,6 +325,9 @@
   },
   "progressCount": {
     "message": "$1 of $2"
+  },
+  "prunedNote": {
+    "message": "$1 sold article(s) left the list: not looked at for a month."
   },
   "reasonEmptied": {
     "message": "Your whole cart was emptied"

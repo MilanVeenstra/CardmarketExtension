@@ -277,6 +277,8 @@ export function createMockCardmarket() {
     stock: new Map(),
     /** refuse every add with a message that names no reason */
     genericRefusal: false,
+    /** refuse only these articles with a message that names no reason */
+    genericRefusalFor: new Set(),
     /** render the rows of this seller's block in a shape the extension cannot read */
     brokenSeller: null,
     /** a notice on the cart page, e.g. "Your shopping cart will be emptied at 14:35." */
@@ -315,6 +317,7 @@ export function createMockCardmarket() {
           state.loggedIn
             ? `<div id="account-dropdown"><a href="/${lang}/${game}/Account">${esc(state.username)}</a>
                <a href="/${lang}/${game}/Users/${encodeURIComponent(state.username)}">Profile</a>
+               <a href="/${lang}/${game}/Orders/Purchases">Purchases</a>
                <a href="/${lang}/${game}/PostGetAction/User_Logout">Logout</a></div>`
             : `<form action="/${lang}/${game}/PostGetAction/User_Login" method="post">
                <input type="hidden" name="__cmtkn" value="${state.token}">
@@ -616,6 +619,9 @@ export function createMockCardmarket() {
     }
     const ids = JSON.parse(params.get('idArticle') || '{}');
     const amounts = JSON.parse(params.get('amount') || '{}');
+    if (Object.keys(ids).some((id) => state.genericRefusalFor.has(id))) {
+      return { status: 200, contentType: 'text/xml', body: ajax(false, 'Something went wrong. Please try again.') };
+    }
     for (const id of Object.keys(ids)) {
       if (!state.available.has(id)) {
         return { status: 200, contentType: 'text/xml', body: ajax(false, 'This article is no longer available.') };

@@ -99,12 +99,29 @@ async function checkForNewVersion({ settleMs = UPDATE_SETTLE_MS, reload = () => 
   } catch {
     return false;
   }
+  // A refill may have started during the wait; and someone in the cart or at
+  // checkout should not lose the extension mid-way (its clicks would go unseen).
+  if (store.isJobActive(await store.getJob())) return false;
+  if (await busyOnCardmarket()) return false;
 
   await chrome.storage.local.set({
     'cmcs.updated': { from: chrome.runtime.getManifest().version, to: onDisk.version, at: Date.now() },
   });
   reload();
   return true;
+}
+
+/** Is a Cardmarket cart, checkout or order page open in a tab you are looking at? */
+async function busyOnCardmarket() {
+  try {
+    const tabs = await chrome.tabs.query({
+      active: true,
+      url: ['https://www.cardmarket.com/*/*/ShoppingCart*', 'https://www.cardmarket.com/*/*/Orders*'],
+    });
+    return tabs.length > 0;
+  } catch {
+    return false;
+  }
 }
 
 async function ensureUpdateAlarm() {
@@ -199,8 +216,9 @@ async function awayCheck() {
   const tabs = await chrome.tabs.query({ url: 'https://www.cardmarket.com/*' });
   if (!tabs.length) return false;
   const meta = await store.getMeta();
-  // One cart for all games: read recently by any tab is recent enough.
-  if (meta.cartSync && Date.now() - meta.cartSync.at < AWAY_MINUTES * 60 * 1000) return false;
+  // One cart for all games: read recently by any tab is recent enough. (A little under the
+  // alarm's period: the last check's own reading must not make this one skip.)
+  if (meta.cartSync && Date.now() - meta.cartSync.at < (AWAY_MINUTES - 2) * 60 * 1000) return false;
   for (const tab of tabs) {
     try {
       const reply = await chrome.tabs.sendMessage(tab.id, { type: 'cmcs.sync' });
@@ -223,9 +241,12 @@ async function ensureDailyAlarm() {
   if (!(await chrome.alarms.get(DAILY_ALARM))) await chrome.alarms.create(DAILY_ALARM, { delayInMinutes: 1, periodInMinutes: 24 * 60 });
 }
 
+/** Sold articles nobody looked at for a month leave the list; the popup says so once. */
 async function pruneStale() {
   const ids = store.staleIds(await store.getItems());
-  if (ids.length) await store.removeItems(ids);
+  if (!ids.length) return 0;
+  await store.removeItems(ids);
+  await store.updateMeta((meta) => ({ ...meta, pruned: { count: ((meta.pruned && meta.pruned.count) || 0) + ids.length, at: Date.now() } }));
   return ids.length;
 }
 
@@ -335,6 +356,9 @@ if (chrome.notifications) {
   chrome.notifications.onClicked.addListener(openFromNotification);
 }
 
+// Also after the extension was switched off and on (no onInstalled / onStartup then).
+updateBadge();
+scheduleExpiryAlarm();
 ensureUpdateAlarm();
 ensureAwayAlarm();
 ensureDailyAlarm();

@@ -23,6 +23,7 @@
   let favorites = {};
   let carts = [];
   let job = null;
+  let meta = {};
   /** The game picked in the header; ALL shows every game together (one cart on Cardmarket). */
   const ALL = '*';
   const GAME_KEY = 'cmcs.popupGame';
@@ -93,6 +94,7 @@
     const list = currentList().filter((item) => item.status !== STATUS.UNAVAILABLE);
     if (!list.length) return showToast(t('cartsNothing'));
     const saved = await store.saveCart($('cart-name').value, list);
+    if (!saved) return showToast(t('cartsFull', String(store.MAX_CARTS)));
     $('cart-name').value = '';
     showToast(t('cartsSaved', saved.name));
   });
@@ -165,8 +167,8 @@
       try {
         const response = await chrome.tabs.sendMessage(activeTab.id, { type: 'cmcs.refill', articleIds: ids });
         if (response && response.ok) return;
-        if (response && response.error === 'busy') {
-          notice = t('errorBusy');
+        if (response && response.error) {
+          notice = response.error === 'busy' ? t('errorBusy') : ui.errorText(response.error) || t('errorUnknown');
           return render();
         }
       } catch {
@@ -188,6 +190,18 @@
       label: t('undo'),
       onClick: () => store.restoreItems(taken),
     });
+  }
+
+  /** Delete a saved cart, with a way back. */
+  async function deleteCart(cart) {
+    const taken = await store.takeCart(cart.id);
+    if (taken) showToast(t('cartsDeleted', taken.name), { label: t('undo'), onClick: () => store.restoreCart(taken) });
+  }
+
+  /** Take the star off a favourite, with a way back. */
+  async function unstar(fav) {
+    const taken = await store.takeFavorites([fav.articleId]);
+    if (taken.length) showToast(t('favRemoved', fav.name), { label: t('undo'), onClick: () => store.restoreFavorites(taken) });
   }
 
   /** Put a saved cart back: its articles join the list and go back into the cart. */
@@ -380,6 +394,18 @@
     }
     $('notice').hidden = !notice;
     $('notice').textContent = notice || '';
+    // Sold articles the daily clean-up took off the list: said once.
+    const pruned = meta.pruned && meta.pruned.count;
+    $('pruned').hidden = !pruned;
+    $('pruned').replaceChildren(
+      ...(pruned
+        ? [
+            t('prunedNote', String(pruned)),
+            ' ',
+            h('button', { type: 'button', class: 'cmcs-link', onclick: () => store.updateMeta((m) => ({ ...m, pruned: null })) }, t('ok')),
+          ]
+        : []),
+    );
   }
 
   function renderCart() {
@@ -577,7 +603,7 @@
                 inCart || sold ? null : ui.iconButton(t('favAddToCart'), 'cart', () => addFavoritesToCart([fav])),
                 offer ? ui.iconLink(t('favOpenOffer'), 'external', offer) : null,
                 seller ? ui.iconLink(t('favSellerOffers'), 'user', seller) : null,
-                ui.iconButton(t('favRemove'), 'starFilled', () => store.removeFavorites([fav.articleId]), 'cmcs-icon-btn--star'),
+                ui.iconButton(t('favRemove'), 'starFilled', () => unstar(fav), 'cmcs-icon-btn--star'),
               ].filter(Boolean),
             });
           })),
@@ -610,7 +636,7 @@
             h('button', { type: 'button', class: 'cmcs-link', onclick: () => copyText(store.exportText(cart.items)) }, t('exportCopy')),
             h('button', { type: 'button', class: 'cmcs-link', onclick: () => download(`${cart.name}.csv`, store.exportCsv(cart.items), 'text/csv') }, 'CSV'),
             h('span', { style: 'flex:1' }),
-            ui.iconButton(t('cartsDelete'), 'close', () => store.removeCart(cart.id)),
+            ui.iconButton(t('cartsDelete'), 'close', () => deleteCart(cart)),
           ),
         );
       }),
@@ -627,12 +653,13 @@
 
   async function load() {
     let thumbs;
-    [items, favorites, job, carts, thumbs] = await Promise.all([
+    [items, favorites, job, carts, thumbs, meta] = await Promise.all([
       store.getItems(),
       store.getFavorites(),
       store.getJob(),
       store.getCarts(),
       store.getThumbs(),
+      store.getMeta(),
     ]);
     ui.setThumbs(thumbs);
     render();

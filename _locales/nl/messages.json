@@ -26,11 +26,17 @@
   "cartsDelete": {
     "message": "Verwijderen"
   },
+  "cartsDeleted": {
+    "message": "“$1” verwijderd."
+  },
   "cartsEmptyLead": {
     "message": "Bewaar je lijst onder een naam (bijvoorbeeld per deck) en zet hem later met één klik terug in je mandje."
   },
   "cartsEmptyTitle": {
     "message": "Nog geen bewaarde mandjes"
+  },
+  "cartsFull": {
+    "message": "Je hebt al $1 bewaarde lijsten. Verwijder er eerst één."
   },
   "cartsMeta": {
     "message": "$1 artikel(en) · $2 · $3"
@@ -54,13 +60,13 @@
     "message": "Alles wissen"
   },
   "clearConfirm": {
-    "message": "Alle opgeslagen artikelen en favorieten wissen? Dit kan niet ongedaan worden gemaakt."
+    "message": "Alle opgeslagen artikelen, favorieten en bewaarde lijsten wissen? Dit kan niet ongedaan worden gemaakt."
   },
   "clearUnavailable": {
     "message": "Lijst opschonen"
   },
   "cleared": {
-    "message": "Alle opgeslagen artikelen en favorieten zijn gewist."
+    "message": "Alle opgeslagen artikelen, favorieten en bewaarde lijsten zijn gewist."
   },
   "close": {
     "message": "Sluiten"
@@ -72,10 +78,10 @@
     "message": "Doorgaan ($1 te gaan)"
   },
   "dataSummary": {
-    "message": "$1 opgeslagen: $2 in mandje, $3 ontbreken, $4 niet beschikbaar. $5 favoriet(en)."
+    "message": "$1 opgeslagen: $2 in je mandje, $3 deels, $4 ontbreken, $5 niet beschikbaar. $6 favoriet(en), $7 bewaarde lijst(en)."
   },
   "dataTitle": {
-    "message": "Je opgeslagen artikelen en favorieten"
+    "message": "Je opgeslagen artikelen, favorieten en lijsten"
   },
   "detailOpen": {
     "message": "Op Cardmarket"
@@ -182,6 +188,9 @@
   "favRemove": {
     "message": "Verwijder uit favorieten"
   },
+  "favRemoved": {
+    "message": "“$1” is geen favoriet meer."
+  },
   "favSavedOn": {
     "message": "bewaard $1"
   },
@@ -231,7 +240,7 @@
     "message": "Importeren"
   },
   "importDone": {
-    "message": "$1 artikel(en) geïmporteerd."
+    "message": "$1 artikel(en) en $2 bewaarde lijst(en) geïmporteerd."
   },
   "importFailed": {
     "message": "Dat bestand kon niet worden gelezen."
@@ -287,6 +296,9 @@
   "notifyExpiryTitle": {
     "message": "Je Cardmarket-mandje wordt zo geleegd"
   },
+  "ok": {
+    "message": "Oké"
+  },
   "openCardmarket": {
     "message": "Open Cardmarket"
   },
@@ -313,6 +325,9 @@
   },
   "progressCount": {
     "message": "$1 van $2"
+  },
+  "prunedNote": {
+    "message": "$1 verkochte artikel(en) uit de lijst gehaald: een maand niet meer bekeken."
   },
   "reasonEmptied": {
     "message": "Je hele mandje werd geleegd"

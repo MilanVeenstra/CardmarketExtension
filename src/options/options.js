@@ -59,15 +59,18 @@
   // --- Data ------------------------------------------------------------------
 
   async function renderSummary() {
-    const [items, favorites] = await Promise.all([store.getItems(), store.getFavorites()]);
+    const [items, favorites, carts] = await Promise.all([store.getItems(), store.getFavorites(), store.getCarts()]);
     const summary = store.summarize(items);
+    // Every article counted once: fully in the cart, partly, missing, or sold.
     $('dataSummary').textContent = t(
       'dataSummary',
-      summary.total,
-      summary.inCart,
-      summary.attention,
-      summary.unavailable,
-      Object.keys(favorites).length,
+      String(summary.total),
+      String(summary.inCart - summary.partial),
+      String(summary.partial),
+      String(summary.missing),
+      String(summary.unavailable),
+      String(Object.keys(favorites).length),
+      String(carts.length),
     );
   }
   store.onChanged(renderSummary);
@@ -129,6 +132,7 @@
         .filter((cart) => cart.items.length);
       if (!validItems.length && !validFavorites.length && !validCarts.length) throw new Error('nothing to import');
       let added = 0;
+      let lists = 0;
       await store.updateItems((items) => {
         const next = { ...items };
         for (const item of validItems) {
@@ -151,11 +155,11 @@
         await store.updateCarts((carts) => {
           const known = new Set(carts.map((cart) => cart.id));
           const fresh = validCarts.filter((cart) => !known.has(cart.id));
-          added += fresh.length;
+          lists += fresh.length;
           return [...carts, ...fresh].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
         });
       }
-      $('dataMessage').textContent = t('importDone', added);
+      $('dataMessage').textContent = t('importDone', String(added), String(lists));
     } catch {
       $('dataMessage').textContent = t('importFailed');
     }

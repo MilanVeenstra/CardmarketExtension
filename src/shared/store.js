@@ -28,7 +28,8 @@
     thumbs: 'cmcs.thumbs',
   };
 
-  const MAX_CARTS = 30;
+  /** Saved lists; at this many, saving another is refused (never an old one dropped silently). */
+  const MAX_CARTS = 100;
 
   const STATUS = {
     IN_CART: 'in_cart',
@@ -529,7 +530,12 @@
     getCarts: () => get(KEYS.carts, []),
     updateCarts: (fn) => update(KEYS.carts, [], fn),
 
-    /** Keep a named copy of articles (a "saved cart"). Newest first; the oldest go beyond MAX_CARTS. */
+    MAX_CARTS,
+
+    /**
+     * Keep a named copy of articles (a "saved cart"), newest first. Resolves to
+     * the cart, or null when there are MAX_CARTS already.
+     */
     async saveCart(name, articles) {
       const now = Date.now();
       const cart = {
@@ -543,11 +549,33 @@
           return { ...rest, wantedAmount: item.wantedAmount || item.amount || 1 };
         }),
       };
-      await update(KEYS.carts, [], (carts) => [cart, ...carts].slice(0, MAX_CARTS));
-      return cart;
+      let saved = null;
+      await update(KEYS.carts, [], (carts) => {
+        if (carts.length >= MAX_CARTS) return undefined;
+        saved = cart;
+        return [cart, ...carts];
+      });
+      return saved;
     },
 
     removeCart: (id) => update(KEYS.carts, [], (carts) => carts.filter((cart) => cart.id !== id)),
+
+    /** Remove a saved cart and hand it back, so the removal can be undone. */
+    async takeCart(id) {
+      let taken = null;
+      await update(KEYS.carts, [], (carts) => {
+        taken = carts.find((cart) => cart.id === id) || null;
+        return taken ? carts.filter((cart) => cart.id !== id) : undefined;
+      });
+      return taken;
+    },
+
+    /** Put a cart taken with takeCart() back in its place (newest first). */
+    restoreCart(cart) {
+      return update(KEYS.carts, [], (carts) =>
+        carts.some((c) => c.id === cart.id) ? undefined : [...carts, cart].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)),
+      );
+    },
 
     getThumbs: () => get(KEYS.thumbs, {}),
     updateThumbs: (fn) => update(KEYS.thumbs, {}, fn),
@@ -576,6 +604,29 @@
       return update(KEYS.favorites, {}, (favorites) => {
         const next = {};
         for (const [id, fav] of Object.entries(favorites)) if (!ids.has(id)) next[id] = fav;
+        return next;
+      });
+    },
+
+    /** Remove favourites and hand them back, so the removal can be undone. */
+    async takeFavorites(articleIds) {
+      const ids = new Set(articleIds);
+      const taken = [];
+      await update(KEYS.favorites, {}, (favorites) => {
+        const next = {};
+        for (const [id, fav] of Object.entries(favorites)) {
+          if (ids.has(id)) taken.push(fav);
+          else next[id] = fav;
+        }
+        return taken.length ? next : undefined;
+      });
+      return taken;
+    },
+
+    restoreFavorites(list) {
+      return update(KEYS.favorites, {}, (favorites) => {
+        const next = { ...favorites };
+        for (const fav of list) if (!next[fav.articleId]) next[fav.articleId] = fav;
         return next;
       });
     },

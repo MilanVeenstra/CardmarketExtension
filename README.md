@@ -99,8 +99,14 @@ Wil je elke nieuwe versie vanzelf binnenkrijgen? Eén keer instellen:
 
 Daarna kijkt je Mac elke 3 minuten of er een nieuwe versie is; de extensie
 herstart zichzelf en open tabbladen vragen om te verversen. Je opgeslagen
-artikelen blijven bewaard. Status: `bash scripts/autoupdate-mac.sh status`,
+artikelen blijven bewaard. Een nieuwe versie die niet zou laden wordt
+overgeslagen, en terwijl je in je mandje of bij het afrekenen bent, wacht de
+extensie met herstarten. Status: `bash scripts/autoupdate-mac.sh status`,
 uitzetten: `bash scripts/autoupdate-mac.sh uninstall`.
+
+Gebruik hiervoor een aparte map (zoals de uitgepakte ZIP), nooit een map
+waarin je zelf aan de code werkt: het script weigert een git-map met eigen
+wijzigingen, commits of een andere branch.
 
 </details>
 
