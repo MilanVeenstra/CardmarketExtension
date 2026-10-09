@@ -78,7 +78,9 @@
   /** Add stars to rows that do not have one yet. Returns the newly decorated offer rows. */
   function decorate() {
     const fresh = [];
-    document.querySelectorAll(`${OFFER_ROWS}:not([${DECORATED}])`).forEach((row) => {
+    // OFFER_ROWS is a list of selectors: a `:not(…)` added to it would only apply to the last one.
+    document.querySelectorAll(OFFER_ROWS).forEach((row) => {
+      if (row.hasAttribute(DECORATED) || row.querySelector('cmcs-fav')) return;
       row.setAttribute(DECORATED, '');
       const articleId = row.id.replace(/\D+/g, '');
       if (!articleId) return;

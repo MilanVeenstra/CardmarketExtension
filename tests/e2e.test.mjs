@@ -454,6 +454,19 @@ describe('Cardmarket Cart Saver', () => {
     await waitFor(async () => (await favorites())[SOL_KINGDOM], 'starred again');
   });
 
+  it('keeps one star per offer while the page keeps changing', async () => {
+    await page.goto(SOL_RING_URL);
+    await page.locator(`#articleRow${SOL_KINGDOM} cmcs-fav`).waitFor();
+    // Cardmarket's own scripts (ratings badge, pictures, ads) change the page after it loaded.
+    await page.evaluate(() => document.body.append(document.createElement('span')));
+    await page.waitForTimeout(1500);
+    const perRow = await page
+      .locator('.article-row[id^="articleRow"]')
+      .evaluateAll((rows) => rows.map((row) => row.querySelectorAll('cmcs-fav').length));
+    assert.ok(perRow.length > 1, 'offers on the page');
+    assert.deepEqual(perRow, perRow.map(() => 1));
+  });
+
   it('stars an article from the cart page', async () => {
     mock.state.cart.set(BOG, 1);
     await page.goto(`${CM}/en/Magic/ShoppingCart`);
