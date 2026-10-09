@@ -176,7 +176,8 @@ CHROMIUM_PATH=/pad/naar/chrome npm test   # een Chromium die al op je computer s
 Meer achtergrond: [onderzoek](docs/RESEARCH.md),
 [functionele eisen](docs/REQUIREMENTS.md),
 [analyse van de cart saver](docs/CART-SAVER-ANALYSE.md),
-[analyse voor 1.6](docs/ANALYSE-1.6.md) en de
+[analyse voor 1.6](docs/ANALYSE-1.6.md), het
+[plan voor 1.7](docs/PLAN-1.7.md) en de
 [design-brief](docs/DESIGN-BRIEF.md).
 
 </details>

@@ -18,7 +18,8 @@ Bewust (nog) niet gedaan:
 
 - **B6, gelijktijdig schrijven.** De kans is kleiner geworden: plaatjes
   hebben nu een eigen sleutel en worden alleen door de achtergrond
-  geschreven. Helemaal oplossen vraagt één plek die alles schrijft.
+  geschreven. Helemaal oplossen vraagt één plek die alles schrijft: zie
+  [PLAN-1.7](PLAN-1.7.md), deel A.
 - **B11, namen van de sloten.** Het paneel en de sterren staan toch zichtbaar
   in de pagina, dus de namen verbergen helpt niets.
 - **B27, opslag vol.** De grens van 10 MB is weg (`unlimitedStorage`), maar
@@ -32,7 +33,8 @@ Bewust (nog) niet gedaan:
   later. Popup en paneel doen nu hetzelfde, maar hun code is nog niet
   helemaal gedeeld.
 - **S9.** Wanneer Cardmarket "je mandje wordt geleegd om …" toont, weten we
-  nog steeds niet.
+  nog steeds niet. Het plan om het zelf waar te nemen en te leren staat in
+  [PLAN-1.7](PLAN-1.7.md), deel B.
 
 ---
 
