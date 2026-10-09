@@ -264,7 +264,8 @@ export function createMockCardmarket() {
           </div>
         </td>
         <td class="text-end text-nowrap price pe-2">${euro(a.price)}</td>
-        <td class="actions"><a href="#" class="btn btn-sm" role="button" onclick="return false" data-ajax-action="ShoppingCart_RemoveArticle"><span class="fonticon-delete"></span></a></td>
+        <td class="actions"><a href="#" class="btn btn-sm btn-outline-danger" role="button"
+            onclick="return cmRemove({ idArticle: '${a.articleId}', idSeller: ${a.sellerId}, amount: ${amount} })"><span class="fonticon-delete"></span>✕</a></td>
       </tr>`;
   }
 
@@ -284,11 +285,17 @@ export function createMockCardmarket() {
             <div class="seller-info"><span class="seller-name d-flex"><span title="Item location: Germany"></span>
               <a href="/${lang}/${game}/Users/${encodeURIComponent(seller)}">${esc(seller)}</a></span></div>
             <input type="hidden" name="idSeller" value="${rows[0][0].sellerId}">
+            <button type="button" class="btn btn-link btn-sm remove-shipment" onclick="return cmRemoveSeller({ idSeller: ${rows[0][0].sellerId} })">
+              <span class="fonticon-delete"></span> Remove all articles from this seller</button>
             <table class="table table-sm article-table mb-1 table-striped product-table"><tbody>
               ${rows.map(([a, amount]) => row(a, amount, lang)).join('')}
             </tbody></table>
             <!-- Cardmarket renders some rows a second time (mobile layout) -->
             <table class="table d-none mobile-table"><tbody>${row(rows[0][0], rows[0][1], lang)}</tbody></table>
+            <form method="post" action="/${lang}/${game}/PostGetAction/ShoppingCart_CheckoutShipment">
+              <input type="hidden" name="idSeller" value="${rows[0][0].sellerId}">
+              <button type="submit" class="btn btn-primary checkout">Commit to purchase</button>
+            </form>
           </div></div>
         </section>`,
       )
@@ -298,7 +305,31 @@ export function createMockCardmarket() {
       game,
       title: 'Shopping Cart',
       isCart: true,
-      body: `<h1>Shopping Cart</h1><div id="shipments-col">${blocks || '<p>Your shopping cart is empty.</p>'}</div>`,
+      body: `<h1>Shopping Cart</h1><div id="shipments-col">${blocks || '<p>Your shopping cart is empty.</p>'}</div>
+        <script>
+          function cmPost(action, body) {
+            var xhr = new XMLHttpRequest();
+            xhr.open('POST', '/${lang}/${game}/AjaxAction/' + action);
+            xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded; charset=UTF-8');
+            xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+            xhr.onload = async function () {
+              var html = await (await fetch(location.href)).text();
+              var doc = new DOMParser().parseFromString(html, 'text/html');
+              document.querySelector('#shipments-col').replaceWith(doc.querySelector('#shipments-col'));
+              document.querySelector('#cart').replaceWith(doc.querySelector('#cart'));
+            };
+            xhr.send(body);
+          }
+          function cmToken() { var t = document.querySelector('input[name="__cmtkn"]'); return t ? t.value : ''; }
+          function cmRemove(o) {
+            cmPost('ShoppingCart_RemoveArticle', '__cmtkn=' + cmToken() + '&idArticle=' + o.idArticle + '&idSeller=' + o.idSeller + '&amount-' + o.idArticle + '=' + o.amount);
+            return false;
+          }
+          function cmRemoveSeller(o) {
+            cmPost('ShoppingCart_RemoveShipment', '__cmtkn=' + cmToken() + '&idSeller=' + o.idSeller);
+            return false;
+          }
+        </script>`,
     });
   }
 
@@ -426,7 +457,26 @@ export function createMockCardmarket() {
 
     const [lang = 'en', game = 'Magic', page = '', ...rest] = url.pathname.split('/').filter(Boolean);
     let res;
-    if (method === 'POST' && page === 'AjaxAction') {
+    if (method === 'POST' && page === 'AjaxAction' && rest[0] === 'ShoppingCart_RemoveArticle') {
+      // Like Cardmarket's trash button: idArticle (bare id), idSeller, amount-<id>.
+      const params = new URLSearchParams(body);
+      const id = params.get('idArticle');
+      const remove = parseInt(params.get(`amount-${id}`), 10) || 1;
+      const left = (state.cart.get(id) || 0) - remove;
+      if (left > 0) state.cart.set(id, left);
+      else state.cart.delete(id);
+      res = { status: 200, contentType: 'text/xml', body: `<?xml version="1.0"?><ajaxResponse><resultsCode>${b64('1')}</resultsCode></ajaxResponse>` };
+    } else if (method === 'POST' && page === 'AjaxAction' && rest[0] === 'ShoppingCart_RemoveShipment') {
+      // Hypothetical "remove everything from this seller" (name not confirmed on the live site).
+      const seller = new URLSearchParams(body).get('idSeller');
+      for (const id of [...state.cart.keys()]) if (article(id).sellerId === seller) state.cart.delete(id);
+      res = { status: 200, contentType: 'text/xml', body: `<?xml version="1.0"?><ajaxResponse><resultsCode>${b64('1')}</resultsCode></ajaxResponse>` };
+    } else if (method === 'POST' && page === 'PostGetAction' && rest[0] === 'ShoppingCart_CheckoutShipment') {
+      // Buying one seller's shipment: those articles leave the cart and become an order.
+      const seller = new URLSearchParams(body).get('idSeller');
+      for (const id of [...state.cart.keys()]) if (article(id).sellerId === seller) state.cart.delete(id);
+      res = { status: 200, contentType: 'text/html', body: layout({ lang, game, title: 'Purchases', body: '<h1>Thank you for your purchase</h1>' }) };
+    } else if (method === 'POST' && page === 'AjaxAction') {
       res = handleAdd(rest[0], body);
     } else if (page === 'ShoppingCart') {
       res = { status: 200, contentType: 'text/html', body: cartPage(lang, game) };

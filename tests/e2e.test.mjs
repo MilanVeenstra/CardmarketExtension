@@ -669,6 +669,75 @@ describe('Cardmarket Cart Saver', () => {
     });
   });
 
+  describe('removing articles yourself', () => {
+    before(async () => {
+      mock.state.cart = new Map([
+        [BOG, 1],
+        [MAGE, 1],
+        [SOL_RING, 1],
+        [EPHEMERATE, 1],
+      ]);
+      // Start from a clean saved list, so only these four articles are involved.
+      await sw.evaluate(() => chrome.storage.local.set({ 'cmcs.job': null, 'cmcs.meta': {}, 'cmcs.items': {} }));
+      await page.goto(`${CM}/en/Magic/ShoppingCart`);
+      await waitFor(async () => {
+        const all = await items();
+        return Object.keys(all).length === 4 && [BOG, MAGE, SOL_RING, EPHEMERATE].every((id) => all[id] && all[id].status === 'in_cart');
+      }, 'four articles saved');
+    });
+
+    it('stores the numeric seller id of every cart article', async () => {
+      const all = await items();
+      assert.equal(all[BOG].sellerId, '1001');
+      assert.equal(all[SOL_RING].sellerId, '2002');
+    });
+
+    it("notices a removal from the site's own request alone, without seeing a click", async () => {
+      await page.evaluate((id) => window.cmRemove({ idArticle: id, idSeller: 2002, amount: 1 }), EPHEMERATE);
+      await waitFor(async () => !(await items())[EPHEMERATE], 'removed article forgotten');
+      assert.equal((await items())[SOL_RING].status, 'in_cart', 'same seller, other article untouched');
+    });
+
+    it('forgets an article you remove with its trash button', async () => {
+      await page.locator(`table.article-table tr[data-article-id="${MAGE}"] a[onclick*="cmRemove"]`).click();
+      await waitFor(async () => !(await items())[MAGE], 'removed article forgotten');
+      assert.equal(mock.state.cart.has(MAGE), false);
+      const all = await items();
+      for (const id of [BOG, SOL_RING]) assert.equal(all[id].status, 'in_cart', `${id} untouched`);
+      assert.doesNotMatch(await widget(page).innerText(), /Niet meer in je mandje/);
+    });
+
+    it("forgets every article of a seller you remove at once", async () => {
+      const block = page.locator('section.shipment-block', { hasText: 'Kärtchen-Laden' });
+      await block.locator('button.remove-shipment').click();
+      await waitFor(async () => {
+        const all = await items();
+        return !all[SOL_RING] && !all[EPHEMERATE];
+      }, 'seller articles forgotten');
+      assert.equal((await items())[BOG].status, 'in_cart');
+    });
+
+    it('does not offer to put back what you just bought', async () => {
+      const block = page.locator('section.shipment-block', { hasText: 'snowc' });
+      await Promise.all([page.waitForNavigation(), block.getByRole('button', { name: 'Commit to purchase' }).click()]);
+      await waitFor(async () => !(await items())[BOG], 'bought article forgotten');
+      await page.waitForTimeout(1000);
+      assert.equal(await widget(page).isVisible(), false, 'no "cart emptied" reminder');
+      assert.equal(await sw.evaluate(() => chrome.action.getBadgeText({})), '');
+    });
+
+    it('still remembers articles when Cardmarket empties the cart (and a product link is no removal)', async () => {
+      mock.state.cart = new Map([[MAGE, 1]]);
+      await page.goto(`${CM}/en/Magic/ShoppingCart`);
+      await waitFor(async () => (await items())[MAGE]?.status === 'in_cart', 'saved');
+      // Opening the card's product page from the cart must not count as removing it.
+      await Promise.all([page.waitForNavigation(), page.locator(`table.article-table tr[data-article-id="${MAGE}"] td.name a`).click()]);
+      mock.state.cart.clear();
+      await page.goto(`${CM}/en/Magic`);
+      await waitFor(async () => (await items())[MAGE]?.status === 'missing', 'marked missing, not forgotten');
+    });
+  });
+
   it('options page shows the saved data and stores settings', async () => {
     const options = await context.newPage();
     await options.goto(`chrome-extension://${extensionId}/src/options/options.html`);

@@ -12,9 +12,15 @@
  *    site's own AJAX calls carry it, either as a `__cmtkn` field or inside an
  *    obfuscated `args` value ("action***token" XOR-ed, then "***" + base64).
  *
+ * 3. Tell the content script when the site itself removed articles from the
+ *    cart (the trash button sends ShoppingCart_RemoveArticle with idArticle,
+ *    idSeller and amount-<id>), so those leave the saved list instead of
+ *    showing up as "missing". Only reported once the request succeeded.
+ *
  * Protocol (window.postMessage, same origin only):
  *   → { __cmcs: 'request', id, ping? | getToken? | url, method, headers, body }
  *   ← { __cmcs: 'response', id, pong? | token? | status, ok, url, text, headers | error }
+ *   ← { __cmcs: 'event', type: 'cart-removal', action, articleIds, sellerIds }
  */
 (function () {
   'use strict';
@@ -82,6 +88,52 @@
     }
   }
 
+  // --- The site's own cart removals ------------------------------------------------
+
+  const REMOVAL_ACTION = /\/(?:AjaxAction|PostGetAction)\/(ShoppingCart_[A-Za-z_]*(?:Remove|Delete|Empty|Clear)[A-Za-z_]*)/i;
+
+  function bodyText(body) {
+    if (!body) return '';
+    if (typeof body === 'string') return body;
+    if (body instanceof URLSearchParams) return body.toString();
+    if (body instanceof FormData) return new URLSearchParams([...body.entries()].filter(([, v]) => typeof v === 'string')).toString();
+    return '';
+  }
+
+  /** Article and seller ids in a removal request: idArticle=1, idArticle={"1":"1"}, idArticle[1]=…, amount-1=… */
+  function removalTargets(url, body) {
+    const match = String(url || '').match(REMOVAL_ACTION);
+    if (!match) return null;
+    const articleIds = new Set();
+    const sellerIds = new Set();
+    const params = new URLSearchParams(bodyText(body));
+    const query = String(url).split('?')[1];
+    if (query) new URLSearchParams(query).forEach((value, key) => params.append(key, value));
+    params.forEach((value, key) => {
+      const bracket = key.match(/^idArticle\[(\d+)\]$/) || key.match(/^amount-(\d+)$/);
+      if (bracket) articleIds.add(bracket[1]);
+      if (key === 'idArticle') {
+        if (/^\d+$/.test(value)) articleIds.add(value);
+        else {
+          try {
+            Object.keys(JSON.parse(value)).forEach((id) => /^\d+$/.test(id) && articleIds.add(id));
+          } catch {
+            // Not JSON: nothing to read.
+          }
+        }
+      }
+      if (key === 'idSeller' && /^\d+$/.test(value)) sellerIds.add(value);
+    });
+    return { action: match[1], articleIds: [...articleIds], sellerIds: [...sellerIds] };
+  }
+
+  function reportRemoval(targets) {
+    if (!targets) return;
+    window.postMessage({ __cmcs: 'event', type: 'cart-removal', ...targets }, ORIGIN);
+  }
+
+  // --- Watching the site's requests --------------------------------------------------
+
   const xhrOpen = XMLHttpRequest.prototype.open;
   const xhrSend = XMLHttpRequest.prototype.send;
   XMLHttpRequest.prototype.open = function (method, url, ...rest) {
@@ -90,11 +142,29 @@
   };
   XMLHttpRequest.prototype.send = function (body) {
     inspect(this.__cmcsUrl, body);
+    try {
+      const targets = removalTargets(this.__cmcsUrl, body);
+      if (targets) {
+        this.addEventListener('loadend', () => {
+          if (this.status >= 200 && this.status < 400) reportRemoval(targets);
+        });
+      }
+    } catch {
+      // Never let observing get in the site's way.
+    }
     return xhrSend.call(this, body);
   };
   window.fetch = function (input, init) {
-    inspect(typeof input === 'string' ? input : input && input.url, init && init.body);
-    return nativeFetch(input, init);
+    const url = typeof input === 'string' ? input : input && input.url;
+    inspect(url, init && init.body);
+    const result = nativeFetch(input, init);
+    try {
+      const targets = removalTargets(url, init && init.body);
+      if (targets) result.then((res) => res.ok && reportRemoval(targets), () => {});
+    } catch {
+      // Never let observing get in the site's way.
+    }
+    return result;
   };
 
   // --- Requests on behalf of the content script ----------------------------------

@@ -246,6 +246,21 @@
     return map;
   }
 
+  /**
+   * Cardmarket's numeric seller id for a cart row: from the row's own trash
+   * control (its onclick carries `idSeller`) or the shipment block's hidden
+   * `idSeller` field. Needed to recognise "remove everything from this seller".
+   */
+  function sellerIdOf(tr) {
+    const fromRow = [...tr.querySelectorAll('[onclick*="idSeller"], [data-seller-id], [data-id-seller]')]
+      .map((el) => el.getAttribute('data-seller-id') || el.getAttribute('data-id-seller') || ((el.getAttribute('onclick') || '').match(/idSeller['"\s:=]+(\d+)/i) || [])[1])
+      .find((v) => /^\d+$/.test(v || ''));
+    if (fromRow) return fromRow;
+    const block = tr.closest('section.shipment-block, section[id*="seller"], .shipment-block');
+    const input = block && block.querySelector('input[name="idSeller"]');
+    return input && /^\d+$/.test(input.value || '') ? input.value : null;
+  }
+
   function parseRow(tr, { baseUrl, fallbackGame, fallbackLang, sellerLink }) {
     const articleId = tr.getAttribute('data-article-id');
     const link =
@@ -309,6 +324,7 @@
       extras,
       comment: clean(tr.getAttribute('data-comment')) || null,
       ...sellerFromLink(sellerLink, baseUrl),
+      sellerId: sellerIdOf(tr),
     };
   }
 

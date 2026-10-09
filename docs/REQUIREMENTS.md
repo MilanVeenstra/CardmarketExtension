@@ -31,7 +31,7 @@ Notatie:
 | FR-03 | Verandert de teller live, bijvoorbeeld als je op de site op "in winkelmandje" klikt, dan wordt het nieuwe artikel binnen ~1,5 s opgeslagen, zonder dat je de pagina herlaadt. | ✔ |
 | FR-04 | Artikelen die dubbel op de pagina staan (desktop- en mobiele weergave) worden één keer opgeslagen. | ✔ |
 | FR-05 | Een artikel dat uit het mandje verdwijnt, wordt **niet** verwijderd. Het krijgt de status *ontbreekt*. Mogelijke statussen: *in mandje*, *ontbreekt*, *niet beschikbaar*. | ✔ |
-| FR-06 | Een artikel dat je zelf met het prullenbakje op de mandjepagina verwijdert, wordt vergeten in plaats van als ontbrekend gemarkeerd (binnen 10 minuten na de klik). | — |
+| FR-06 | Artikelen die je zelf verwijdert, worden vergeten in plaats van als ontbrekend gemarkeerd. Dat geldt voor het prullenbakje, "alles van deze verkoper" en "mandje legen". Hetzelfde geldt voor artikelen die je afrekent. De extensie herkent dit aan het verwijderverzoek van de site zelf, aan formulieren en aan de knoppen. | ✔ |
 | FR-07 | Artikelen die op een bestelpagina (`/Orders/…`) staan, zijn gekocht en worden uit de lijst gehaald. | ✔ |
 | FR-08 | Automatisch opslaan kan uit. Op de mandjepagina staat dan de knop *Huidig mandje opslaan*. | — |
 | FR-09 | Werkt per spel (Magic, Pokémon, Yu-Gi-Oh!, …) en in elke sitetaal (en, de, fr, es, it). Het spel van elk artikel wordt afgeleid uit de product-URL. | ✔ (deels) |
@@ -101,7 +101,7 @@ Notatie:
 | NFR-04 | **Liever niets doen dan iets fout doen.** Bij twijfel (onleesbare pagina, uitgelogd, controle van Cardmarket) worden geen statussen aangepast en geen artikelen toegevoegd. |
 | NFR-05 | **Platform:** Chrome, Edge, Brave en Opera (Manifest V3), zonder build-stap. |
 | NFR-06 | **Isolatie.** De interface op Cardmarket draait in een shadow DOM, zodat de CSS van de site en die van de extensie elkaar niet raken. |
-| NFR-07 | **Testbaarheid.** Er zijn 38 end-to-end-tests met Playwright, tegen een nagebootste Cardmarket. |
+| NFR-07 | **Testbaarheid.** Er zijn 44 end-to-end-tests met Playwright, tegen een nagebootste Cardmarket. |
 
 ### A7. Bekende beperkingen
 
