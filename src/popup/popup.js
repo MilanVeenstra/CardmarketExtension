@@ -28,8 +28,20 @@
   let favorites = {};
   let carts = [];
   let job = null;
+  /** The game picked in the cart tab; ALL shows every game together (one cart on Cardmarket). */
+  const ALL = '*';
+  const GAME_KEY = 'cmcs.popupGame';
   let game = null;
+  try {
+    game = localStorage.getItem(GAME_KEY);
+  } catch {
+    // Not remembered: pick one below.
+  }
+  /** The selected game as a filter (undefined = all games). */
+  const gameFilter = () => (game === ALL ? undefined : game);
   let filter = 'all';
+  /** Games left out of "put back" in the all-games view. */
+  const skippedGames = new Set();
   let notice = null;
   let query = '';
   let tab = 'cart';
@@ -52,6 +64,11 @@
   });
   $('game').addEventListener('change', (event) => {
     game = event.target.value;
+    try {
+      localStorage.setItem(GAME_KEY, game);
+    } catch {
+      // Only a convenience.
+    }
     render();
   });
   for (const [id, name] of [['tab-cart', 'cart'], ['tab-fav', 'fav'], ['tab-carts', 'carts']]) {
@@ -70,7 +87,9 @@
     renderFavorites();
   });
   $('export-text').addEventListener('click', () => copyText(store.exportText(currentList())));
-  $('export-csv').addEventListener('click', () => download(`cart-saver-${game || 'list'}.csv`, store.exportCsv(currentList()), 'text/csv'));
+  $('export-csv').addEventListener('click', () =>
+    download(`cart-saver-${game === ALL ? 'all' : game || 'list'}.csv`, store.exportCsv(currentList()), 'text/csv'),
+  );
   $('cart-form').addEventListener('submit', async (event) => {
     event.preventDefault();
     const list = currentList().filter((item) => item.status !== STATUS.UNAVAILABLE);
@@ -82,10 +101,10 @@
 
   // ---------------------------------------------------------------------------
 
-  /** The saved list of the game shown in the cart tab. */
+  /** The saved list of the game (or all games) shown in the cart tab. */
   function currentList() {
     return Object.values(items)
-      .filter((item) => item.game === game)
+      .filter((item) => !gameFilter() || item.game === game)
       .sort((a, b) => (a.seller || '').localeCompare(b.seller || '') || a.name.localeCompare(b.name));
   }
 
@@ -177,7 +196,7 @@
   async function restoreCart(cart) {
     await store.ensureItems(cart.items);
     const saved = await store.getItems();
-    game = cart.game || game;
+    game = cart.game || ALL;
     tab = 'cart';
     await refill(cart.items.map((item) => saved[item.articleId]).filter((item) => item && item.status !== STATUS.IN_CART));
   }
@@ -343,7 +362,7 @@
               href: cm.offerUrl(fav) || fav.productUrl,
               showStatus: inCart,
               extraMeta: [
-                multiGame ? fav.game : null,
+                multiGame ? store.gameName(fav.game) : null,
                 fav.available ? t('favAvailable', fav.available) : null,
                 t('favSavedOn', formatDate(fav.favoritedAt)),
               ]
@@ -368,7 +387,12 @@
           h(
             'div',
             { class: 'saved-cart-meta' },
-            t('cartsMeta', cart.items.length, store.formatPrice(value), [cart.game, formatDate(cart.createdAt)].filter(Boolean).join(' · ')),
+            t(
+              'cartsMeta',
+              cart.items.length,
+              store.formatPrice(value),
+              [cart.game ? store.gameName(cart.game) : t('allGames'), formatDate(cart.createdAt)].join(' · '),
+            ),
           ),
           h(
             'div',
@@ -402,31 +426,61 @@
 
     $('empty').hidden = all.length > 0;
     for (const id of ['summary', 'actions', 'filters', 'list', 'export']) $(id).hidden = all.length === 0;
+    if (!all.length) $('refill-games').hidden = true;
     if (!all.length || tab !== 'cart') {
       $('game').hidden = true;
       if (!all.length) return;
     }
 
-    if (!game || !games.includes(game)) {
-      const byMissing = games
-        .map((g) => [g, store.summarize(items, g).attention])
-        .sort((a, b) => b[1] - a[1]);
-      game = tabLoc && games.includes(tabLoc.game) ? tabLoc.game : byMissing[0][0];
-    }
+    // Several games: all of them together, unless you picked one.
+    if (games.length < 2) game = games[0];
+    else if (game !== ALL && !games.includes(game)) game = ALL;
     const select = $('game');
     select.hidden = games.length < 2 || tab !== 'cart';
-    select.replaceChildren(...games.map((g) => h('option', { value: g, selected: g === game }, g)));
+    select.replaceChildren(
+      h('option', { value: ALL, selected: game === ALL }, t('allGames')),
+      ...games.map((g) => h('option', { value: g, selected: g === game }, store.gameName(g))),
+    );
 
-    const forGame = all.filter((item) => item.game === game);
-    const summary = store.summarize(items, game);
+    const forGame = all.filter((item) => !gameFilter() || item.game === game);
+    const multiGame = new Set(forGame.map((item) => item.game)).size > 1;
+    const summary = store.summarize(items, gameFilter());
     $('summary').replaceChildren(
       stat('in_cart', summary.inCart, t('statusInCart')),
       stat('missing', summary.attention, t('statusMissing')),
       stat('unavailable', summary.unavailable, t('statusUnavailable')),
     );
 
-    const missing = store.refillCandidates(items, { game });
+    const candidates = store.refillCandidates(items, { game: gameFilter() });
+    const candidateGames = [...new Set(candidates.map((item) => item.game))];
+    const missing = candidates.filter((item) => candidateGames.length < 2 || !skippedGames.has(item.game));
     const busy = store.isJobActive(job);
+    // Several games to put back: choose which.
+    const chips = $('refill-games');
+    chips.hidden = candidateGames.length < 2;
+    chips.replaceChildren(
+      ...(candidateGames.length < 2
+        ? []
+        : [
+            h('span', { class: 'cmcs-chips-label' }, t('refillGamesLabel')),
+            ...candidateGames.map((g) =>
+              h(
+                'button',
+                {
+                  type: 'button',
+                  class: 'cmcs-chip',
+                  'aria-pressed': String(!skippedGames.has(g)),
+                  onclick: () => {
+                    if (skippedGames.has(g)) skippedGames.delete(g);
+                    else skippedGames.add(g);
+                    render();
+                  },
+                },
+                `${store.gameName(g)} (${candidates.filter((item) => item.game === g).length})`,
+              ),
+            ),
+          ]),
+    );
     $('actions').replaceChildren(
       h(
         'button',
@@ -435,7 +489,11 @@
       ),
       h(
         'button',
-        { type: 'button', class: 'cmcs-btn cmcs-btn--ghost', onclick: () => openUrl(cm.cartUrl(langFor(forGame), game)) },
+        {
+          type: 'button',
+          class: 'cmcs-btn cmcs-btn--ghost',
+          onclick: () => openUrl(cm.cartUrl(langFor(forGame), gameFilter() || (tabLoc && tabLoc.game) || forGame[0].game)),
+        },
         t('openCart'),
       ),
     );
@@ -465,7 +523,14 @@
             h(
               'div',
               null,
-              bySeller.get(seller).map((item) => ui.itemRow(item, { showStatus: true, showSeller: false, actions: itemActions(item) })),
+              bySeller.get(seller).map((item) =>
+                ui.itemRow(item, {
+                  showStatus: true,
+                  showSeller: false,
+                  extraMeta: multiGame ? store.gameName(item.game) : null,
+                  actions: itemActions(item),
+                }),
+              ),
             ),
           ])
         : [h('p', { class: 'cmcs-muted' }, t('filterEmpty'))]),

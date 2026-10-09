@@ -11,6 +11,9 @@
   "addedButNotInCart": {
     "message": "Cardmarket accepted it, but it is not in your cart."
   },
+  "allGames": {
+    "message": "All games"
+  },
   "badgeTitle": {
     "message": "Cart Saver – $1 saved article(s) not in your cart"
   },
@@ -293,8 +296,14 @@
   "refillDoneTitle": {
     "message": "Done"
   },
+  "refillGamesLabel": {
+    "message": "Put back:"
+  },
   "refillOne": {
     "message": "Put back in cart"
+  },
+  "refillOnlyLabel": {
+    "message": "Or only:"
   },
   "refillQueued": {
     "message": "Opening your cart on Cardmarket — putting articles back starts automatically."

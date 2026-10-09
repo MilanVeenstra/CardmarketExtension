@@ -212,9 +212,43 @@
     }
   }
 
+  /** With several games in view, each row says which game it is. */
+  const gameOf = (item, list) => (new Set(list.map((i) => i.game)).size > 1 ? store.gameName(item.game) : null);
+
+  /**
+   * With missing articles from several games: one chip per game, to choose
+   * which games go back (a chip selects or deselects all its articles).
+   */
+  function gameChips(missing) {
+    const games = [...new Set(missing.map((item) => item.game))];
+    if (games.length < 2) return null;
+    return h(
+      'div',
+      { class: 'cmcs-chips', role: 'group', 'aria-label': t('refillGamesLabel') },
+      h('span', { class: 'cmcs-chips-label' }, t('refillGamesLabel')),
+      games.map((game) => {
+        const list = missing.filter((item) => item.game === game);
+        const on = list.some((item) => !deselected.has(item.articleId));
+        return h(
+          'button',
+          {
+            type: 'button',
+            class: 'cmcs-chip',
+            'aria-pressed': String(on),
+            onclick: () => {
+              list.forEach((item) => (on ? deselected.add(item.articleId) : deselected.delete(item.articleId)));
+              render();
+            },
+          },
+          `${store.gameName(game)} (${list.length})`,
+        );
+      }),
+    );
+  }
+
   async function dismissReminder() {
-    const signature = store.missingSignature(state.items, loc.game);
-    await store.updateMeta((meta) => ({ ...meta, dismissed: { ...(meta.dismissed || {}), [loc.game]: signature } }));
+    const signature = store.missingSignature(state.items);
+    await store.updateMeta((meta) => ({ ...meta, dismissed: { ...(meta.dismissed || {}), '*': signature } }));
   }
 
   const setCollapsed = (collapsed) => store.updateMeta((meta) => ({ ...meta, collapsed }));
@@ -223,7 +257,7 @@
 
   async function saveCartNow() {
     const cart = cm.readCartDocument(document, { baseUrl: location.href, lang: loc.lang, game: loc.game });
-    await store.syncCart(cart.items, { game: loc.game, addNew: true, markMissing: false });
+    await store.syncCart(cart.items, { addNew: true, markMissing: false });
   }
 
   // ---------------------------------------------------------------------------
@@ -398,7 +432,10 @@
   }
 
   /** A sold article with its replacement suggestions (when asked for). */
-  const unavailableRow = (item) => [ui.itemRow(item, { actions: alternativeActions(item) }), replacementPanel(item)];
+  const unavailableRow = (item, _i, list) => [
+    ui.itemRow(item, { extraMeta: list ? gameOf(item, list) : null, actions: alternativeActions(item) }),
+    replacementPanel(item),
+  ];
 
   function cartView(missing, unavailable, inCart) {
     if (state.meta.collapsed) {
@@ -445,11 +482,13 @@
             allSelected ? t('selectNone') : t('selectAll'),
           ),
         ),
+        gameChips(missing),
         h(
           'div',
           { class: 'cmcs-list' },
           missing.map((item) =>
             ui.itemRow(item, {
+              extraMeta: gameOf(item, missing),
               leading: h('input', {
                 type: 'checkbox',
                 checked: !deselected.has(item.articleId),
@@ -527,7 +566,7 @@
 
   /** "Cardmarket empties your cart at 14:35 (in 23 min)", when the cart page said so. */
   function expiryLine() {
-    const at = (state.meta.cartExpiry || {})[loc.game];
+    const at = typeof state.meta.cartExpiry === 'number' ? state.meta.cartExpiry : null;
     if (!at || at <= Date.now()) return null;
     const minutes = Math.max(1, Math.round((at - Date.now()) / 60000));
     const time = new Date(at).toLocaleTimeString(chrome.i18n.getUILanguage(), { hour: '2-digit', minute: '2-digit' });
@@ -540,7 +579,7 @@
 
   /** Per seller: articles, value, shipping and what that means. Collapsed to one line by default. */
   function shippingSection(inCart) {
-    const facts = (state.meta.shipping || {})[loc.game];
+    const facts = state.meta.shipping && Array.isArray(state.meta.shipping.shipments) ? state.meta.shipping : null;
     const bySeller = store.groupBy(inCart, (item) => item.seller || '—');
     if (bySeller.size === 0) return null;
     const shippingOf = new Map(((facts && facts.shipments) || []).map((s) => [s.seller, s.shipping]));
@@ -627,6 +666,22 @@
         h('button', { type: 'button', class: 'cmcs-btn', onclick: () => refill(missing.map((item) => item.articleId)) }, t('refillAll', missing.length)),
         h('a', { class: 'cmcs-btn cmcs-btn--ghost', href: cm.cartUrl(loc.lang, loc.game) }, t('viewInCart')),
       ),
+      onlyGameButtons(missing),
+    );
+  }
+
+  /** "Or only: Magic (2) · Pokémon (1)" — put back one game. */
+  function onlyGameButtons(missing) {
+    const games = [...new Set(missing.map((item) => item.game))];
+    if (games.length < 2) return null;
+    return h(
+      'div',
+      { class: 'cmcs-chips' },
+      h('span', { class: 'cmcs-chips-label' }, t('refillOnlyLabel')),
+      games.map((game) => {
+        const ids = missing.filter((item) => item.game === game).map((item) => item.articleId);
+        return h('button', { type: 'button', class: 'cmcs-chip', onclick: () => refill(ids) }, `${store.gameName(game)} (${ids.length})`);
+      }),
     );
   }
 
@@ -635,7 +690,8 @@
     const { items, job, settings, meta } = state;
     const game = loc.game;
     const { STATUS } = store;
-    const forGame = Object.values(items).filter((item) => item.game === game);
+    // Cardmarket has one cart for all games, so the panel shows every game.
+    const forGame = Object.values(items);
     // "Partly in the cart" is both: it is there, and copies can be put back.
     const missing = forGame.filter((item) => item.status === STATUS.MISSING || item.status === STATUS.PARTIAL);
     const unavailable = forGame.filter((item) => item.status === STATUS.UNAVAILABLE);
@@ -663,7 +719,7 @@
       !loc.isCart &&
       missing.length &&
       settings.showReminder &&
-      (meta.dismissed || {})[game] !== store.missingSignature(items, game)
+      (meta.dismissed || {})['*'] !== store.missingSignature(items)
     ) {
       view = reminderView(missing);
     }
@@ -673,7 +729,7 @@
 
     // The countdown to the emptied cart moves on by itself.
     clearTimeout(clockTimer);
-    if (view && ((meta.cartExpiry || {})[game] || 0) > Date.now()) clockTimer = setTimeout(render, 60 * 1000);
+    if (view && typeof meta.cartExpiry === 'number' && meta.cartExpiry > Date.now()) clockTimer = setTimeout(render, 60 * 1000);
 
     // A job running in another tab: look again now and then, in case that tab closes.
     clearTimeout(pollTimer);

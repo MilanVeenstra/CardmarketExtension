@@ -11,6 +11,9 @@
   "addedButNotInCart": {
     "message": "Cardmarket accepteerde het, maar het staat niet in je mandje."
   },
+  "allGames": {
+    "message": "Alle spellen"
+  },
   "badgeTitle": {
     "message": "Cart Saver – $1 opgeslagen artikel(en) niet in je mandje"
   },
@@ -293,8 +296,14 @@
   "refillDoneTitle": {
     "message": "Klaar"
   },
+  "refillGamesLabel": {
+    "message": "Terugzetten:"
+  },
   "refillOne": {
     "message": "Terugzetten in mandje"
+  },
+  "refillOnlyLabel": {
+    "message": "Of alleen:"
   },
   "refillQueued": {
     "message": "Je winkelmandje op Cardmarket wordt geopend — het terugzetten start vanzelf."

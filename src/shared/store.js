@@ -105,7 +105,6 @@
    * @param {Record<string, object>} items  saved items keyed by article id
    * @param {object[]} cartItems            articles currently in the cart
    * @param {object} opts
-   * @param {string} opts.game              game whose cart was read
    * @param {number} opts.now
    * @param {boolean} opts.addNew           save articles we did not know yet
    * @param {boolean} opts.markMissing      mark saved articles absent from the cart
@@ -151,7 +150,8 @@
       const sellerKey = (item) => item.sellerId || item.sellerUrl || item.seller || '';
       const sellersInCart = new Set(cartItems.map(sellerKey));
       for (const [id, item] of Object.entries(next)) {
-        if (seen.has(id) || item.game !== opts.game) continue;
+        // Cardmarket has one cart for all games: a reading speaks for every game.
+        if (seen.has(id)) continue;
         if (item.status === STATUS.IN_CART || item.status === STATUS.PARTIAL) {
           const missingReason = !cartItems.length
             ? REASON.EMPTIED
@@ -270,6 +270,29 @@
     return false;
   }
 
+  const GAME_NAMES = {
+    Magic: 'Magic',
+    Pokemon: 'Pokémon',
+    YuGiOh: 'Yu-Gi-Oh!',
+    OnePiece: 'One Piece',
+    Lorcana: 'Lorcana',
+    FleshAndBlood: 'Flesh and Blood',
+    DragonBallSuper: 'Dragon Ball Super',
+    Digimon: 'Digimon',
+    StarWarsUnlimited: 'Star Wars: Unlimited',
+    StarWarsDestiny: 'Star Wars: Destiny',
+    FinalFantasy: 'Final Fantasy',
+    WeissSchwarz: 'Weiß Schwarz',
+    Vanguard: 'Vanguard',
+    BattleSpiritsSaga: 'Battle Spirits Saga',
+  };
+
+  /** A game's name as people say it ("Pokemon" in the URL → "Pokémon"). */
+  function gameName(slug) {
+    if (!slug) return '';
+    return GAME_NAMES[slug] || String(slug).replace(/([a-z])([A-Z])/g, '$1 $2');
+  }
+
   /** Is a storage change nothing but a running job's heartbeat (nothing to redraw)? */
   function isHeartbeatOnly(changes) {
     const keys = Object.keys(changes || {});
@@ -369,6 +392,7 @@
     toFavorite,
     favoriteMatches,
     groupBy,
+    gameName,
     isHeartbeatOnly,
     staleIds,
     exportText,
@@ -407,11 +431,10 @@
       }),
 
     /** Store a freshly read cart. Returns what changed. */
-    async syncCart(cartItems, { game, addNew, markMissing, acceptAmount }) {
+    async syncCart(cartItems, { addNew, markMissing, acceptAmount }) {
       let result;
       await update(KEYS.items, {}, (items) => {
         result = applyCartSnapshot(items, cartItems, {
-          game,
           addNew,
           markMissing,
           acceptAmount,
@@ -511,7 +534,7 @@
         id: `cart-${now.toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
         name: String(name || '').trim().slice(0, 80) || new Date(now).toISOString().slice(0, 10),
         createdAt: now,
-        game: articles[0] ? articles[0].game : null,
+        game: new Set(articles.map((item) => item.game)).size === 1 ? articles[0].game : null,
         items: articles.map((item) => {
           // No pictures: a saved cart must stay small (storage is limited); they are made again later.
           const { status, missingSince, missingReason, lastAttempt, priceChange, viaFavorite, thumb, thumbTriedAt, ...rest } = item;

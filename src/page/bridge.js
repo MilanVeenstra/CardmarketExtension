@@ -42,24 +42,56 @@
 
   // --- Token from the site's own requests --------------------------------------
 
-  /** "action***token" hidden in an `args` value; the XOR seed differs per action. */
-  function tokenFromArgs(rawArgs) {
-    const encoded = String(rawArgs);
-    const cut = encoded.search(/%2A%2A%2A|\*\*\*/i);
-    const head = cut === -1 ? encoded : encoded.slice(0, cut);
-    let bytes;
-    try {
-      bytes = head.replace(/%([0-9A-F]{2})/gi, (_, hex) => String.fromCharCode(parseInt(hex, 16)));
-    } catch {
-      return null;
-    }
-    for (let seed = 0; seed < 256; seed += 1) {
+  /**
+   * Cardmarket's obfuscated `args` value, already percent-decoded:
+   * XOR("action***token") with a counter starting at an unknown seed, then
+   * "***" + base64(JSON of the parameters). Returns { action, token, params };
+   * any part that cannot be read is null.
+   */
+  function decodeArgs(value) {
+    const text = String(value || '');
+    const cut = text.lastIndexOf('***');
+    const head = cut === -1 ? text : text.slice(0, cut);
+    const tail = cut === -1 ? '' : text.slice(cut + 3);
+    let action = null;
+    let token = null;
+    for (let seed = 0; seed < 256 && !action; seed += 1) {
       let plain = '';
-      for (let i = 0; i < bytes.length; i += 1) {
-        plain += String.fromCharCode((bytes.charCodeAt(i) ^ ((seed + i) & 0xff)) & 0xff);
+      for (let i = 0; i < head.length; i += 1) {
+        plain += String.fromCharCode((head.charCodeAt(i) ^ ((seed + i) & 0xff)) & 0xff);
       }
-      const match = plain.match(/^[A-Za-z0-9_]+\*\*\*([0-9a-f]{32,})$/i);
-      if (match) return match[1];
+      const match = plain.match(/^([A-Za-z][A-Za-z0-9_]+)\*\*\*([\x21-\x7e]{8,})$/);
+      if (match) [, action, token] = match;
+    }
+    let params = null;
+    try {
+      const bytes = Uint8Array.from(atob(tail.replace(/ /g, '+').replace(/\s+/g, '')), (c) => c.charCodeAt(0));
+      params = JSON.parse(new TextDecoder().decode(bytes));
+    } catch {
+      // Not readable: fine, the action alone may be enough.
+    }
+    return { action, token, params };
+  }
+
+  /** Percent-decoding byte by byte: the obfuscated part is bytes, not UTF-8. */
+  const percentBytes = (raw) => String(raw).replace(/%([0-9A-F]{2})/gi, (_, hex) => String.fromCharCode(parseInt(hex, 16)));
+
+  /** The token inside a raw (still percent-encoded) `args` value. */
+  function tokenFromArgs(rawArgs) {
+    const { token } = decodeArgs(percentBytes(rawArgs));
+    return token && HEX_TOKEN.test(token) ? token : null;
+  }
+
+  /** The `args` value of a request, decoded the way decodeArgs needs it (or null). */
+  function argsValue(url, body) {
+    if (body instanceof FormData || body instanceof URLSearchParams) {
+      const value = body.get('args');
+      if (typeof value === 'string') return value;
+    }
+    const sources = [typeof body === 'string' ? body : '', String(url || '').split('?')[1] || ''];
+    for (const text of sources) {
+      const match = text.match(/(?:^|&)args=([^&]*)/);
+      if (match) return percentBytes(match[1]);
     }
     return null;
   }
@@ -104,15 +136,47 @@
     return '';
   }
 
-  /** Article and seller ids in a removal request: idArticle=1, idArticle={"1":"1"}, idArticle[1]=…, amount-1=… */
+  const REMOVAL_NAME = /^ShoppingCart_[A-Za-z_]*(?:Remove|Delete|Empty|Clear)[A-Za-z_]*$/i;
+
+  /** Ids anywhere in decoded `args` parameters: idArticle (number, list or map), amount-<id>, idSeller. */
+  function collectIds(value, key, articleIds, sellerIds) {
+    if (value == null) return;
+    if (Array.isArray(value)) {
+      value.forEach((entry) => collectIds(entry, key, articleIds, sellerIds));
+      return;
+    }
+    if (typeof value === 'object') {
+      for (const [k, v] of Object.entries(value)) {
+        const named = k.match(/^amount-(\d+)$/) || k.match(/^idArticle\[(\d+)\]$/);
+        if (named) articleIds.add(named[1]);
+        if (/^idArticles?$/i.test(key) && /^\d+$/.test(k)) articleIds.add(k);
+        collectIds(v, k, articleIds, sellerIds);
+      }
+      return;
+    }
+    const text = String(value);
+    if (!/^\d+$/.test(text)) return;
+    if (/^idArticles?$/i.test(key)) articleIds.add(text);
+    if (/^idSeller$/i.test(key)) sellerIds.add(text);
+  }
+
+  /**
+   * Article and seller ids in a removal request: idArticle=1, idArticle={"1":"1"},
+   * idArticle[1]=…, amount-1=…, or all of it inside an obfuscated `args`
+   * value (whose action then also says whether it is a removal).
+   */
   function removalTargets(url, body) {
-    const match = String(url || '').match(REMOVAL_ACTION);
-    if (!match) return null;
+    const params = new URLSearchParams(bodyText(body));
+    const query = String(url || '').split('?')[1];
+    if (query) new URLSearchParams(query).forEach((value, key) => params.append(key, value));
+    const fromUrl = String(url || '').match(REMOVAL_ACTION);
+    const rawArgs = argsValue(url, body);
+    const args = rawArgs ? decodeArgs(rawArgs) : null;
+    const action = fromUrl ? fromUrl[1] : args && args.action && REMOVAL_NAME.test(args.action) ? args.action : null;
+    if (!action) return null;
     const articleIds = new Set();
     const sellerIds = new Set();
-    const params = new URLSearchParams(bodyText(body));
-    const query = String(url).split('?')[1];
-    if (query) new URLSearchParams(query).forEach((value, key) => params.append(key, value));
+    if (args && args.params) collectIds(args.params, '', articleIds, sellerIds);
     params.forEach((value, key) => {
       const bracket = key.match(/^idArticle\[(\d+)\]$/) || key.match(/^amount-(\d+)$/);
       if (bracket) articleIds.add(bracket[1]);
@@ -128,7 +192,7 @@
       }
       if (key === 'idSeller' && /^\d+$/.test(value)) sellerIds.add(value);
     });
-    return { action: match[1], articleIds: [...articleIds], sellerIds: [...sellerIds] };
+    return { action, articleIds: [...articleIds], sellerIds: [...sellerIds] };
   }
 
   function reportRemoval(targets) {

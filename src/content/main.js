@@ -70,9 +70,8 @@
           .map((item) => item.articleId)
       : [];
 
-    // An unreadable cart page never marks anything as missing.
+    // One cart for all games; an unreadable cart page never marks anything as missing.
     const result = await store.syncCart(cart.items, {
-      game: loc.game,
       addNew: settings.autoTrack,
       markMissing: cart.trustworthy,
       acceptAmount: Object.fromEntries(lowered.map((id) => [id, true])),
@@ -93,11 +92,13 @@
       const next = {
         ...current,
         userRemoved,
-        sync: { ...(current.sync || {}), [loc.game]: { at: now, headerCount: cart.headerCount } },
+        // One cart for all games: one record of the last reading.
+        cartSync: { at: now, headerCount: cart.headerCount },
+        // The cart page also says when it will be emptied and what shipping costs.
+        cartExpiry: cart.items.length ? cart.expiresAt || null : null,
+        shipping: { at: now, shipments: cart.shipments || [] },
       };
-      // The cart page also says when it will be emptied and what shipping costs.
-      next.cartExpiry = { ...(current.cartExpiry || {}), [loc.game]: cart.items.length ? cart.expiresAt || null : null };
-      next.shipping = { ...(current.shipping || {}), [loc.game]: { at: now, shipments: cart.shipments || [] } };
+      delete next.sync; // the old per-game records
       return next;
     });
 
@@ -146,7 +147,7 @@
     const count = cm.readHeaderCount(document);
     if (count === null) return;
     const meta = await store.getMeta();
-    const last = (meta.sync || {})[loc.game];
+    const last = meta.cartSync;
     if (last && last.headerCount === count && Date.now() - last.at < SYNC_MAX_AGE_MS) return;
     try {
       await withSyncLock(syncFromServer);
@@ -170,16 +171,22 @@
       clearTimeout(timer);
       timer = setTimeout(syncIfHeaderChanged, HEADER_DEBOUNCE_MS);
     }).observe(scope, { subtree: true, childList: true, characterData: true });
+    // A change between reading the page and starting to watch would be missed otherwise.
+    syncIfHeaderChanged();
   }
 
   // ---------------------------------------------------------------------------
   // Articles that leave the cart because of the user (removed or bought) are
-  // forgotten instead of marked "missing". Three independent signals mark
+  // forgotten instead of marked "missing". Four independent signals mark
   // them; the next cart reading then forgets only what is really gone.
-  //  1. the site's own removal request (ShoppingCart_RemoveArticle & co.),
-  //     reported by the page bridge once it succeeded;
+  //  1. the site's own removal request (ShoppingCart_RemoveArticle & co., also
+  //     when hidden in an obfuscated `args` value), reported by the page bridge
+  //     once it succeeded;
   //  2. a remove / checkout form being submitted;
-  //  3. a click on a remove or checkout control (row, seller block or cart).
+  //  3. a click on a remove or checkout control (row, seller block or cart);
+  //  4. on the cart page: rows that disappear, or show fewer copies, right
+  //     after you clicked or typed something there — whatever request the
+  //     site used for it.
   // ---------------------------------------------------------------------------
 
   let syncTimer = null;
@@ -247,6 +254,47 @@
     return rowIds(block || document);
   }
 
+  /** Rows only count as removed by you this soon after a click or key press on the page. */
+  const INTERACTION_WINDOW_MS = 15 * 1000;
+
+  /** Signal 4: what the cart page itself shows changing after you did something. */
+  function watchCartRows() {
+    let lastInteraction = 0;
+    const noteInteraction = (event) => {
+      const target = event.target;
+      if (target && target.closest && target.closest('cmcs-cart-saver')) return; // our own panel
+      lastInteraction = Date.now();
+    };
+    document.addEventListener('pointerdown', noteInteraction, true);
+    document.addEventListener('keydown', noteInteraction, true);
+
+    const snapshot = () => {
+      const rows = new Map();
+      document.querySelectorAll('tr[data-article-id]').forEach((tr) => {
+        const id = tr.getAttribute('data-article-id');
+        if (!rows.has(id)) rows.set(id, parseInt(tr.getAttribute('data-amount'), 10) || 1);
+      });
+      return rows;
+    };
+    let before = snapshot();
+    let timer = null;
+    new MutationObserver(() => {
+      clearTimeout(timer);
+      // Let the site finish redrawing, then compare.
+      timer = setTimeout(() => {
+        const now = snapshot();
+        if (Date.now() - lastInteraction < INTERACTION_WINDOW_MS) {
+          const changed = [...before.entries()].filter(([id, amount]) => !now.has(id) || now.get(id) < amount).map(([id]) => id);
+          if (changed.length) {
+            markLeftByUser(changed);
+            scheduleSync();
+          }
+        }
+        before = now;
+      }, 400);
+    }).observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['data-amount'] });
+  }
+
   /** Signals 2 and 3, on the cart page. */
   function watchCartPageActions() {
     document.addEventListener(
@@ -299,6 +347,7 @@
       if (loc.isCart) {
         await syncFromPage();
         watchCartPageActions();
+        watchCartRows();
       } else {
         await syncIfHeaderChanged();
       }

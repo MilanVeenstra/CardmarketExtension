@@ -357,7 +357,7 @@ describe('Cardmarket Cart Saver', () => {
     // re-sync and the saved list is stale (MAGE was re-added in another tab).
     await sw.evaluate(async () => {
       const { 'cmcs.meta': meta = {} } = await chrome.storage.local.get('cmcs.meta');
-      meta.sync = { Magic: { at: Date.now(), headerCount: 1 } };
+      meta.cartSync = { at: Date.now(), headerCount: 1 };
       meta.addEndpoint = 'ShoppingCart_Add_AddArticlesFromUserOffers';
       await chrome.storage.local.set({ 'cmcs.meta': meta });
     });
@@ -547,7 +547,7 @@ describe('Cardmarket Cart Saver', () => {
     await patchItems(patch);
     const headerCount = [...mock.state.cart.values()].reduce((sum, n) => sum + n, 0);
     await sw.evaluate(
-      (count) => chrome.storage.local.set({ 'cmcs.job': null, 'cmcs.meta': { sync: { Magic: { at: Date.now(), headerCount: count } } } }),
+      (count) => chrome.storage.local.set({ 'cmcs.job': null, 'cmcs.meta': { cartSync: { at: Date.now(), headerCount: count } } }),
       headerCount,
     );
     await target.goto(`${CM}/en/Magic`);
@@ -735,7 +735,7 @@ describe('Cardmarket Cart Saver', () => {
     });
 
     it('forgets an article you remove with its trash button', async () => {
-      await page.locator(`table.article-table tr[data-article-id="${MAGE}"] a[onclick*="cmRemove"]`).click();
+      await page.locator(`table.article-table tr[data-article-id="${MAGE}"] a.trash`).click();
       await waitFor(async () => !(await items())[MAGE], 'removed article forgotten');
       assert.equal(mock.state.cart.has(MAGE), false);
       const all = await items();
@@ -1145,8 +1145,8 @@ describe('Cardmarket Cart Saver', () => {
       const hhmm = `${String(at.getHours()).padStart(2, '0')}:${String(at.getMinutes()).padStart(2, '0')}`;
       mock.state.cartNotice = `Your shopping cart will be emptied at ${hhmm}.`;
       await page.goto(`${CM}/en/Magic/ShoppingCart`);
-      await waitFor(async () => (await storage())['cmcs.meta']?.cartExpiry?.Magic, 'expiry read');
-      const expiry = (await storage())['cmcs.meta'].cartExpiry.Magic;
+      await waitFor(async () => (await storage())['cmcs.meta']?.cartExpiry, 'expiry read');
+      const expiry = (await storage())['cmcs.meta'].cartExpiry;
       assert.ok(Math.abs(expiry - at.getTime()) < 60 * 1000, 'the time from the notice');
       await waitFor(async () => /Cardmarket leegt je mandje om \d\d:\d\d \(nog (39|40) min\)/.test(await widget(page).innerText()), 'countdown');
 
@@ -1154,8 +1154,8 @@ describe('Cardmarket Cart Saver', () => {
       assert.ok(Math.abs(alarm.scheduledTime - (expiry - 5 * 60 * 1000)) < 2000, '5 minutes before');
       assert.equal(await sw.evaluate(() => self.cmcs.warnExpiry()), true);
       const shown = await sw.evaluate(() => new Promise((resolve) => chrome.notifications.getAll(resolve)));
-      assert.ok(shown['expiry-Magic'], JSON.stringify(shown));
-      await sw.evaluate(() => chrome.notifications.clear('expiry-Magic'));
+      assert.ok(shown.expiry, JSON.stringify(shown));
+      await sw.evaluate(() => chrome.notifications.clear('expiry'));
     });
 
     it('sums up shipping per seller', async () => {
@@ -1215,7 +1215,7 @@ describe('Cardmarket Cart Saver', () => {
     it('reads the cart again after 15 minutes, even when the count looks the same', async () => {
       await sw.evaluate(async () => {
         const { 'cmcs.meta': meta } = await chrome.storage.local.get('cmcs.meta');
-        meta.sync.Magic.at = Date.now() - 20 * 60 * 1000;
+        meta.cartSync.at = Date.now() - 20 * 60 * 1000;
         await chrome.storage.local.set({ 'cmcs.meta': meta });
       });
       const before = mock.state.requests.length;
@@ -1239,7 +1239,7 @@ describe('Cardmarket Cart Saver', () => {
       mock.state.cart.clear();
       await sw.evaluate(async () => {
         const { 'cmcs.meta': meta } = await chrome.storage.local.get('cmcs.meta');
-        meta.sync.Magic.at = Date.now() - 20 * 60 * 1000;
+        meta.cartSync.at = Date.now() - 20 * 60 * 1000;
         await chrome.storage.local.set({ 'cmcs.meta': meta });
       });
       assert.equal(await sw.evaluate(() => self.cmcs.awayCheck()), true);
@@ -1261,6 +1261,147 @@ describe('Cardmarket Cart Saver', () => {
       const all = await items();
       assert.equal(all[SOL_RING], undefined);
       assert.ok(all[MAGE], 'recent ones stay');
+    });
+  });
+
+  describe('several games in one cart', () => {
+    const PIKACHU = '1622220000';
+
+    it('saves the articles of every game from the one cart', async () => {
+      await sw.evaluate(() => chrome.storage.local.set({ 'cmcs.job': null, 'cmcs.meta': {}, 'cmcs.items': {} }));
+      mock.state.cart = new Map([
+        [BOG, 1],
+        [PIKACHU, 1],
+        [SOL_RING, 1],
+      ]);
+      await page.goto(`${CM}/en/Magic/ShoppingCart`);
+      const all = await waitFor(async () => {
+        const saved = await items();
+        return Object.values(saved).filter((i) => i.status === 'in_cart').length === 3 && saved;
+      }, 'three saved');
+      assert.equal(all[PIKACHU].game, 'Pokemon');
+      assert.equal(all[PIKACHU].seller, 'snowc');
+      assert.equal(all[BOG].game, 'Magic');
+      await waitFor(async () => /3 artikel\(en\) in je mandje opgeslagen/.test(await widget(page).innerText()), 'all games in the panel');
+    });
+
+    it('notices a Pokémon card leaving the cart while on a Magic page, and puts it back', async () => {
+      mock.state.cart.delete(BOG);
+      mock.state.cart.delete(PIKACHU);
+      await page.goto(`${CM}/en/Magic`);
+      await waitFor(async () => {
+        const saved = await items();
+        return saved[BOG].status === 'missing' && saved[PIKACHU].status === 'missing';
+      }, 'both missing');
+      assert.equal((await items())[PIKACHU].missingReason, 'seller');
+
+      const before = addRequests().length;
+      const job = await refillVia(widget(page).getByRole('button', { name: 'Zet 2 artikel(en) terug' }));
+      assert.equal(job.state, 'done', job.errorDetail);
+      assert.equal(job.added, 2);
+      const paths = addRequests()
+        .slice(before)
+        .map((r) => r.path)
+        .sort();
+      assert.deepEqual(paths, [
+        '/en/Magic/AjaxAction/ShoppingCart_Add_AddArticlesFromUserOffers',
+        '/en/Pokemon/AjaxAction/ShoppingCart_Add_AddArticlesFromUserOffers',
+      ]);
+      assert.equal(mock.state.cart.get(PIKACHU), 1);
+      assert.equal(mock.state.cart.get(BOG), 1);
+      const all = await items();
+      assert.equal(all[PIKACHU].status, 'in_cart');
+      assert.equal(all[BOG].status, 'in_cart');
+    });
+
+    it('the popup shows all games together, or one game', async () => {
+      const popup = await context.newPage();
+      await popup.setViewportSize({ width: 400, height: 600 });
+      await popup.goto(`chrome-extension://${extensionId}/src/popup/popup.html`);
+      await popup.locator('#tab-cart').click();
+      const select = popup.locator('#game');
+      await waitFor(() => select.isVisible(), 'game picker');
+      assert.equal(await select.inputValue(), '*');
+      assert.deepEqual(await select.locator('option').allInnerTexts(), ['Alle spellen', 'Magic', 'Pokémon']);
+      await waitFor(async () => (await popup.locator('#list .cmcs-item').count()) === 3, 'all three');
+      assert.match(await popup.locator(`#list .cmcs-item[data-article-id="${PIKACHU}"]`).innerText(), /Pikachu[\s\S]*Pokémon/);
+      assert.match(await popup.locator('#list').innerText(), /snowc \(2\)/, 'one seller, both games');
+      await shot(popup, '18-popup-all-games');
+
+      await select.selectOption('Pokemon');
+      await waitFor(async () => (await popup.locator('#list .cmcs-item').count()) === 1, 'only Pokémon');
+      await select.selectOption('*');
+      await popup.close();
+    });
+
+    it('puts back only the games you choose', async () => {
+      await sw.evaluate(() => chrome.storage.local.set({ 'cmcs.job': null }));
+      mock.state.cart = new Map([[SOL_RING, 1]]);
+      await page.goto(`${CM}/en/Magic/ShoppingCart`);
+      await waitFor(async () => {
+        const saved = await items();
+        return saved[BOG].status === 'missing' && saved[PIKACHU].status === 'missing';
+      }, 'both missing');
+      const panel = widget(page);
+      await waitFor(() => panel.getByRole('button', { name: 'Pokémon (1)' }).isVisible(), 'game chips');
+      await shot(panel, '19-game-chips');
+      await panel.getByRole('button', { name: 'Magic (1)' }).click();
+      assert.equal(await panel.getByRole('button', { name: 'Magic (1)' }).getAttribute('aria-pressed'), 'false');
+      const job = await refillVia(panel.getByRole('button', { name: 'Zet 1 artikel(en) terug · 3,50 €' }));
+      assert.equal(job.added, 1);
+      assert.equal(mock.state.cart.get(PIKACHU), 1);
+      assert.equal(mock.state.cart.has(BOG), false, 'Magic was left out');
+
+      // On other pages the reminder offers one game too.
+      await page.goto(`${CM}/en/Pokemon`);
+      await widget(page).getByRole('button', { name: 'Sluiten' }).first().click().catch(() => {});
+      await sw.evaluate(() => chrome.storage.local.set({ 'cmcs.job': null }));
+      mock.state.cart.delete(PIKACHU);
+      await page.goto(`${CM}/en/Magic`);
+      await waitFor(() => widget(page).getByText('Of alleen:').isVisible(), 'only one game');
+      assert.ok(await widget(page).getByRole('button', { name: 'Pokémon (1)' }).isVisible());
+    });
+  });
+
+  describe('removing articles yourself, whatever request the site uses', () => {
+    const PIKACHU = '1622220000';
+    const freshCart = async (style) => {
+      mock.state.removeStyle = style;
+      await sw.evaluate(() => chrome.storage.local.set({ 'cmcs.job': null, 'cmcs.meta': {}, 'cmcs.items': {} }));
+      mock.state.cart = new Map([
+        [BOG, 1],
+        [MAGE, 1],
+        [PIKACHU, 1],
+      ]);
+      await page.goto(`${CM}/en/Magic/ShoppingCart`);
+      await waitFor(async () => Object.values(await items()).filter((i) => i.status === 'in_cart').length === 3, 'three saved');
+    };
+    after(() => (mock.state.removeStyle = 'plain'));
+
+    it('reads a removal hidden in an obfuscated args request', async () => {
+      await freshCart('args');
+      // No click on the page: only the request itself can tell.
+      await page.evaluate((id) => document.querySelector(`table.article-table tr[data-article-id="${id}"] a.trash`).click(), MAGE);
+      await waitFor(async () => !(await items())[MAGE], 'removed article forgotten');
+      assert.equal(mock.state.cart.has(MAGE), false);
+      const all = await items();
+      assert.equal(all[BOG].status, 'in_cart');
+      assert.equal(all[PIKACHU].status, 'in_cart');
+    });
+
+    it('sees a removal it cannot read on the cart page itself, right after your click', async () => {
+      await freshCart('opaque');
+      await page.locator(`table.article-table tr[data-article-id="${PIKACHU}"] a.trash`).click();
+      await waitFor(async () => !(await items())[PIKACHU], 'removed Pokémon card forgotten');
+      const all = await items();
+      assert.equal(all[BOG].status, 'in_cart');
+      assert.equal(all[MAGE].status, 'in_cart');
+    });
+
+    it('does not take a change you did not make as a removal', async () => {
+      await page.goto(`${CM}/en/Magic/ShoppingCart`); // nothing clicked on this page yet
+      await page.evaluate((id) => window.cmOp(id, 1), BOG);
+      await waitFor(async () => (await items())[BOG]?.status === 'missing', 'marked missing, not forgotten');
     });
   });
 

@@ -31,10 +31,11 @@ Notatie:
 | FR-03 | Verandert de teller live, bijvoorbeeld als je op de site op "in winkelmandje" klikt, dan wordt het nieuwe artikel binnen ~1,5 s opgeslagen, zonder dat je de pagina herlaadt. | ✔ |
 | FR-04 | Artikelen die dubbel op de pagina staan (desktop- en mobiele weergave) worden één keer opgeslagen. | ✔ |
 | FR-05 | Een artikel dat uit het mandje verdwijnt, wordt **niet** verwijderd. Het krijgt de status *ontbreekt*, met de vermoedelijke reden: het hele mandje werd geleegd, alles van die verkoper verdween, of alleen dit artikel verdween (waarschijnlijk verkocht). Mogelijke statussen: *in mandje*, *deels in mandje*, *ontbreekt*, *niet beschikbaar*. | ✔ |
-| FR-06 | Artikelen die je zelf verwijdert, worden vergeten in plaats van als ontbrekend gemarkeerd. Dat geldt voor het prullenbakje, "alles van deze verkoper" en "mandje legen". Hetzelfde geldt voor artikelen die je afrekent. De extensie herkent dit aan het verwijderverzoek van de site zelf, aan formulieren en aan de knoppen. | ✔ |
+| FR-06 | Artikelen die je zelf verwijdert, worden vergeten in plaats van als ontbrekend gemarkeerd. Dat geldt voor het prullenbakje, minder exemplaren, "alles van deze verkoper" en "mandje legen", en voor artikelen die je afrekent. Vier signalen, los van elkaar: het verwijderverzoek van de site (ook als het versleuteld in `args` zit), formulieren, de knoppen, en op de mandjepagina zelf: rijen die verdwijnen of minder exemplaren tonen vlak nadat jij iets aanklikte. Alleen wat daarna echt uit het mandje is, wordt vergeten. | ✔ |
 | FR-07 | Artikelen die op een bestelpagina (`/Orders/…`) staan, zijn gekocht en worden uit de lijst gehaald. | ✔ |
 | FR-08 | Automatisch opslaan kan uit. Op de mandjepagina staat dan de knop *Huidig mandje opslaan*. | — |
-| FR-09 | Werkt per spel (Magic, Pokémon, Yu-Gi-Oh!, …) en in elke sitetaal (en, de, fr, es, it). Het spel van elk artikel wordt afgeleid uit de product-URL. | ✔ (deels) |
+| FR-09 | Cardmarket heeft **één mandje voor alle spellen** (Magic, Pokémon, Yu-Gi-Oh!, …); een verkoper kan kaarten van meerdere spellen in één zending hebben. De extensie leest dat mandje als geheel, het spel van elk artikel komt uit de product-URL. Werkt in elke sitetaal (en, de, fr, es, it). | ✔ |
+| FR-09a | **Kiezen welke spellen terug gaan:** in het paneel op de mandjepagina en in de popup één knop per spel ("Magic (2)", "Pokémon (1)") om een spel aan of uit te zetten; de melding op andere pagina's biedt "Of alleen: Magic (2) · Pokémon (1)". De popup heeft een keuze *Alle spellen* of één spel. | ✔ |
 | FR-10 | Ben je uitgelogd, dan doet de extensie niets met de lijst: een loginpagina wordt nooit als leeg mandje gezien. Ben je ingelogd met een **ander account** dan waarmee de lijst is opgebouwd, dan wordt niets opgeslagen of als ontbrekend gemarkeerd tot je kiest voor het nieuwe account. | ✔ |
 | FR-10a | Het gewenste aantal wordt apart bewaard. Staan er minder exemplaren in het mandje dan je had (de verkoper verkocht er een paar), dan heet het artikel *deels in mandje* ("1 van 2 in je mandje"). Verlaag je het aantal zelf, dan wordt het lagere aantal het nieuwe gewenste aantal. | ✔ |
 | FR-10b | Verandert de prijs van een artikel in je mandje, dan zie je dat drie dagen lang ("Prijs €0,10 hoger (was €0,99)"). | ✔ |
@@ -117,7 +118,7 @@ Notatie:
 | NFR-04 | **Liever niets doen dan iets fout doen.** Bij twijfel (onleesbare pagina, uitgelogd, controle van Cardmarket) worden geen statussen aangepast en geen artikelen toegevoegd. |
 | NFR-05 | **Platform:** Chrome, Edge, Brave en Opera (Manifest V3), zonder build-stap. |
 | NFR-06 | **Isolatie.** De interface op Cardmarket draait in een shadow DOM, zodat de CSS van de site en die van de extensie elkaar niet raken. De page bridge praat via een privé `MessageChannel`: scripts van de site kunnen het verkeer niet lezen of vervalsen, en niets op `window` verraadt de extensie. |
-| NFR-07 | **Testbaarheid.** Er zijn 64 end-to-end-tests met Playwright, tegen een nagebootste Cardmarket. |
+| NFR-07 | **Testbaarheid.** Er zijn 71 end-to-end-tests met Playwright, tegen een nagebootste Cardmarket. |
 
 ### A7. Bekende beperkingen
 
@@ -125,8 +126,8 @@ Notatie:
 |---|---|
 | Niet geverifieerd op de live site | Selectors en endpoints komen uit opgeslagen echte HTML en open-source tools. Een kleine aanpassing kan nodig zijn. |
 | Een artikel is één aanbieding van één verkoper | Is die verkocht, dan kan hij niet terug. Er is alleen een link naar vergelijkbaar aanbod. |
-| Eén mandje per spel is een aanname | De extensie werkt in beide gevallen, maar de status van artikelen uit een ander spel wordt pas bijgewerkt als je een pagina van dat spel bezoekt. |
-| De prullenbak-detectie is heuristisch | Wordt een handmatige verwijdering gemist, dan staat het artikel als *ontbreekt* in de lijst en moet je het zelf wegklikken. |
+
+| Herkennen van zelf verwijderen | Vier signalen samen; mist toch iets, dan staat het artikel als *ontbreekt* en klik je het weg (met *Ongedaan maken*). |
 | Favorieten worden alleen passief bijgewerkt | Een verkochte favoriet merk je pas als je hem probeert toe te voegen of opent. |
 | Het taalfilter werkt alleen met Engelse taalnamen | Op een Duitse of Franse site werkt *vergelijkbaar aanbod* voor favorieten zonder taalfilter. |
 | Geen synchronisatie tussen apparaten | Alleen via export en import. |

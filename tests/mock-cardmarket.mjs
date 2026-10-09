@@ -151,6 +151,27 @@ export const ARTICLES = [
     sellerId: '4004',
     foil: true,
   },
+  // A Pokémon card from the same seller as the Bog: one parcel, two games.
+  {
+    articleId: '1622220000',
+    productId: '273722',
+    game: 'Pokemon',
+    name: 'Pikachu',
+    expansion: 'Base Set',
+    expansionSlug: 'Base-Set',
+    cardSlug: 'Pikachu-BS58',
+    number: '58',
+    rarity: 'Common',
+    condition: 2,
+    conditionLabel: 'NM',
+    conditionTitle: 'Near Mint',
+    language: 1,
+    languageLabel: 'English',
+    price: 3.5,
+    seller: 'snowc',
+    sellerId: '1001',
+    foil: false,
+  },
   // Offers that only exist once a test lists them (state.available): candidates
   // to replace a sold Sol Ring — the same seller, a seller already in the cart,
   // and a cheaper stranger.
@@ -218,6 +239,13 @@ export function createMockCardmarket() {
     cartNotice: null,
     /** shipping cost shown in every seller block */
     shippingCost: 1.15,
+    /**
+     * How the trash button removes an article: 'plain' (ShoppingCart_RemoveArticle
+     * with form fields), 'args' (everything inside an obfuscated `args` value,
+     * posted to a bare /AjaxAction) or 'opaque' (a request the extension cannot
+     * read, from a button without any telltale label).
+     */
+    removeStyle: 'plain',
     requests: [],
   };
 
@@ -304,16 +332,27 @@ export function createMockCardmarket() {
           </div>
         </td>
         <td class="text-end text-nowrap price pe-2">${euro(a.price)}</td>
-        <td class="actions"><a href="#" class="btn btn-sm btn-outline-danger" role="button"
-            onclick="return cmRemove({ idArticle: '${a.articleId}', idSeller: ${a.sellerId}, amount: ${amount} })"><span class="fonticon-delete"></span>✕</a></td>
+        <td class="actions">${trashButton(a, amount)}</td>
       </tr>`;
+  }
+
+  function trashButton(a, amount) {
+    if (state.removeStyle === 'args') {
+      const args = obfuscatedArgs('ShoppingCart_RemoveArticle', state.token, JSON.stringify({ idArticle: a.articleId, idSeller: a.sellerId, amount }));
+      return `<a href="#" class="btn btn-sm trash" role="button" onclick="return cmA('${args}')">✕</a>`;
+    }
+    if (state.removeStyle === 'opaque') {
+      return `<a href="#" class="btn btn-sm trash" role="button" onclick="return cmOp('${a.articleId}', ${amount})">✕</a>`;
+    }
+    return `<a href="#" class="btn btn-sm btn-outline-danger trash" role="button"
+            onclick="return cmRemove({ idArticle: '${a.articleId}', idSeller: ${a.sellerId}, amount: ${amount} })"><span class="fonticon-delete"></span>✕</a>`;
   }
 
   function cartPage(lang, game) {
     const bySeller = new Map();
     for (const [id, amount] of state.cart) {
+      // One cart for all games, as on Cardmarket.
       const a = article(id);
-      if (a.game !== game) continue;
       if (!bySeller.has(a.seller)) bySeller.set(a.seller, []);
       bySeller.get(a.seller).push([a, amount]);
     }
@@ -364,6 +403,14 @@ export function createMockCardmarket() {
           function cmToken() { var t = document.querySelector('input[name="__cmtkn"]'); return t ? t.value : ''; }
           function cmRemove(o) {
             cmPost('ShoppingCart_RemoveArticle', '__cmtkn=' + cmToken() + '&idArticle=' + o.idArticle + '&idSeller=' + o.idSeller + '&amount-' + o.idArticle + '=' + o.amount);
+            return false;
+          }
+          function cmA(args) {
+            cmPost('', 'args=' + args);
+            return false;
+          }
+          function cmOp(ref, n) {
+            cmPost('Cart_Update', 'ref=' + ref + '&n=' + n);
             return false;
           }
           function cmRemoveSeller(o) {
@@ -514,6 +561,22 @@ export function createMockCardmarket() {
       if (left > 0) state.cart.set(id, left);
       else state.cart.delete(id);
       res = { status: 200, contentType: 'text/xml', body: `<?xml version="1.0"?><ajaxResponse><resultsCode>${b64('1')}</resultsCode></ajaxResponse>` };
+    } else if (method === 'POST' && page === 'AjaxAction' && !rest[0]) {
+      // Everything inside an obfuscated `args`: "…***" + base64(JSON).
+      const args = new URLSearchParams(body).get('args') || '';
+      const json = JSON.parse(Buffer.from(args.slice(args.lastIndexOf('***') + 3), 'base64').toString('utf8') || '{}');
+      const id = String(json.idArticle);
+      const left = (state.cart.get(id) || 0) - (parseInt(json.amount, 10) || 1);
+      if (left > 0) state.cart.set(id, left);
+      else state.cart.delete(id);
+      res = { status: 200, contentType: 'text/xml', body: `<?xml version="1.0"?><ajaxResponse><resultsCode>${b64('1')}</resultsCode></ajaxResponse>` };
+    } else if (method === 'POST' && page === 'AjaxAction' && rest[0] === 'Cart_Update') {
+      const params = new URLSearchParams(body);
+      const id = params.get('ref');
+      const left = (state.cart.get(id) || 0) - (parseInt(params.get('n'), 10) || 1);
+      if (left > 0) state.cart.set(id, left);
+      else state.cart.delete(id);
+      res = { status: 200, contentType: 'application/json', body: '{"ok":true}' };
     } else if (method === 'POST' && page === 'AjaxAction' && rest[0] === 'ShoppingCart_RemoveShipment') {
       // Hypothetical "remove everything from this seller" (name not confirmed on the live site).
       const seller = new URLSearchParams(body).get('idSeller');

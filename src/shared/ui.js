@@ -254,6 +254,8 @@
       }
     }
     * { box-sizing: border-box; }
+    /* "hidden" always wins over a display set by a class (flex rows, the toast…). */
+    [hidden] { display: none !important; }
     a { color: var(--cmcs-accent); text-decoration: none; }
     a:hover { text-decoration: underline; }
     .cmcs-btn {
@@ -311,6 +313,16 @@
     .cmcs-error { color: var(--cmcs-bad); }
     .cmcs-detail { color: var(--cmcs-muted); font-size: 11px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; word-break: break-word; user-select: all; margin-top: 2px; }
     .cmcs-btn--small { min-height: 26px; padding: 3px 10px; font-size: 12px; }
+    .cmcs-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 8px 0 2px; }
+    .cmcs-chips-label { font-size: 12px; color: var(--cmcs-muted); }
+    .cmcs-chip {
+      appearance: none; border: 1px solid var(--cmcs-border); background: transparent; color: var(--cmcs-text);
+      border-radius: 999px; padding: 3px 10px; font: inherit; font-size: 12px; cursor: pointer; line-height: 1.4;
+    }
+    .cmcs-chip:hover { background: var(--cmcs-surface); }
+    .cmcs-chip[aria-pressed="true"] { background: var(--cmcs-accent); border-color: var(--cmcs-accent); color: var(--cmcs-accent-text); }
+    .cmcs-chip[aria-pressed="true"]::before { content: "✓ "; }
+    .cmcs-chip[aria-pressed="false"] { color: var(--cmcs-muted); text-decoration: line-through; }
     .cmcs-replace { margin: 0 0 8px 40px; padding: 6px 10px; border-radius: 8px; background: var(--cmcs-surface); }
     .cmcs-replace .cmcs-item { padding: 6px 0; }
     .cmcs-replace .cmcs-item-meta:last-child { white-space: normal; }

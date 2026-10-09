@@ -185,7 +185,8 @@
   async function readLiveCart(lang, games, meta) {
     const amounts = new Map();
     let token = null;
-    for (const game of games) {
+    // Cardmarket has one cart for all games: reading it once is enough.
+    for (const game of [...games].slice(0, 1)) {
       const cart = await cm.fetchCart(lang, game);
       // Only Cardmarket's own login form means "not logged in"; any other odd
       // page is reported as unexpected, with details for a bug report.
@@ -410,15 +411,16 @@
     const games = [...new Set(job.articleIds.map((id) => items[id] && items[id].game).filter(Boolean))];
     const inCart = new Set();
     const readGames = new Set();
-    for (const game of games) {
+    // One cart for all games: one reading covers every game of the job.
+    for (const game of games.slice(0, 1)) {
       const cart = await cm.fetchCart(lang, game);
       if (!cart.signedIn) continue;
-      readGames.add(game);
+      games.forEach((g) => readGames.add(g));
       cart.items.forEach((item) => inCart.add(item.articleId));
-      await store.syncCart(cart.items, { game, addNew: settings.autoTrack, markMissing: cart.trustworthy });
+      await store.syncCart(cart.items, { addNew: settings.autoTrack, markMissing: cart.trustworthy });
       await store.updateMeta((meta) => ({
         ...meta,
-        sync: { ...(meta.sync || {}), [game]: { at: Date.now(), headerCount: cart.headerCount } },
+        cartSync: { at: Date.now(), headerCount: cart.headerCount },
       }));
     }
 
@@ -528,11 +530,11 @@
         }
         // The cart decides the statuses again (and what really left it); favourites from this job go.
         const now = new Map();
-        for (const game of games) {
+        for (const game of [...games].slice(0, 1)) {
           const cart = await cm.fetchCart(job.lang, game);
           if (!cart.signedIn) continue;
           cart.items.forEach((item) => now.set(item.articleId, item.amount || 1));
-          await store.syncCart(cart.items, { game, addNew: false, markMissing: cart.trustworthy });
+          await store.syncCart(cart.items, { addNew: false, markMissing: cart.trustworthy });
         }
         const removed = added.filter(([id]) => (now.get(id) || 0) < (live.amounts.get(id) || 0)).length;
         const after = await store.getItems();

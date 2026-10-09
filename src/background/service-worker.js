@@ -150,12 +150,11 @@ async function openFromNotification(id) {
 
 const cartUrl = (lang, game) => `https://www.cardmarket.com/${lang || 'en'}/${game}/ShoppingCart`;
 
-/** The earliest time a cart will be emptied, as the cart pages said. */
+/** When the cart will be emptied, as the cart page said (one cart for all games). */
 async function nextExpiry() {
   const meta = await store.getMeta();
-  const entries = Object.entries(meta.cartExpiry || {}).filter(([, at]) => at && at > Date.now());
-  entries.sort((a, b) => a[1] - b[1]);
-  return entries[0] ? { game: entries[0][0], at: entries[0][1], lang: meta.lang } : null;
+  const at = typeof meta.cartExpiry === 'number' ? meta.cartExpiry : null;
+  return at && at > Date.now() ? { at } : null;
 }
 
 /** An alarm 5 minutes before the cart is emptied (or none). */
@@ -172,11 +171,10 @@ async function warnExpiry() {
   const next = await nextExpiry();
   if (!next) return false;
   const items = await store.getItems();
-  const inCart = Object.values(items).filter((item) => item.game === next.game && item.status !== store.STATUS.UNAVAILABLE && item.status !== store.STATUS.MISSING);
+  const inCart = Object.values(items).filter((item) => item.status === store.STATUS.IN_CART || item.status === store.STATUS.PARTIAL);
   if (!inCart.length) return false;
   const minutes = Math.max(1, Math.round((next.at - Date.now()) / 60000));
-  const lang = inCart[0].lang || 'en';
-  return notify(`expiry-${next.game}`, t('notifyExpiryTitle'), t('notifyExpiryText', [String(minutes)]), cartUrl(lang, next.game));
+  return notify('expiry', t('notifyExpiryTitle'), t('notifyExpiryText', [String(minutes)]), cartUrl(inCart[0].lang, inCart[0].game));
 }
 
 // --- Looking at the cart while you are away from Cardmarket ---------------------------
@@ -199,10 +197,9 @@ async function awayCheck() {
   const tabs = await chrome.tabs.query({ url: 'https://www.cardmarket.com/*' });
   if (!tabs.length) return false;
   const meta = await store.getMeta();
+  // One cart for all games: read recently by any tab is recent enough.
+  if (meta.cartSync && Date.now() - meta.cartSync.at < AWAY_MINUTES * 60 * 1000) return false;
   for (const tab of tabs) {
-    const game = (tab.url.match(/^https:\/\/www\.cardmarket\.com\/[a-z]{2}\/([^/?#]+)/) || [])[1];
-    const last = game && (meta.sync || {})[game];
-    if (last && Date.now() - last.at < AWAY_MINUTES * 60 * 1000) continue;
     try {
       const reply = await chrome.tabs.sendMessage(tab.id, { type: 'cmcs.sync' });
       if (reply && reply.ok) return true;

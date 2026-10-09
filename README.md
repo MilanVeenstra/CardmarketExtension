@@ -165,6 +165,13 @@ Na een update vragen open Cardmarket-tabbladen om te verversen, via het label
   anders bent, **prijs tegenover trend** (de openbare prijsgids van
   Cardmarket, één keer per dag) en **controleren als je weg bent** (hooguit
   elke 10 minuten). De laatste twee staan standaard uit.
+- Cardmarket heeft **één mandje voor alle spellen**. Cart Saver toont
+  daarom alles samen (in de popup: *Alle spellen*, of kies één spel) en je
+  kiest zelf welke spellen terug moeten ("Magic (2)", "Pokémon (1)").
+- Haal je zelf iets uit je mandje (prullenbakje, minder exemplaren, alles van
+  een verkoper), dan verdwijnt het ook uit Cart Saver. Dat werkt via het
+  verzoek van de site én via wat er op de mandjepagina verandert vlak nadat
+  jij klikt, dus ook als Cardmarket zijn verzoeken anders opbouwt.
 - Er draait altijd maar één terugzet-actie tegelijk, ook met meerdere tabs.
   Sluit je de tab halverwege, dan biedt de volgende Cardmarket-pagina
   *Doorgaan* aan; het mandje wordt dan eerst opnieuw gecontroleerd.
@@ -247,7 +254,9 @@ endpoints als de echte site. Getest worden:
 - batches per verkoper, ongedaan maken, vervanging zoeken, mandjes bewaren
   en exporteren;
 - aftellen en meldingen, verzending per verkoper, de prijsgids, controleren
-  als je weg bent, opruimen, en de privé page bridge.
+  als je weg bent, opruimen, en de privé page bridge;
+- één mandje met meerdere spellen, terugzetten per spel, en verwijderen
+  herkennen via een versleuteld verzoek of via de mandjepagina zelf.
 
 ```bash
 npm install
