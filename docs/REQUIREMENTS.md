@@ -1,6 +1,6 @@
 # Functionele requirements — Cardmarket Cart Saver
 
-Stand van zaken: versie 1.0.0, met de latere aanpassingen aan het ontwerp (1.5).
+Stand van zaken: versie 1.0.0, met de latere aanpassingen tot en met 1.6 (zie de analyses in docs/).
 
 Dit document beschrijft:
 

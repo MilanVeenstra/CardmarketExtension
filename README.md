@@ -33,13 +33,13 @@ vervanging.
 
 | | |
 |---|---|
-| **Automatisch onthouden** | Elk artikel in je mandje wordt bewaard: kaart, verkoper, conditie, taal, foil, prijs en aantal. Je hoeft niets te doen. |
-| **Eén klik terug** | Eén verzoek per verkoper, en alleen wat echt ontbreekt. Dus ook "1 van 2 in je mandje" wordt aangevuld. Spijt? *Ongedaan maken*. |
+| **Automatisch onthouden** | Elk artikel in je mandje wordt bewaard, kaarten én sealed (boosterboxen, displays…): verkoper, conditie, taal, foil, prijs en aantal, met plaatje. Je hoeft niets te doen. |
+| **Eén klik terug** | Eén verzoek per verkoper, en alleen wat echt ontbreekt. Dus ook "1 van 2 in je mandje" wordt aangevuld. Met vinkjes kies je wat terug moet. Spijt? *Ongedaan maken*. |
 | **Weten wat er gebeurde** | Per artikel zie je of het mandje werd geleegd, of de verkoper verdween of dat alleen dit artikel verkocht is, en of de prijs veranderde. |
 | **Vervanging voor verkochte kaarten** | Dezelfde kaart bij dezelfde verkoper, bij een verkoper die al in je mandje zit (geen extra verzending), of het goedkoopste vergelijkbare aanbod. |
 | **Alle spellen in één mandje** | Magic, Pokémon, Yu-Gi-Oh!, One Piece, Lorcana… Kies zelf welke spellen terug moeten. |
-| **Favorieten en bewaarde mandjes** | Bewaar een aanbieding met een ☆, of je hele lijst onder een naam ("Commander-deck") om later terug te zetten. |
-| **Op tijd gewaarschuwd** | Hoe laat Cardmarket je mandje leegt, verzendkosten per verkoper, en een melding als er iets verdwijnt. |
+| **Favorieten en lijsten** | Bewaar een aanbieding met een ☆, of je hele mandje als lijst ("Commander-deck") om later met één klik terug te zetten. |
+| **Op tijd gewaarschuwd** | Verzendkosten per verkoper, een melding als er iets verdwijnt, en hoe laat Cardmarket je mandje leegt (als Cardmarket dat laat zien). |
 
 ## Zo werkt het
 
@@ -55,7 +55,7 @@ het icoon in de werkbalk telt mee.
 </p>
 
 **3. Zet terug.** Eén klik, en de kaarten liggen weer in je mandje. Wat
-verkocht is krijgt een stempel, met een voorstel voor vervanging.
+verkocht is krijgt een stempel, met *Vervanging zoeken*.
 
 <p align="center">
   <img src="docs/screenshots/panel-result.png" width="380" alt="Resultaat na het terugzetten">
@@ -64,12 +64,14 @@ verkocht is krijgt een stempel, met een voorstel voor vervanging.
 </p>
 
 In de popup vind je alles terug: wat terug kan (per verkoper, met de details
-als je op een kaart klikt), je **favorieten** en je **bewaarde mandjes**.
+als je op een kaart klikt), je **favorieten** en je **lijsten**. Een lijst maak
+je met *Bewaar als lijst…* in het tabblad Winkelmandje of in het paneel op
+Cardmarket.
 
 <p align="center">
   <img src="docs/screenshots/popup-favorites.png" width="380" alt="Favorieten in de popup">
   &nbsp;
-  <img src="docs/screenshots/popup-carts.png" width="380" alt="Bewaarde mandjes in de popup">
+  <img src="docs/screenshots/popup-carts.png" width="380" alt="Bewaarde lijsten in de popup">
 </p>
 
 ## Installeren
@@ -114,8 +116,9 @@ wijzigingen, commits of een andere branch.
 
 - Alles blijft in je eigen browser. Er is geen server en er wordt niets
   verstuurd.
-- Cart Saver praat alleen met cardmarket.com, via je eigen ingelogde sessie.
-  Er worden geen wachtwoorden bewaard.
+- Cart Saver praat alleen met Cardmarket: de site zelf, via je eigen
+  ingelogde sessie, en de plaatjesserver van Cardmarket (voor de plaatjes in
+  de popup). Er worden geen wachtwoorden bewaard.
 - Optioneel (standaard uit): één keer per dag de openbare prijsgids van
   Cardmarket downloaden om prijzen met de trend te vergelijken.
 
@@ -129,6 +132,10 @@ wijzigingen, commits of een andere branch.
   dan kan hij niet terug; gebruik dan *Vervanging zoeken*.
 - Gebruik het met mate: verzoeken gaan alleen na jouw klik (of als je mandje
   veranderde), één tegelijk en met een pauze ertussen.
+- Cardmarket zegt zelf bovenaan het mandje: houd er alleen artikelen in die je
+  echt wilt kopen; misbruik van het mandje kan tot schorsing van je account
+  leiden. Gebruik Cart Saver dus om terug te zetten wat je wilt kopen, niet om
+  aanbiedingen vast te houden. Daarom zet hij nooit vanzelf iets terug.
 
 <details>
 <summary><b>Voor ontwikkelaars</b></summary>
@@ -149,7 +156,7 @@ src/
   background/  service-worker.js (badge, meldingen, zelf bijwerken, prijsgids),
                images.js (plaatjes voor de popup)
 _locales/      nl, en
-scripts/       autoupdate-mac.sh, make-icons.mjs
+scripts/       autoupdate-mac.sh (met check-build.js), make-icons.mjs
 tests/         end-to-end-tests tegen een nagebootste Cardmarket
 docs/          onderzoek, functionele eisen, design-brief, screenshots
 ```

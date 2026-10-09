@@ -1,5 +1,41 @@
 # Analyse voor 1.6: plaatjes, bugs en wat beter kan
 
+## Stand van zaken: gebouwd in 1.6
+
+Alle vijf stappen uit [§6](#6-voorstel-voor-16) zijn gebouwd en getest.
+Dat gaat om 89 tests tegen de nagebootste site, plus een optionele test tegen
+Cardmarkets echte plaatjesserver (`CMCS_LIVE=1 npm test`).
+
+| Stap | Opgelost |
+|---|---|
+| 1. Plaatjes en de echte site | P1–P6, S1–S5, B10 |
+| 2. Niets meer kwijtraken | B1–B5, B7–B9, B13, B25–B30, B33, U4, T4 |
+| 3. Mandjes logisch | U1–U3, B16, B21 |
+| 4. Rust en kloppende getallen | B12, B14, B15, B20, B22–B24, B31, B32, T1–T7 |
+| 5. Popup en paneel gelijk | U5–U8, B17–B19, en het grootste deel van U9 |
+
+Bewust (nog) niet gedaan:
+
+- **B6, gelijktijdig schrijven.** De kans is kleiner geworden: plaatjes
+  hebben nu een eigen sleutel en worden alleen door de achtergrond
+  geschreven. Helemaal oplossen vraagt één plek die alles schrijft.
+- **B11, namen van de sloten.** Het paneel en de sterren staan toch zichtbaar
+  in de pagina, dus de namen verbergen helpt niets.
+- **B27, opslag vol.** De grens van 10 MB is weg (`unlimitedStorage`), maar
+  een mislukte schrijfactie wordt nog niet gemeld.
+- **B32, geheugen.** De prijsgids wordt nog in één keer gelezen, wel hooguit
+  één keer per dag en met een 304 als hij niet veranderde.
+- **B33, deels.** Een "ongedaan maken" is voor de achtergrond nog niet
+  zichtbaar als lopende klus.
+- **B38.** De toestemming voor de prijsgids is nog niet optioneel.
+- **S6, P7 en U9.** De trend van de productpagina en verkopersfoto's komen
+  later. Popup en paneel doen nu hetzelfde, maar hun code is nog niet
+  helemaal gedeeld.
+- **S9.** Wanneer Cardmarket "je mandje wordt geleegd om …" toont, weten we
+  nog steeds niet.
+
+---
+
 Onderzocht op 9 oktober 2026 (Cart Saver 1.5.0), op drie manieren:
 
 1. **De echte site.** In je eigen, ingelogde Chrome en met DevTools. Ik heb

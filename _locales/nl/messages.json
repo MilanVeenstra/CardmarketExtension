@@ -405,7 +405,7 @@
     "message": "Prijs $1 hoger (was $2)"
   },
   "privacyNote": {
-    "message": "Alles wordt lokaal in je browser bewaard. Cart Saver praat alleen met cardmarket.com, via je eigen sessie."
+    "message": "Alles wordt lokaal in je browser bewaard. Cart Saver praat alleen met Cardmarket (de site en de plaatjes), via je eigen sessie."
   },
   "progressCount": {
     "message": "$1 van $2"

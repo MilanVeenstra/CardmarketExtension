@@ -405,7 +405,7 @@
     "message": "Price $1 higher (was $2)"
   },
   "privacyNote": {
-    "message": "Everything is stored locally in your browser. Cart Saver only talks to cardmarket.com, using your own session."
+    "message": "Everything is stored locally in your browser. Cart Saver only talks to Cardmarket (the site and its pictures), through your own session."
   },
   "progressCount": {
     "message": "$1 of $2"
