@@ -17,7 +17,12 @@
  *    idSeller and amount-<id>), so those leave the saved list instead of
  *    showing up as "missing". Only reported once the request succeeded.
  *
- * Protocol (window.postMessage, same origin only):
+ * Protocol: the content script sends one window message { __cmcs: 'hello' }
+ * carrying a MessagePort. This script listens first (it runs before any page
+ * script), keeps that message from the page's own listeners and talks over
+ * the private port from then on, so page scripts can neither read nor fake
+ * the conversation. Nothing on `window` gives the extension away.
+ *   ← { __cmcs: 'ready' }
  *   → { __cmcs: 'request', id, ping? | getToken? | url, method, headers, body }
  *   ← { __cmcs: 'response', id, pong? | token? | status, ok, url, text, headers | error }
  *   ← { __cmcs: 'event', type: 'cart-removal', action, articleIds, sellerIds }
@@ -25,10 +30,9 @@
 (function () {
   'use strict';
 
-  if (window.__cmcsBridge) return;
-  window.__cmcsBridge = true;
-
   const ORIGIN = location.origin;
+  /** Ports of content scripts that said hello (normally one). */
+  const ports = new Set();
   // Keep the browser's own fetch, in case the site wraps window.fetch later.
   const nativeFetch = window.fetch.bind(window);
   const HEADERS = ['content-type', 'retry-after', 'cf-mitigated'];
@@ -129,7 +133,7 @@
 
   function reportRemoval(targets) {
     if (!targets) return;
-    window.postMessage({ __cmcs: 'event', type: 'cart-removal', ...targets }, ORIGIN);
+    for (const port of ports) port.postMessage({ __cmcs: 'event', type: 'cart-removal', ...targets });
   }
 
   // --- Watching the site's requests --------------------------------------------------
@@ -169,18 +173,15 @@
 
   // --- Requests on behalf of the content script ----------------------------------
 
-  const reply = (id, payload) => window.postMessage({ __cmcs: 'response', id, ...payload }, ORIGIN);
-
-  window.addEventListener('message', async (event) => {
-    if (event.source !== window || event.origin !== ORIGIN) return;
-    const msg = event.data;
+  async function handle(port, msg) {
     if (!msg || msg.__cmcs !== 'request' || typeof msg.id !== 'string') return;
+    const reply = (payload) => port.postMessage({ __cmcs: 'response', id: msg.id, ...payload });
     if (msg.ping) {
-      reply(msg.id, { pong: true });
+      reply({ pong: true });
       return;
     }
     if (msg.getToken) {
-      reply(msg.id, { token: siteToken });
+      reply({ token: siteToken });
       return;
     }
 
@@ -188,12 +189,12 @@
     try {
       url = new URL(msg.url, ORIGIN);
     } catch {
-      reply(msg.id, { error: 'bad url' });
+      reply({ error: 'bad url' });
       return;
     }
     // Only ever talk to the site itself.
     if (url.origin !== ORIGIN) {
-      reply(msg.id, { error: 'cross-origin request refused' });
+      reply({ error: 'cross-origin request refused' });
       return;
     }
 
@@ -210,9 +211,26 @@
         const value = res.headers.get(name);
         if (value != null) headers[name] = value;
       }
-      reply(msg.id, { status: res.status, ok: res.ok, url: res.url, text: await res.text(), headers });
+      reply({ status: res.status, ok: res.ok, url: res.url, text: await res.text(), headers });
     } catch (err) {
-      reply(msg.id, { error: String((err && err.message) || err) });
+      reply({ error: String((err && err.message) || err) });
     }
-  });
+  }
+
+  // The hello: listened for in the capture phase by the first listener on the
+  // page, and stopped there.
+  window.addEventListener(
+    'message',
+    (event) => {
+      if (event.source !== window || event.origin !== ORIGIN) return;
+      const msg = event.data;
+      if (!msg || msg.__cmcs !== 'hello' || !event.ports || !event.ports[0]) return;
+      event.stopImmediatePropagation();
+      const port = event.ports[0];
+      ports.add(port);
+      port.onmessage = (e) => handle(port, e.data);
+      port.postMessage({ __cmcs: 'ready' });
+    },
+    true,
+  );
 })();

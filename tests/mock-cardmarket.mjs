@@ -200,8 +200,6 @@ export function createMockCardmarket() {
     stalePageToken: null,
     /** answer add-to-cart with an ordinary HTML page instead of <ajaxResponse> */
     weirdAdd: false,
-    /** a page script that swallows the extension's page-bridge messages */
-    blockBridge: false,
     /**
      * Where pages carry the CSRF token: 'input' (hidden form field, default),
      * 'script' (inline JS only), 'wants' (only the wants page has a form),
@@ -216,6 +214,10 @@ export function createMockCardmarket() {
     genericRefusal: false,
     /** render the rows of this seller's block in a shape the extension cannot read */
     brokenSeller: null,
+    /** a notice on the cart page, e.g. "Your shopping cart will be emptied at 14:35." */
+    cartNotice: null,
+    /** shipping cost shown in every seller block */
+    shippingCost: 1.15,
     requests: [],
   };
 
@@ -252,7 +254,7 @@ export function createMockCardmarket() {
     return `<!DOCTYPE html><html lang="${lang}"><head><meta charset="utf-8"><title>${esc(title)} | Cardmarket</title>
       <style>body{font-family:sans-serif;margin:0;background:#f4f4f4}header{display:flex;gap:16px;align-items:center;padding:12px 20px;background:#012169;color:#fff}header a{color:#fff}.main-nav-badge{background:#28a745;border-radius:8px;padding:0 6px;margin:0 4px}main{padding:20px}section.shipment-block{background:#fff;margin:0 0 16px;padding:12px}table{width:100%}td{padding:4px}</style>
       <script src="/cdn-cgi/challenge-platform/scripts/jsd/main.js"></script>
-      ${state.blockBridge ? `<script>window.addEventListener('message', (e) => { if (e.data && e.data.__cmcs === 'request') e.stopImmediatePropagation(); }, true);</script>` : ''}</head>
+</head>
       <body>${header(lang, game)}<main>${body}</main>
       ${state.loggedIn && state.tokenMode === 'input' ? `<form id="filter"><input type="hidden" name="__cmtkn" value="${pageToken}"></form>` : ''}
       ${state.loggedIn && state.tokenMode === 'script' ? `<script>window.cmConfig = {"locale":"${lang}","__cmtkn":"${state.token}"};</script>` : ''}
@@ -330,6 +332,7 @@ export function createMockCardmarket() {
             </tbody></table>
             <!-- Cardmarket renders some rows a second time (mobile layout) -->
             <table class="table d-none mobile-table"><tbody>${row(rows[0][0], rows[0][1], lang, state.brokenRows || state.brokenSeller === seller)}</tbody></table>
+            <div class="row g-0 shipment-summary"><div class="col">Shipping costs</div><div class="col-auto">${euro(state.shippingCost)}</div></div>
             <form method="post" action="/${lang}/${game}/PostGetAction/ShoppingCart_CheckoutShipment">
               <input type="hidden" name="idSeller" value="${rows[0][0].sellerId}">
               <button type="submit" class="btn btn-primary checkout">Commit to purchase</button>
@@ -343,7 +346,7 @@ export function createMockCardmarket() {
       game,
       title: 'Shopping Cart',
       isCart: true,
-      body: `<h1>Shopping Cart</h1><div id="shipments-col">${blocks || '<p>Your shopping cart is empty.</p>'}</div>
+      body: `<h1>Shopping Cart</h1>${state.cartNotice ? `<div class="alert alert-info">${esc(state.cartNotice)}</div>` : ''}<div id="shipments-col">${blocks || '<p>Your shopping cart is empty.</p>'}</div>
         <script>
           function cmPost(action, body) {
             var xhr = new XMLHttpRequest();

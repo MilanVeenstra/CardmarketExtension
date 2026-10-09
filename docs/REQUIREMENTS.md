@@ -99,6 +99,12 @@ Notatie:
 | FR-43a | **Mandjes bewaren**: in de popup-tab *Mandjes* bewaar je de huidige lijst onder een naam (bijv. "Commander-deck"). Later zet *In mandje zetten* hem met één klik terug. Ook te kopiëren als tekst of te downloaden als CSV, en mee in de JSON-export. | ✔ |
 | FR-43b | De lijst van de tab *Winkelmandje* is te kopiëren als tekst ("2x Bojuka Bog (Commander 2018 #238) · NM · English · 0,99 € · snowc") of te downloaden als CSV (puntkomma's, decimale komma). | ✔ |
 | FR-43c | Iets uit de lijst verwijderen kan ongedaan worden gemaakt (melding met *Ongedaan maken*). | ✔ |
+| FR-45 | **Meldingen** (instelbaar): verdwijnen opgeslagen artikelen uit je mandje terwijl je naar een andere tab kijkt, dan volgt een bureaubladmelding; een klik opent het mandje. | ✔ |
+| FR-46 | **Aftellen**: toont de mandjepagina wanneer Cardmarket het mandje leegt, dan staat in het paneel "Cardmarket leegt je mandje om 14:35 (nog 23 min)" en komt er 5 minuten vooraf een melding. | ✔ (tekst op de live site nog te bevestigen) |
+| FR-47 | **Verzending per verkoper** (paneel op de mandjepagina, inklapbaar): per verkoper het aantal kaarten, de waarde, de verzendkosten en hun aandeel, "verzending kost meer dan de kaarten", en de grens van 25 € voor verzending met tracking. | ✔ (verzendkosten lezen op de live site nog te bevestigen) |
+| FR-48 | **Prijs tegenover trend** (instelbaar, standaard uit): één keer per dag de openbare prijsgids; alleen de opgeslagen kaarten worden bewaard (foil apart). Een aanbieding die minstens 15% en 0,10 € boven de trend zit, krijgt een opmerking; ruim eronder ook. | ✔ |
+| FR-49 | **Controleren als je weg bent** (instelbaar, standaard uit): met een Cardmarket-tab open en jij achter de computer leest één tab hooguit elke 10 minuten het mandje. | ✔ |
+| FR-50 | Artikelen die al een maand *niet beschikbaar* zijn, verdwijnen vanzelf uit de lijst. | ✔ |
 | FR-44 | De interface is Nederlands of Engels, afhankelijk van de taal van de browser, en ondersteunt een lichte en een donkere modus. | ✔ (NL) |
 
 ### A6. Niet-functioneel
@@ -106,12 +112,12 @@ Notatie:
 | ID | Requirement |
 |---|---|
 | NFR-01 | **Privacy.** Alle data staat lokaal in `chrome.storage.local`. Er is geen server en er worden geen wachtwoorden opgeslagen. De extensie praat alleen met `www.cardmarket.com`, via de sessie van de gebruiker. |
-| NFR-02 | **Minimale permissies:** `storage` en de host-permissie voor `https://www.cardmarket.com/*`. |
-| NFR-03 | **Fatsoenlijk gebruik.** Verzoeken worden alleen gedaan na een klik of na een verandering van de mandjesteller, nooit op een timer en altijd één tegelijk. |
+| NFR-02 | **Minimale permissies:** `storage`, `alarms`, `notifications` en `idle` (geen waarschuwing), plus de host-permissies voor `https://www.cardmarket.com/*` en `https://downloads.s3.cardmarket.com/*` (alleen voor de openbare prijsgids, en alleen als je die aanzet). |
+| NFR-03 | **Fatsoenlijk gebruik.** Verzoeken worden gedaan na een klik, na een verandering van de mandjesteller of als het mandje langer dan 15 minuten niet is gelezen (dan door één tab tegelijk). Alleen met de optionele instelling *Mandje controleren als je niet op Cardmarket kijkt* is er een timer: hooguit elke 10 minuten, en alleen als je achter de computer zit. Altijd één verzoek tegelijk. |
 | NFR-04 | **Liever niets doen dan iets fout doen.** Bij twijfel (onleesbare pagina, uitgelogd, controle van Cardmarket) worden geen statussen aangepast en geen artikelen toegevoegd. |
 | NFR-05 | **Platform:** Chrome, Edge, Brave en Opera (Manifest V3), zonder build-stap. |
-| NFR-06 | **Isolatie.** De interface op Cardmarket draait in een shadow DOM, zodat de CSS van de site en die van de extensie elkaar niet raken. |
-| NFR-07 | **Testbaarheid.** Er zijn 58 end-to-end-tests met Playwright, tegen een nagebootste Cardmarket. |
+| NFR-06 | **Isolatie.** De interface op Cardmarket draait in een shadow DOM, zodat de CSS van de site en die van de extensie elkaar niet raken. De page bridge praat via een privé `MessageChannel`: scripts van de site kunnen het verkeer niet lezen of vervalsen, en niets op `window` verraadt de extensie. |
+| NFR-07 | **Testbaarheid.** Er zijn 64 end-to-end-tests met Playwright, tegen een nagebootste Cardmarket. |
 
 ### A7. Bekende beperkingen
 

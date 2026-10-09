@@ -477,6 +477,8 @@
     render();
   }
 
-  store.onChanged(load);
+  store.onChanged((changes) => {
+    if (!store.isHeartbeatOnly(changes)) load();
+  });
   await load();
 })();

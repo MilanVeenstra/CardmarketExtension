@@ -157,6 +157,14 @@ Na een update vragen open Cardmarket-tabbladen om te verversen, via het label
 - In de popup-tab **Mandjes** bewaar je je lijst onder een naam
   (bijvoorbeeld per deck) en zet je hem later met één klik terug. Lijsten zijn
   ook te kopiëren als tekst of te downloaden als CSV.
+- Op de mandjepagina zie je **wanneer Cardmarket je mandje leegt** (als de
+  pagina die tijd toont, met 5 minuten vooraf een melding) en **wat de
+  verzending per verkoper kost**, inclusief de grens van 25 € voor verzending
+  met tracking.
+- Instelbaar: **meldingen** als je mandje geleegd wordt terwijl je ergens
+  anders bent, **prijs tegenover trend** (de openbare prijsgids van
+  Cardmarket, één keer per dag) en **controleren als je weg bent** (hooguit
+  elke 10 minuten). De laatste twee staan standaard uit.
 - Er draait altijd maar één terugzet-actie tegelijk, ook met meerdere tabs.
   Sluit je de tab halverwege, dan biedt de volgende Cardmarket-pagina
   *Doorgaan* aan; het mandje wordt dan eerst opnieuw gecontroleerd.
@@ -191,7 +199,10 @@ samengevat:
   extensie terug op een eigen verzoek.
 - **`chrome.storage.local`** bewaart de artikelen en de voortgang van het
   terugzetten. Popup en paneel lezen live mee.
-- De **service worker** doet alleen het badge-getal.
+- De **service worker** doet het badge-getal, de meldingen, het zelf
+  bijwerken, de dagelijkse opruiming en (als je dat aanzet) de prijsgids en
+  het controleren als je weg bent. Verzoeken naar je mandje lopen altijd via
+  een Cardmarket-tab.
 
 ```
 manifest.json
@@ -203,7 +214,7 @@ src/
                main.js (opstarten)
   popup/       popup.html/css/js
   options/     options.html/css/js
-  background/  service-worker.js (badge)
+  background/  service-worker.js (badge, meldingen, zelf bijwerken, prijsgids)
 _locales/      en, nl
 tests/         end-to-end-test met een nagebootste Cardmarket
 docs/          RESEARCH.md, screenshots
@@ -234,7 +245,9 @@ endpoints als de echte site. Getest worden:
 - weigeringen: verkocht, te weinig exemplaren of onduidelijk;
 - één actie tegelijk, en doorgaan na een gesloten tab;
 - batches per verkoper, ongedaan maken, vervanging zoeken, mandjes bewaren
-  en exporteren.
+  en exporteren;
+- aftellen en meldingen, verzending per verkoper, de prijsgids, controleren
+  als je weg bent, opruimen, en de privé page bridge.
 
 ```bash
 npm install

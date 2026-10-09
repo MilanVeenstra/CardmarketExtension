@@ -15,6 +15,9 @@
   const settings = await store.getSettings();
   $('autoTrack').checked = settings.autoTrack;
   $('showReminder').checked = settings.showReminder;
+  $('notify').checked = settings.notify;
+  $('awayChecks').checked = settings.awayChecks;
+  $('priceTrend').checked = settings.priceTrend;
   $('delay').value = (settings.delayMs / 1000).toFixed(1);
 
   let savedTimer = null;
@@ -27,6 +30,25 @@
 
   $('autoTrack').addEventListener('change', (e) => save({ autoTrack: e.target.checked }));
   $('showReminder').addEventListener('change', (e) => save({ showReminder: e.target.checked }));
+  $('notify').addEventListener('change', (e) => save({ notify: e.target.checked }));
+  $('awayChecks').addEventListener('change', (e) => save({ awayChecks: e.target.checked }));
+  $('priceTrend').addEventListener('change', (e) => save({ priceTrend: e.target.checked }));
+
+  /** When the price guide was last read, or why not. */
+  async function renderTrendStatus() {
+    const { 'cmcs.prices': status } = await chrome.storage.local.get('cmcs.prices');
+    if (!status) {
+      $('trendStatus').textContent = '';
+      return;
+    }
+    const when = new Date(status.at).toLocaleString(chrome.i18n.getUILanguage(), { dateStyle: 'short', timeStyle: 'short' });
+    const cards = Object.values(status.games || {}).reduce((sum, n) => sum + n, 0);
+    $('trendStatus').textContent = status.error ? t('trendStatusError', status.error) : t('trendStatus', when, String(cards));
+  }
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area === 'local' && changes['cmcs.prices']) renderTrendStatus();
+  });
+  renderTrendStatus();
   $('delay').addEventListener('change', (e) => {
     const seconds = Math.min(10, Math.max(0.5, parseFloat(e.target.value) || 1.2));
     e.target.value = seconds.toFixed(1);

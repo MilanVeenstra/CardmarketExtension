@@ -70,6 +70,16 @@
     } else if (item.status === 'missing' && REASON_KEYS[item.missingReason]) {
       lines.push({ text: t(REASON_KEYS[item.missingReason]) });
     }
+    // Against Cardmarket's trend price (only when it says something).
+    const trend = item.trend && item.trend.value;
+    if (trend && item.price != null) {
+      const ratio = item.price / trend - 1;
+      if (ratio >= 0.15 && item.price - trend >= 0.1) {
+        lines.push({ text: t('trendAbove', CMCS.store.formatPrice(trend), String(Math.round(ratio * 100))), warn: true });
+      } else if (ratio <= -0.15) {
+        lines.push({ text: t('trendBelow', CMCS.store.formatPrice(trend), String(Math.round(-ratio * 100))) });
+      }
+    }
     const change = item.priceChange;
     if (change && change.from != null && change.to != null && now - (change.at || 0) < PRICE_CHANGE_TTL_MS) {
       const up = change.to > change.from;

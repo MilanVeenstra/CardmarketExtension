@@ -19,6 +19,8 @@
 
   const HEADER_DEBOUNCE_MS = 1500;
   const USER_REMOVAL_TTL_MS = 10 * 60 * 1000;
+  /** Read the cart again after this long, even when the header count looks the same (a sold card may have been swapped). */
+  const SYNC_MAX_AGE_MS = 15 * 60 * 1000;
   // Words on controls that take articles out of the cart on purpose (site languages en/de/fr/es/it).
   const REMOVE_HINT = /remove|delete|trash|empty|clear|entfernen|löschen|leeren|supprimer|vider|eliminar|vaciar|rimuovi|elimina|svuota/i;
   const REMOVE_ICON = '[class*="fonticon-delete"], [class*="fonticon-trash"], [class*="fonticon-remove"], [class*="fonticon-bin"]';
@@ -36,7 +38,7 @@
       return true;
     }
     if (message.type === 'cmcs.sync') {
-      syncFromServer()
+      withSyncLock(syncFromServer)
         .then(() => sendResponse({ ok: true }))
         .catch((err) => sendResponse({ ok: false, error: err.kind || err.message }));
       return true;
@@ -88,13 +90,30 @@
       for (const [id, at] of Object.entries(current.userRemoved || {})) {
         if (now - at < USER_REMOVAL_TTL_MS && !handled.has(id)) userRemoved[id] = at;
       }
-      return {
+      const next = {
         ...current,
         userRemoved,
         sync: { ...(current.sync || {}), [loc.game]: { at: now, headerCount: cart.headerCount } },
       };
+      // The cart page also says when it will be emptied and what shipping costs.
+      next.cartExpiry = { ...(current.cartExpiry || {}), [loc.game]: cart.items.length ? cart.expiresAt || null : null };
+      next.shipping = { ...(current.shipping || {}), [loc.game]: { at: now, shipments: cart.shipments || [] } };
+      return next;
     });
+
+    // Articles that fell out while you were looking elsewhere: a notification.
+    if (result && result.newlyMissing.length && document.visibilityState !== 'visible') {
+      chrome.runtime
+        .sendMessage({ type: 'cmcs.notify', kind: 'emptied', count: result.newlyMissing.length, lang: loc.lang, game: loc.game })
+        .catch(() => {});
+    }
     return result;
+  }
+
+  /** One tab reads the cart at a time; the others skip (they would read the same). */
+  function withSyncLock(fn) {
+    if (!navigator.locks) return fn();
+    return navigator.locks.request('cmcs.sync', { ifAvailable: true }, (lock) => (lock ? fn() : null));
   }
 
   /**
@@ -128,9 +147,9 @@
     if (count === null) return;
     const meta = await store.getMeta();
     const last = (meta.sync || {})[loc.game];
-    if (last && last.headerCount === count) return;
+    if (last && last.headerCount === count && Date.now() - last.at < SYNC_MAX_AGE_MS) return;
     try {
-      await syncFromServer();
+      await withSyncLock(syncFromServer);
     } catch (err) {
       // Challenge page, rate limit, network… just try again on a later page.
       console.debug('[Cart Saver] cart sync skipped:', err.kind || err);
@@ -186,9 +205,8 @@
 
   /** Signal 1: the page bridge saw the site remove articles. */
   function watchSiteRemovals() {
-    window.addEventListener('message', async (event) => {
-      const msg = event.data;
-      if (event.source !== window || !msg || msg.__cmcs !== 'event' || msg.type !== 'cart-removal') return;
+    cm.onBridgeEvent(async (msg) => {
+      if (msg.type !== 'cart-removal') return;
       const ids = Array.isArray(msg.articleIds) ? [...msg.articleIds] : [];
       const sellerIds = Array.isArray(msg.sellerIds) ? msg.sellerIds.map(String) : [];
       // "Remove everything from this seller" carries only the seller.

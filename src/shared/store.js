@@ -50,7 +50,16 @@
     showReminder: true,
     /** Pause between two add-to-cart requests (a random 0–400 ms is added). */
     delayMs: 1200,
+    /** Desktop notifications: the cart was emptied while you looked elsewhere, or is about to be. */
+    notify: true,
+    /** While you are at the computer and a Cardmarket tab is open, look at the cart every 10 minutes. */
+    awayChecks: false,
+    /** Compare prices with Cardmarket's public price guide (downloaded once a day). */
+    priceTrend: false,
   };
+
+  /** Unavailable articles leave the list on their own after this long. */
+  const UNAVAILABLE_KEEP_MS = 30 * 24 * 60 * 60 * 1000;
 
   /**
    * A job counts as abandoned when its tab stopped sending heartbeats. Chrome
@@ -261,6 +270,28 @@
     return false;
   }
 
+  /** Is a storage change nothing but a running job's heartbeat (nothing to redraw)? */
+  function isHeartbeatOnly(changes) {
+    const keys = Object.keys(changes || {});
+    if (keys.length !== 1 || keys[0] !== KEYS.job) return false;
+    const { oldValue, newValue } = changes[KEYS.job];
+    if (!oldValue || !newValue) return false;
+    const { heartbeatAt: a, ...before } = oldValue;
+    const { heartbeatAt: b, ...after } = newValue;
+    return JSON.stringify(before) === JSON.stringify(after);
+  }
+
+  /** Ids of unavailable articles nobody looked at for a month. */
+  function staleIds(items, now = Date.now()) {
+    return Object.values(items || {})
+      .filter((item) => {
+        if (item.status !== STATUS.UNAVAILABLE) return false;
+        const last = Math.max((item.lastAttempt && item.lastAttempt.at) || 0, item.missingSince || 0, item.lastSeenInCartAt || 0);
+        return last > 0 && now - last > UNAVAILABLE_KEEP_MS;
+      })
+      .map((item) => item.articleId);
+  }
+
   function groupBy(list, keyFn) {
     const groups = new Map();
     for (const entry of list) {
@@ -338,6 +369,8 @@
     toFavorite,
     favoriteMatches,
     groupBy,
+    isHeartbeatOnly,
+    staleIds,
     exportText,
     exportCsv,
     formatPrice,

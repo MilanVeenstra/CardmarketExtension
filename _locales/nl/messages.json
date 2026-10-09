@@ -119,6 +119,9 @@
   "errorUnknown": {
     "message": "Er ging iets mis. Probeer het opnieuw."
   },
+  "expiryLine": {
+    "message": "Cardmarket leegt je mandje om $1 (nog $2 min)."
+  },
   "exportCopied": {
     "message": "Gekopieerd naar het klembord."
   },
@@ -235,6 +238,18 @@
   },
   "nothingToRefill": {
     "message": "Niets om terug te zetten"
+  },
+  "notifyEmptiedText": {
+    "message": "$1 opgeslagen artikel(en) staan niet meer in je mandje. Klik om ze terug te zetten."
+  },
+  "notifyEmptiedTitle": {
+    "message": "Artikelen uit je Cardmarket-mandje verdwenen"
+  },
+  "notifyExpiryText": {
+    "message": "Over ongeveer $1 minuten. Klik om je mandje te openen."
+  },
+  "notifyExpiryTitle": {
+    "message": "Je Cardmarket-mandje wordt zo geleegd"
   },
   "openCardmarket": {
     "message": "Open Cardmarket"
@@ -368,17 +383,35 @@
   "settingAutoTrackHelp": {
     "message": "Elk artikel dat in je mandje verschijnt wordt opgeslagen. Staat dit uit, dan bewaar je alleen via de knop “Huidig mandje opslaan” op de winkelmandjepagina."
   },
+  "settingAway": {
+    "message": "Mandje controleren als je niet op Cardmarket kijkt"
+  },
+  "settingAwayHelp": {
+    "message": "Met een Cardmarket-tab open en jij achter de computer wordt het mandje hooguit elke 10 minuten gelezen, zodat je sneller weet dat het geleegd is. Staat standaard uit: het kost extra verzoeken."
+  },
   "settingDelay": {
     "message": "Pauze tussen artikelen (seconden)"
   },
   "settingDelayHelp": {
     "message": "Artikelen worden één voor één teruggezet. Een langere pauze is vriendelijker voor Cardmarket."
   },
+  "settingNotify": {
+    "message": "Meldingen"
+  },
+  "settingNotifyHelp": {
+    "message": "Een melding als opgeslagen artikelen uit je mandje verdwijnen terwijl je ergens anders bent, en 5 minuten voordat Cardmarket je mandje leegt (als de mandjepagina die tijd toont)."
+  },
   "settingReminder": {
     "message": "Melding tonen op Cardmarket"
   },
   "settingReminderHelp": {
     "message": "Als opgeslagen artikelen uit je mandje zijn verdwenen, biedt een klein paneel aan om ze terug te zetten."
+  },
+  "settingTrend": {
+    "message": "Prijzen vergelijken met de trend"
+  },
+  "settingTrendHelp": {
+    "message": "Eén keer per dag wordt de openbare prijsgids van Cardmarket gedownload (een groot bestand); alleen je opgeslagen kaarten worden bewaard. Aanbiedingen die duidelijk boven de trend zitten krijgen een opmerking."
   },
   "settings": {
     "message": "Instellingen"
@@ -388,6 +421,27 @@
   },
   "settingsTitle": {
     "message": "Instellingen"
+  },
+  "shippingCopies": {
+    "message": "$1 kaart(en)"
+  },
+  "shippingCost": {
+    "message": "verzending $1 ($2%)"
+  },
+  "shippingMoreThanCards": {
+    "message": "verzending kost meer dan de kaarten"
+  },
+  "shippingNearTracked": {
+    "message": "nog $1 tot de grens van 25 € (tracking)"
+  },
+  "shippingSummary": {
+    "message": "Verzending per verkoper ($1)"
+  },
+  "shippingSummaryKnown": {
+    "message": "$1 verkopers · verzending $2 ($3% van het totaal)"
+  },
+  "shippingTracked": {
+    "message": "boven 25 €: meestal verzending met tracking (duurder)"
   },
   "soldBy": {
     "message": "Verkoper: $1"
@@ -415,6 +469,18 @@
   },
   "tabFavorites": {
     "message": "Favorieten ($1)"
+  },
+  "trendAbove": {
+    "message": "Trend $1 · deze aanbieding is $2% duurder"
+  },
+  "trendBelow": {
+    "message": "Trend $1 · deze aanbieding is $2% goedkoper"
+  },
+  "trendStatus": {
+    "message": "Laatst gelezen: $1 ($2 kaarten)."
+  },
+  "trendStatusError": {
+    "message": "Prijsgids kon niet worden gelezen: $1"
   },
   "undo": {
     "message": "Ongedaan maken"

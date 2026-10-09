@@ -24,6 +24,7 @@
   let state = { items: {}, favorites: {}, job: null, settings: store.DEFAULT_SETTINGS, meta: {}, interrupted: false };
   let refreshSeq = 0;
   let pollTimer = null;
+  let clockTimer = null;
   /** A one-off message (e.g. "favourite not on this page") until the user closes it. */
   let notice = null;
   /** The extension was updated or reloaded underneath this tab. */
@@ -61,6 +62,13 @@
     }
     .cmcs-pill .cmcs-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--cmcs-ok); }
     .cmcs-pill .cmcs-dot--warn { background: #e0a100; }
+    .cmcs-expiry { margin: -4px 0 8px; color: var(--cmcs-muted); font-size: 12px; }
+    .cmcs-expiry--soon { color: var(--cmcs-warn); font-weight: 600; }
+    .cmcs-shipping { margin: 0 0 6px; }
+    .cmcs-shipping-list { margin-top: 4px; }
+    .cmcs-shipping-row { padding: 5px 0; border-top: 1px solid var(--cmcs-border); }
+    .cmcs-shipping-row:first-child { border-top: 0; }
+    .cmcs-shipping-row .cmcs-item-meta { white-space: normal; }
     @media (max-width: 480px) {
       .cmcs-panel { right: 8px; left: 8px; bottom: 8px; width: auto; max-width: none; }
       .cmcs-pill { right: 8px; bottom: 8px; }
@@ -90,6 +98,7 @@
     document.documentElement.append(host);
 
     store.onChanged((changes) => {
+      if (store.isHeartbeatOnly(changes)) return;
       if (Object.keys(changes).some((key) => Object.values(store.KEYS).includes(key))) refresh();
     });
     watchForUpdate();
@@ -412,6 +421,8 @@
         { class: 'cmcs-lead' },
         inCart.length ? t('cartSavedLead', inCart.length) : t('cartEmptyLead'),
       ),
+      expiryLine(),
+      shippingSection(inCart),
     );
 
     if (missing.length) {
@@ -514,6 +525,71 @@
     return shell('Cart Saver', { onCollapse: () => setCollapsed(true) }, body);
   }
 
+  /** "Cardmarket empties your cart at 14:35 (in 23 min)", when the cart page said so. */
+  function expiryLine() {
+    const at = (state.meta.cartExpiry || {})[loc.game];
+    if (!at || at <= Date.now()) return null;
+    const minutes = Math.max(1, Math.round((at - Date.now()) / 60000));
+    const time = new Date(at).toLocaleTimeString(chrome.i18n.getUILanguage(), { hour: '2-digit', minute: '2-digit' });
+    return h('p', { class: `cmcs-expiry ${minutes <= 10 ? 'cmcs-expiry--soon' : ''}` }, t('expiryLine', time, String(minutes)));
+  }
+
+  /** €25: above it, most countries need tracked (dearer) shipping. */
+  const TRACKED_FROM_EUR = 25;
+  let shippingOpen = false;
+
+  /** Per seller: articles, value, shipping and what that means. Collapsed to one line by default. */
+  function shippingSection(inCart) {
+    const facts = (state.meta.shipping || {})[loc.game];
+    const bySeller = store.groupBy(inCart, (item) => item.seller || '—');
+    if (bySeller.size === 0) return null;
+    const shippingOf = new Map(((facts && facts.shipments) || []).map((s) => [s.seller, s.shipping]));
+    const rows = [...bySeller.entries()].map(([seller, list]) => {
+      const value = list.reduce((sum, item) => sum + (item.price || 0) * (item.amount || 1), 0);
+      const copies = list.reduce((sum, item) => sum + (item.amount || 1), 0);
+      const shipping = shippingOf.has(seller) ? shippingOf.get(seller) : null;
+      return { seller, value, copies, shipping };
+    });
+    rows.sort((a, b) => b.value - a.value);
+    const totalShipping = rows.every((r) => r.shipping != null) ? rows.reduce((sum, r) => sum + r.shipping, 0) : null;
+    const totalValue = rows.reduce((sum, r) => sum + r.value, 0);
+    const summary =
+      totalShipping != null
+        ? t('shippingSummaryKnown', String(rows.length), store.formatPrice(totalShipping), String(Math.round((totalShipping / (totalValue + totalShipping || 1)) * 100)))
+        : t('shippingSummary', String(rows.length));
+    return h(
+      'div',
+      { class: 'cmcs-shipping' },
+      h(
+        'button',
+        { type: 'button', class: 'cmcs-linklike', 'aria-expanded': String(shippingOpen), onclick: () => { shippingOpen = !shippingOpen; render(); } },
+        `${shippingOpen ? '▾' : '▸'} ${summary}`,
+      ),
+      shippingOpen
+        ? h(
+            'div',
+            { class: 'cmcs-shipping-list' },
+            rows.map((r) => {
+              const notes = [];
+              if (r.shipping != null) {
+                const share = Math.round((r.shipping / (r.value + r.shipping || 1)) * 100);
+                notes.push(t('shippingCost', store.formatPrice(r.shipping), String(share)));
+                if (r.shipping > r.value) notes.push(t('shippingMoreThanCards'));
+              }
+              if (r.value > TRACKED_FROM_EUR) notes.push(t('shippingTracked'));
+              else if (r.value > TRACKED_FROM_EUR - 3) notes.push(t('shippingNearTracked', store.formatPrice(TRACKED_FROM_EUR - r.value)));
+              return h(
+                'div',
+                { class: 'cmcs-shipping-row' },
+                h('div', { class: 'cmcs-row-between' }, h('strong', null, r.seller), h('span', null, store.formatPrice(r.value))),
+                h('div', { class: 'cmcs-item-meta' }, [t('shippingCopies', String(r.copies)), ...notes].join(' · ')),
+              );
+            }),
+          )
+        : null,
+    );
+  }
+
   function showNotice(next) {
     notice = next;
     render();
@@ -594,6 +670,10 @@
 
     panel.replaceChildren(...(view ? [view] : []));
     host.style.display = view ? '' : 'none';
+
+    // The countdown to the emptied cart moves on by itself.
+    clearTimeout(clockTimer);
+    if (view && ((meta.cartExpiry || {})[game] || 0) > Date.now()) clockTimer = setTimeout(render, 60 * 1000);
 
     // A job running in another tab: look again now and then, in case that tab closes.
     clearTimeout(pollTimer);

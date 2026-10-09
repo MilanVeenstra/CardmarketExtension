@@ -542,33 +542,67 @@
 
   const BRIDGE_PING_MS = 1500;
   const BRIDGE_REQUEST_MS = 30000;
-  let bridgeReady = null;
+  let bridgePort = null;
+  const pendingCalls = new Map();
+  const bridgeListeners = new Set();
 
-  function bridgeCall(payload, timeoutMs) {
+  /**
+   * Open the private channel to the page bridge: one window message carrying
+   * a MessagePort, after which everything goes over that port. Resolves to
+   * the port, or null when no bridge answers.
+   */
+  function connectBridge() {
+    if (bridgePort) return bridgePort;
+    bridgePort = new Promise((resolve) => {
+      if (typeof window === 'undefined' || location.origin !== ORIGIN || typeof MessageChannel === 'undefined') {
+        resolve(null);
+        return;
+      }
+      const { port1, port2 } = new MessageChannel();
+      const timer = setTimeout(() => resolve(null), BRIDGE_PING_MS);
+      port1.onmessage = (event) => {
+        const msg = event.data;
+        if (!msg) return;
+        if (msg.__cmcs === 'ready') {
+          clearTimeout(timer);
+          resolve(port1);
+        } else if (msg.__cmcs === 'response') {
+          const call = pendingCalls.get(msg.id);
+          if (!call) return;
+          pendingCalls.delete(msg.id);
+          clearTimeout(call.timer);
+          call.resolve(msg);
+        } else if (msg.__cmcs === 'event') {
+          for (const listener of bridgeListeners) listener(msg);
+        }
+      };
+      window.postMessage({ __cmcs: 'hello' }, location.origin, [port2]);
+    });
+    return bridgePort;
+  }
+
+  async function bridgeCall(payload, timeoutMs) {
+    const port = await connectBridge();
+    if (!port) throw new Error('no page bridge');
     return new Promise((resolve, reject) => {
       const id = `cmcs-${crypto.randomUUID()}`;
       const timer = setTimeout(() => {
-        window.removeEventListener('message', onMessage);
+        pendingCalls.delete(id);
         reject(new Error('bridge timeout'));
       }, timeoutMs);
-      function onMessage(event) {
-        if (event.source !== window || !event.data || event.data.__cmcs !== 'response' || event.data.id !== id) return;
-        clearTimeout(timer);
-        window.removeEventListener('message', onMessage);
-        resolve(event.data);
-      }
-      window.addEventListener('message', onMessage);
-      window.postMessage({ __cmcs: 'request', id, ...payload }, location.origin);
+      pendingCalls.set(id, { resolve, timer });
+      port.postMessage({ __cmcs: 'request', id, ...payload });
     });
   }
 
   function bridgeAvailable() {
-    if (typeof window === 'undefined' || location.origin !== ORIGIN) return Promise.resolve(false);
-    bridgeReady ??= bridgeCall({ ping: true }, BRIDGE_PING_MS).then(
-      (reply) => Boolean(reply.pong),
-      () => false,
-    );
-    return bridgeReady;
+    return connectBridge().then(Boolean);
+  }
+
+  /** Events from the page bridge (the site removed articles from the cart). */
+  function onBridgeEvent(listener) {
+    bridgeListeners.add(listener);
+    connectBridge();
   }
 
   const headerBag = (entries) => ({ get: (name) => entries[String(name).toLowerCase()] ?? null });
@@ -701,6 +735,85 @@
     return { token: null, detail: `searched: ${tried.join(', ')} · this page: ${tokenStats(document)}` };
   }
 
+  /** Words around the time at which Cardmarket empties the cart (en/de/fr/es/it/nl). */
+  const EXPIRY_WORDS =
+    /reserv|expire|emptied|empty|cleared|until|geleert|leer|bis\b|vidé|vider|jusqu|vaciar|vaciará|hasta|svuot|fino|geleegd|tot\b/i;
+  const CART_WORDS = /cart|basket|warenkorb|panier|carrito|carrello|winkelmand|mandje|reserv/i;
+  const CLOCK_RE = /\b([01]?\d|2[0-3])[:.h]([0-5]\d)\b/;
+  const MINUTES_RE = /\b(\d{1,3})\s*(?:min(?:ute[ns]?|uten|utos|uti)?\.?)(?![a-z])/i;
+  /** A cart is never kept longer than this; anything later is a misreading. */
+  const MAX_EXPIRY_MS = 6 * 60 * 60 * 1000;
+
+  /**
+   * When Cardmarket will empty the cart, if the page says so (a notice with a
+   * clock time, or "… in 45 minutes"). Returns a timestamp or null. The exact
+   * wording on the live site is not confirmed, so only plausible times count.
+   */
+  function readCartExpiry(doc, now = Date.now()) {
+    const candidates = doc.querySelectorAll(
+      '[data-countdown], [data-expires], [data-expiry], .alert, [class*="countdown"], [class*="timer"], [class*="expir"], [id*="countdown"], [id*="timer"]',
+    );
+    for (const el of candidates) {
+      if (el.closest('tr[data-article-id], cmcs-cart-saver')) continue;
+      for (const attr of ['data-countdown', 'data-expires', 'data-expiry']) {
+        const raw = Number(el.getAttribute(attr));
+        if (!raw) continue;
+        const at = raw > 1e12 ? raw : raw > 1e9 ? raw * 1000 : now + raw * 1000;
+        if (at > now && at - now <= MAX_EXPIRY_MS) return at;
+      }
+      const text = clean(el.textContent);
+      if (!text || text.length > 300 || !EXPIRY_WORDS.test(text) || !CART_WORDS.test(text)) continue;
+      const clock = text.match(CLOCK_RE);
+      if (clock) {
+        const at = new Date(now);
+        at.setHours(Number(clock[1]), Number(clock[2]), 0, 0);
+        if (at.getTime() <= now) at.setDate(at.getDate() + 1);
+        if (at.getTime() - now <= MAX_EXPIRY_MS) return at.getTime();
+        continue;
+      }
+      const minutes = text.match(MINUTES_RE);
+      if (minutes) {
+        const at = now + Number(minutes[1]) * 60 * 1000;
+        if (at > now && at - now <= MAX_EXPIRY_MS) return at;
+      }
+    }
+    return null;
+  }
+
+  const SHIPPING_WORD = /shipping|versand|porto|envoi|livraison|frais de port|envío|gastos de envío|spedizione|verzend/i;
+  const EURO_RE = /(\d{1,4}(?:[.\s]\d{3})*,\d{2})\s*€|€\s*(\d{1,4}(?:,\d{3})*\.\d{2})/;
+
+  function euroValue(text) {
+    const m = String(text || '').match(EURO_RE);
+    if (!m) return null;
+    return m[1] ? parseFloat(m[1].replace(/[.\s]/g, '').replace(',', '.')) : parseFloat(m[2].replace(/,/g, ''));
+  }
+
+  /**
+   * Per seller block on the cart page: who, and the shipping cost the page
+   * shows for that parcel (null when it cannot be found).
+   */
+  function readShipments(doc, baseUrl) {
+    return [...doc.querySelectorAll('section.shipment-block')].map((block) => {
+      const link =
+        block.querySelector('.seller-info a[href*="/Users/"]') ||
+        [...block.querySelectorAll('a[href*="/Users/"]')].find((a) => !a.closest('tr'));
+      let shipping = null;
+      for (const el of block.querySelectorAll('*')) {
+        if (el.closest('tr[data-article-id], table')) continue;
+        const own = clean(el.textContent);
+        if (!own || own.length > 120 || !SHIPPING_WORD.test(own)) continue;
+        const row = el.parentElement ? clean(el.parentElement.textContent) : '';
+        const value = euroValue(own) ?? (row.length <= 160 ? euroValue(row) : null);
+        if (value != null) {
+          shipping = value;
+          break;
+        }
+      }
+      return { ...sellerFromLink(link, baseUrl), shipping };
+    });
+  }
+
   /**
    * Read a cart page. `trustworthy` says whether the page can be taken as the
    * whole truth: only then may articles that are not on it count as gone.
@@ -717,6 +830,8 @@
       token: findToken(doc),
       headerCount,
       items,
+      expiresAt: signedIn ? readCartExpiry(doc) : null,
+      shipments: signedIn ? readShipments(doc, baseUrl) : [],
       ...cartTrust(doc, { signedIn, items, headerCount, headerTotal, hasShipments }),
     };
   }
@@ -904,6 +1019,8 @@
     parseOfferRow,
     readHeaderCount,
     readUsername,
+    readCartExpiry,
+    readShipments,
     classifyRefusal,
     isSignedIn,
     findToken,
@@ -914,6 +1031,7 @@
     discoverToken,
     tokenStats,
     request,
+    onBridgeEvent,
     isChallenge,
     parseAjaxResponse,
     fetchDocument,

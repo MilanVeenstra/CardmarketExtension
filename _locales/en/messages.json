@@ -119,6 +119,9 @@
   "errorUnknown": {
     "message": "Something went wrong. Try again."
   },
+  "expiryLine": {
+    "message": "Cardmarket empties your cart at $1 (in $2 min)."
+  },
   "exportCopied": {
     "message": "Copied to the clipboard."
   },
@@ -235,6 +238,18 @@
   },
   "nothingToRefill": {
     "message": "Nothing to put back"
+  },
+  "notifyEmptiedText": {
+    "message": "$1 saved article(s) are no longer in your cart. Click to put them back."
+  },
+  "notifyEmptiedTitle": {
+    "message": "Articles left your Cardmarket cart"
+  },
+  "notifyExpiryText": {
+    "message": "In about $1 minutes. Click to open your cart."
+  },
+  "notifyExpiryTitle": {
+    "message": "Your Cardmarket cart is about to be emptied"
   },
   "openCardmarket": {
     "message": "Open Cardmarket"
@@ -368,17 +383,35 @@
   "settingAutoTrackHelp": {
     "message": "Every article that appears in your cart is saved. When off, only the “Save current cart” button on the cart page saves articles."
   },
+  "settingAway": {
+    "message": "Check the cart while you are away from Cardmarket"
+  },
+  "settingAwayHelp": {
+    "message": "With a Cardmarket tab open and you at the computer, the cart is read at most every 10 minutes, so you hear sooner when it was emptied. Off by default: it adds requests."
+  },
   "settingDelay": {
     "message": "Pause between articles (seconds)"
   },
   "settingDelayHelp": {
     "message": "Articles are put back one by one. A longer pause is friendlier to Cardmarket."
   },
+  "settingNotify": {
+    "message": "Notifications"
+  },
+  "settingNotifyHelp": {
+    "message": "A notification when saved articles leave your cart while you are elsewhere, and 5 minutes before Cardmarket empties your cart (when the cart page shows that time)."
+  },
   "settingReminder": {
     "message": "Show a reminder on Cardmarket"
   },
   "settingReminderHelp": {
     "message": "When saved articles fell out of your cart, a small panel offers to put them back."
+  },
+  "settingTrend": {
+    "message": "Compare prices with the trend"
+  },
+  "settingTrendHelp": {
+    "message": "Once a day the public Cardmarket price guide is downloaded (a large file); only your saved cards are kept. Offers clearly above the trend get a note."
   },
   "settings": {
     "message": "Settings"
@@ -388,6 +421,27 @@
   },
   "settingsTitle": {
     "message": "Settings"
+  },
+  "shippingCopies": {
+    "message": "$1 card(s)"
+  },
+  "shippingCost": {
+    "message": "shipping $1 ($2%)"
+  },
+  "shippingMoreThanCards": {
+    "message": "shipping costs more than the cards"
+  },
+  "shippingNearTracked": {
+    "message": "$1 below the 25 € limit for tracked shipping"
+  },
+  "shippingSummary": {
+    "message": "Shipping per seller ($1)"
+  },
+  "shippingSummaryKnown": {
+    "message": "$1 sellers · shipping $2 ($3% of the total)"
+  },
+  "shippingTracked": {
+    "message": "over 25 €: usually tracked shipping (dearer)"
   },
   "soldBy": {
     "message": "Seller: $1"
@@ -415,6 +469,18 @@
   },
   "tabFavorites": {
     "message": "Favourites ($1)"
+  },
+  "trendAbove": {
+    "message": "Trend $1 · this offer is $2% higher"
+  },
+  "trendBelow": {
+    "message": "Trend $1 · this offer is $2% lower"
+  },
+  "trendStatus": {
+    "message": "Last read: $1 ($2 cards)."
+  },
+  "trendStatusError": {
+    "message": "Could not read the price guide: $1"
   },
   "undo": {
     "message": "Undo"

@@ -16,6 +16,9 @@ import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
 import { createMockCardmarket, ARTICLES } from './mock-cardmarket.mjs';
 
+// Let context.route() also see the extension service worker's requests (the price guide).
+process.env.PW_EXPERIMENTAL_SERVICE_WORKER_NETWORK_EVENTS = '1';
+
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const SHOTS = process.env.SCREENSHOT_DIR ? path.resolve(process.env.SCREENSHOT_DIR) : null;
 const CM = 'https://www.cardmarket.com';
@@ -534,7 +537,7 @@ describe('Cardmarket Cart Saver', () => {
   });
 
   /** Mark MAGE as missing (and out of the mock cart), then refill it from the reminder. */
-  async function refillMageFromReminder() {
+  async function refillMageFromReminder(target = page) {
     mock.state.cart.delete(MAGE);
     // Only MAGE is missing; the header count is "already seen" so the page does not re-sync.
     const patch = {};
@@ -547,17 +550,29 @@ describe('Cardmarket Cart Saver', () => {
       (count) => chrome.storage.local.set({ 'cmcs.job': null, 'cmcs.meta': { sync: { Magic: { at: Date.now(), headerCount: count } } } }),
       headerCount,
     );
-    await page.goto(`${CM}/en/Magic`);
-    await widget(page).getByRole('button', { name: 'Zet 1 artikel(en) terug' }).click();
+    await target.goto(`${CM}/en/Magic`);
+    await widget(target).getByRole('button', { name: 'Zet 1 artikel(en) terug' }).click();
     return waitFor(async () => {
       const j = (await storage())['cmcs.job'];
       return j && (j.state === 'done' || j.state === 'error') && j;
     }, 'job finished');
   }
 
-  it('sends requests from the page itself (page bridge)', async () => {
+  it('talks to its page bridge privately: page scripts see nothing', async () => {
     await page.goto(`${CM}/en/Magic`);
-    assert.equal(await page.evaluate(() => window.__cmcsBridge), true);
+    assert.equal(await page.evaluate(() => 'cmcsBridge' in window || '__cmcsBridge' in window), false, 'no trace on window');
+    await page.evaluate(() => {
+      window.__seen = [];
+      window.addEventListener('message', (e) => e.data && e.data.__cmcs && window.__seen.push(e.data.__cmcs), true);
+    });
+    const before = mock.state.requests.length;
+    const reply = await sw.evaluate(async (url) => {
+      const [tab] = await chrome.tabs.query({ url });
+      return chrome.tabs.sendMessage(tab.id, { type: 'cmcs.sync' });
+    }, `${CM}/en/Magic`);
+    assert.equal(reply.ok, true);
+    assert.ok(mock.state.requests.slice(before).some((r) => r.path === '/en/Magic/ShoppingCart'), 'the cart was read');
+    assert.deepEqual(await page.evaluate(() => window.__seen), []);
   });
 
   it('reports an unexpected answer as such, not as "not logged in"', async (t) => {
@@ -584,9 +599,23 @@ describe('Cardmarket Cart Saver', () => {
   });
 
   it('falls back to its own requests when the page bridge does not answer', async (t) => {
-    t.after(() => (mock.state.blockBridge = false));
-    mock.state.blockBridge = true;
-    const job = await refillMageFromReminder();
+    // A page that grabs the hello before the bridge can (registered even earlier).
+    const hostile = await context.newPage();
+    t.after(() => hostile.close());
+    await hostile.addInitScript(() => {
+      window.addEventListener(
+        'message',
+        (e) => {
+          if (e.data && e.data.__cmcs === 'hello') {
+            window.__swallowedHello = true;
+            e.stopImmediatePropagation();
+          }
+        },
+        true,
+      );
+    });
+    const job = await refillMageFromReminder(hostile);
+    assert.equal(await hostile.evaluate(() => window.__swallowedHello), true, 'the bridge really was cut off');
     assert.equal(job.state, 'done');
     assert.ok(mock.state.cart.has(MAGE));
     assert.equal((await items())[MAGE].status, 'in_cart');
@@ -1098,6 +1127,140 @@ describe('Cardmarket Cart Saver', () => {
       assert.equal(all[BOG].status, 'in_cart');
       assert.equal(all[SOL_SAME_SELLER].status, 'in_cart');
       await popup.close();
+    });
+  });
+
+  describe('insight', () => {
+    const DAY = 24 * 60 * 60 * 1000;
+
+    it('shows when Cardmarket will empty the cart and warns 5 minutes before', async (t) => {
+      t.after(() => (mock.state.cartNotice = null));
+      await sw.evaluate(() => chrome.storage.local.set({ 'cmcs.job': null, 'cmcs.meta': {}, 'cmcs.items': {} }));
+      mock.state.cart = new Map([
+        [BOG, 2],
+        [MAGE, 1],
+        [SOL_RING, 1],
+      ]);
+      const at = new Date(Date.now() + 40 * 60 * 1000);
+      const hhmm = `${String(at.getHours()).padStart(2, '0')}:${String(at.getMinutes()).padStart(2, '0')}`;
+      mock.state.cartNotice = `Your shopping cart will be emptied at ${hhmm}.`;
+      await page.goto(`${CM}/en/Magic/ShoppingCart`);
+      await waitFor(async () => (await storage())['cmcs.meta']?.cartExpiry?.Magic, 'expiry read');
+      const expiry = (await storage())['cmcs.meta'].cartExpiry.Magic;
+      assert.ok(Math.abs(expiry - at.getTime()) < 60 * 1000, 'the time from the notice');
+      await waitFor(async () => /Cardmarket leegt je mandje om \d\d:\d\d \(nog (39|40) min\)/.test(await widget(page).innerText()), 'countdown');
+
+      const alarm = await waitFor(() => sw.evaluate(() => chrome.alarms.get('cmcs.expiry')), 'alarm');
+      assert.ok(Math.abs(alarm.scheduledTime - (expiry - 5 * 60 * 1000)) < 2000, '5 minutes before');
+      assert.equal(await sw.evaluate(() => self.cmcs.warnExpiry()), true);
+      const shown = await sw.evaluate(() => new Promise((resolve) => chrome.notifications.getAll(resolve)));
+      assert.ok(shown['expiry-Magic'], JSON.stringify(shown));
+      await sw.evaluate(() => chrome.notifications.clear('expiry-Magic'));
+    });
+
+    it('sums up shipping per seller', async () => {
+      const panel = widget(page);
+      const toggle = panel.getByRole('button', { name: /2 verkopers · verzending 2,30 € \(38% van het totaal\)/ });
+      await toggle.click();
+      const rows = await panel.locator('.cmcs-shipping-row').allInnerTexts();
+      assert.equal(rows.length, 2);
+      assert.match(rows[0], /snowc[\s\S]*2,23 €[\s\S]*3 kaart\(en\) · verzending 1,15 € \(34%\)/);
+      assert.match(rows[1], /Kärtchen-Laden[\s\S]*1,49 €[\s\S]*1 kaart\(en\) · verzending 1,15 € \(44%\)/);
+      await shot(panel, '17-shipping');
+    });
+
+    it('notes offers clearly above the price trend (public price guide)', async (t) => {
+      const guide = {
+        version: 1,
+        createdAt: new Date().toISOString(),
+        priceGuides: [
+          { idProduct: 361919, idCategory: 1, avg: 0.6, low: 0.3, trend: 0.5, 'trend-foil': 1.2 },
+          { idProduct: 723729, idCategory: 1, avg: 0.3, low: 0.1, trend: 0.3, 'trend-foil': 0.2 },
+          { idProduct: 1, idCategory: 1, trend: 9.99 },
+        ],
+      };
+      const fetched = [];
+      await context.route('https://downloads.s3.cardmarket.com/**', (r) => {
+        fetched.push(new URL(r.request().url()).pathname);
+        return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(guide) });
+      });
+      t.after(async () => {
+        await context.unroute('https://downloads.s3.cardmarket.com/**');
+        await sw.evaluate(async () => {
+          const { 'cmcs.settings': settings } = await chrome.storage.local.get('cmcs.settings');
+          await chrome.storage.local.set({ 'cmcs.settings': { ...settings, priceTrend: false } });
+        });
+      });
+      await sw.evaluate(async () => {
+        const { 'cmcs.settings': settings } = await chrome.storage.local.get('cmcs.settings');
+        await chrome.storage.local.set({ 'cmcs.settings': { ...settings, priceTrend: true } });
+      });
+      const status = await waitFor(async () => (await storage())['cmcs.prices'], 'price guide read');
+      assert.equal(status.error, null);
+      assert.deepEqual(status.games, { Magic: 2 });
+      assert.deepEqual(fetched, ['/productCatalog/priceGuide/price_guide_1.json']);
+      const all = await items();
+      assert.equal(all[BOG].trend.value, 0.5);
+      assert.equal(all[MAGE].trend.value, 0.2, 'the foil trend for a foil card');
+
+      const popup = await context.newPage();
+      await popup.goto(`chrome-extension://${extensionId}/src/popup/popup.html`);
+      await popup.locator('#tab-cart').click();
+      const list = await popup.locator('#list').innerText();
+      assert.match(list, /Bojuka Bog[\s\S]*Trend 0,50 € · deze aanbieding is 98% duurder/);
+      assert.doesNotMatch(list, /Portal Mage[\s\S]*Trend/, 'five cents above the trend is not worth a note');
+      await popup.close();
+    });
+
+    it('reads the cart again after 15 minutes, even when the count looks the same', async () => {
+      await sw.evaluate(async () => {
+        const { 'cmcs.meta': meta } = await chrome.storage.local.get('cmcs.meta');
+        meta.sync.Magic.at = Date.now() - 20 * 60 * 1000;
+        await chrome.storage.local.set({ 'cmcs.meta': meta });
+      });
+      const before = mock.state.requests.length;
+      await page.goto(`${CM}/en/Magic`);
+      await waitFor(
+        () => mock.state.requests.slice(before).some((r) => r.method === 'GET' && r.path === '/en/Magic/ShoppingCart'),
+        'cart read again',
+      );
+    });
+
+    it('can look at the cart every 10 minutes while you are away (off by default)', async () => {
+      assert.equal(await sw.evaluate(() => chrome.alarms.get('cmcs.away')), undefined, 'off by default');
+      await sw.evaluate(async () => {
+        const { 'cmcs.settings': settings } = await chrome.storage.local.get('cmcs.settings');
+        await chrome.storage.local.set({ 'cmcs.settings': { ...settings, awayChecks: true } });
+      });
+      const alarm = await waitFor(() => sw.evaluate(() => chrome.alarms.get('cmcs.away')), 'away alarm');
+      assert.equal(alarm.periodInMinutes, 10);
+
+      // Twenty minutes later the cart was emptied; the check notices it.
+      mock.state.cart.clear();
+      await sw.evaluate(async () => {
+        const { 'cmcs.meta': meta } = await chrome.storage.local.get('cmcs.meta');
+        meta.sync.Magic.at = Date.now() - 20 * 60 * 1000;
+        await chrome.storage.local.set({ 'cmcs.meta': meta });
+      });
+      assert.equal(await sw.evaluate(() => self.cmcs.awayCheck()), true);
+      await waitFor(async () => (await items())[BOG].status === 'missing', 'emptied cart noticed');
+
+      await sw.evaluate(async () => {
+        const { 'cmcs.settings': settings } = await chrome.storage.local.get('cmcs.settings');
+        await chrome.storage.local.set({ 'cmcs.settings': { ...settings, awayChecks: false } });
+      });
+      await waitFor(async () => (await sw.evaluate(() => chrome.alarms.get('cmcs.away'))) === undefined, 'alarm gone');
+    });
+
+    it('forgets articles that have been unavailable for a month', async () => {
+      await patchItems({
+        [SOL_RING]: { status: 'unavailable', lastAttempt: { at: Date.now() - 40 * DAY, ok: false }, missingSince: Date.now() - 40 * DAY, lastSeenInCartAt: Date.now() - 41 * DAY },
+        [MAGE]: { status: 'unavailable', lastAttempt: { at: Date.now() - 2 * DAY, ok: false } },
+      });
+      assert.equal(await sw.evaluate(() => self.cmcs.pruneStale()), 1);
+      const all = await items();
+      assert.equal(all[SOL_RING], undefined);
+      assert.ok(all[MAGE], 'recent ones stay');
     });
   });
 
