@@ -17,6 +17,9 @@
   "badgeTitle": {
     "message": "Cart Saver – $1 opgeslagen artikel(en) niet in je mandje"
   },
+  "cancel": {
+    "message": "Annuleren"
+  },
   "cartEmptyLead": {
     "message": "Je winkelmandje is leeg. Deze opgeslagen artikelen kun je terugzetten:"
   },
@@ -30,10 +33,10 @@
     "message": "“$1” verwijderd."
   },
   "cartsEmptyLead": {
-    "message": "Bewaar je lijst onder een naam (bijvoorbeeld per deck) en zet hem later met één klik terug in je mandje."
+    "message": "Bewaar wat in je winkelmandje staat als lijst (bijvoorbeeld per deck) met “Bewaar als lijst…” in het tabblad Winkelmandje. Later zet je hem hier met één klik terug."
   },
   "cartsEmptyTitle": {
-    "message": "Nog geen bewaarde mandjes"
+    "message": "Nog geen bewaarde lijsten"
   },
   "cartsFull": {
     "message": "Je hebt al $1 bewaarde lijsten. Verwijder er eerst één."
@@ -47,14 +50,26 @@
   "cartsNothing": {
     "message": "Er staat niets in de lijst om te bewaren."
   },
+  "cartsRename": {
+    "message": "Hernoemen"
+  },
   "cartsRestore": {
     "message": "In mandje zetten"
   },
   "cartsSave": {
-    "message": "Lijst bewaren"
+    "message": "Bewaren"
   },
   "cartsSaved": {
     "message": "Bewaard als “$1”."
+  },
+  "cartsUpdate": {
+    "message": "Bijwerken"
+  },
+  "cartsUpdateHint": {
+    "message": "Vervang de artikelen door wat nu in het tabblad Winkelmandje staat"
+  },
+  "cartsUpdated": {
+    "message": "“$1” bijgewerkt met je huidige lijst."
   },
   "clearAll": {
     "message": "Alles wissen"
@@ -254,6 +269,18 @@
   "jobCancelled": {
     "message": "Gestopt voordat alle artikelen waren teruggezet."
   },
+  "listAllInCart": {
+    "message": "Alles van deze lijst zit al in je mandje."
+  },
+  "listsFormMeta": {
+    "message": "$1 artikel(en) · $2"
+  },
+  "listsSaveOpen": {
+    "message": "Bewaar als lijst…"
+  },
+  "listsView": {
+    "message": "Bekijken"
+  },
   "notAvailableAnymore": {
     "message": "Niet meer beschikbaar."
   },
@@ -304,6 +331,18 @@
   },
   "openCart": {
     "message": "Open winkelmandje"
+  },
+  "panelListsTitle": {
+    "message": "Bewaarde lijsten ($1)"
+  },
+  "panelNoItemsLead": {
+    "message": "Alles wat je in je mandje legt, onthoudt Cart Saver vanzelf."
+  },
+  "panelNoItemsLeadManual": {
+    "message": "Automatisch onthouden staat uit: lees je mandje in met de knop hieronder."
+  },
+  "panelNoItemsTitle": {
+    "message": "Nog niets onthouden"
   },
   "partialNote": {
     "message": "$1 van $2 in je mandje"
@@ -432,7 +471,7 @@
     "message": "Toch opnieuw proberen"
   },
   "saveCartNow": {
-    "message": "Huidig mandje opslaan"
+    "message": "Mandje nu inlezen"
   },
   "sectionInCart": {
     "message": "$1 in je mandje"
@@ -558,7 +597,7 @@
     "message": "Winkelmandje"
   },
   "tabCarts": {
-    "message": "Mandjes $1"
+    "message": "Lijsten $1"
   },
   "tabFavorites": {
     "message": "Favorieten $1"

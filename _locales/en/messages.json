@@ -17,6 +17,9 @@
   "badgeTitle": {
     "message": "Cart Saver – $1 saved article(s) not in your cart"
   },
+  "cancel": {
+    "message": "Cancel"
+  },
   "cartEmptyLead": {
     "message": "Your cart is empty. These saved articles can be put back:"
   },
@@ -30,10 +33,10 @@
     "message": "“$1” deleted."
   },
   "cartsEmptyLead": {
-    "message": "Save your list under a name (for example per deck) and put it back in your cart later with one click."
+    "message": "Save what is in your cart as a list (for example per deck) with “Save as list…” in the Cart tab. Put it back here later with one click."
   },
   "cartsEmptyTitle": {
-    "message": "No saved carts yet"
+    "message": "No saved lists yet"
   },
   "cartsFull": {
     "message": "You already have $1 saved lists. Delete one first."
@@ -47,14 +50,26 @@
   "cartsNothing": {
     "message": "There is nothing in the list to save."
   },
+  "cartsRename": {
+    "message": "Rename"
+  },
   "cartsRestore": {
     "message": "Put in cart"
   },
   "cartsSave": {
-    "message": "Save list"
+    "message": "Save"
   },
   "cartsSaved": {
     "message": "Saved as “$1”."
+  },
+  "cartsUpdate": {
+    "message": "Update"
+  },
+  "cartsUpdateHint": {
+    "message": "Replace the articles with what the Cart tab holds now"
+  },
+  "cartsUpdated": {
+    "message": "“$1” updated with your current list."
   },
   "clearAll": {
     "message": "Delete everything"
@@ -254,6 +269,18 @@
   "jobCancelled": {
     "message": "Stopped before all articles were put back."
   },
+  "listAllInCart": {
+    "message": "Everything on this list is already in your cart."
+  },
+  "listsFormMeta": {
+    "message": "$1 article(s) · $2"
+  },
+  "listsSaveOpen": {
+    "message": "Save as list…"
+  },
+  "listsView": {
+    "message": "View"
+  },
   "notAvailableAnymore": {
     "message": "No longer available."
   },
@@ -304,6 +331,18 @@
   },
   "openCart": {
     "message": "Open cart"
+  },
+  "panelListsTitle": {
+    "message": "Saved lists ($1)"
+  },
+  "panelNoItemsLead": {
+    "message": "Cart Saver remembers everything you put in your cart."
+  },
+  "panelNoItemsLeadManual": {
+    "message": "Saving automatically is off: read your cart with the button below."
+  },
+  "panelNoItemsTitle": {
+    "message": "Nothing saved yet"
   },
   "partialNote": {
     "message": "$1 of $2 in your cart"
@@ -432,7 +471,7 @@
     "message": "Try again anyway"
   },
   "saveCartNow": {
-    "message": "Save current cart"
+    "message": "Read the cart now"
   },
   "sectionInCart": {
     "message": "$1 in your cart"
@@ -558,7 +597,7 @@
     "message": "Cart"
   },
   "tabCarts": {
-    "message": "Carts $1"
+    "message": "Lists $1"
   },
   "tabFavorites": {
     "message": "Favourites $1"

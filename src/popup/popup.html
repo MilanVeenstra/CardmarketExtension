@@ -30,9 +30,18 @@
         <nav id="refill-games" class="cmcs-chips" hidden></nav>
         <section id="list" class="list"></section>
         <section id="export" class="export" hidden>
+          <button type="button" id="save-list" class="cmcs-link" data-i18n="listsSaveOpen"></button>
           <button type="button" id="export-text" class="cmcs-link" data-i18n="exportCopy"></button>
           <button type="button" id="export-csv" class="cmcs-link" data-i18n="exportCsv"></button>
         </section>
+        <form id="list-form" class="list-form" hidden>
+          <p id="list-form-meta" class="cmcs-muted"></p>
+          <div class="cart-form">
+            <input id="list-name" class="search" type="text" maxlength="80" autocomplete="off" data-i18n-placeholder="cartsNamePlaceholder" />
+            <button type="submit" class="cmcs-btn cmcs-btn--small" data-i18n="cartsSave"></button>
+            <button type="button" id="list-cancel" class="cmcs-link" data-i18n="cancel"></button>
+          </div>
+        </form>
         <section id="empty" class="empty" hidden>
           <p class="empty-title" data-i18n="emptyTitle"></p>
           <p class="cmcs-muted" data-i18n="emptyLead"></p>
@@ -50,10 +59,6 @@
       </div>
 
       <div id="view-carts" role="tabpanel" aria-labelledby="tab-carts" hidden>
-        <form id="cart-form" class="cart-form">
-          <input id="cart-name" class="search" type="text" maxlength="80" autocomplete="off" data-i18n-placeholder="cartsNamePlaceholder" />
-          <button type="submit" class="cmcs-btn" data-i18n="cartsSave"></button>
-        </form>
         <section id="carts-list" class="list"></section>
         <section id="carts-empty" class="empty" hidden>
           <p class="empty-title" data-i18n="cartsEmptyTitle"></p>

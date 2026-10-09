@@ -43,6 +43,9 @@
   let showInCart = false;
   let notice = null;
   let query = '';
+  /** The saved list that is unfolded, and the one being renamed. */
+  let openList = null;
+  let renamingList = null;
   let tab = 'cart';
   const TABS = ['cart', 'fav', 'carts'];
   try {
@@ -89,14 +92,35 @@
   $('export-csv').addEventListener('click', () =>
     download(`cart-saver-${game === ALL ? 'all' : game || 'list'}.csv`, store.exportCsv(currentList()), 'text/csv'),
   );
-  $('cart-form').addEventListener('submit', async (event) => {
-    event.preventDefault();
-    const list = currentList().filter((item) => item.status !== STATUS.UNAVAILABLE);
+  // "Bewaar als lijst…": what the Winkelmandje tab shows (the game picked included), under a name.
+  const listToSave = () => currentList().filter((item) => item.status !== STATUS.UNAVAILABLE);
+  $('save-list').addEventListener('click', () => {
+    const list = listToSave();
     if (!list.length) return showToast(t('cartsNothing'));
-    const saved = await store.saveCart($('cart-name').value, list);
+    $('list-form-meta').textContent = t('listsFormMeta', String(list.length), game && game !== ALL ? store.gameName(game) : t('allGames'));
+    $('list-form').hidden = false;
+    $('list-name').focus();
+  });
+  $('list-cancel').addEventListener('click', () => {
+    $('list-form').hidden = true;
+    $('list-name').value = '';
+  });
+  $('list-form').addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const list = listToSave();
+    if (!list.length) return showToast(t('cartsNothing'));
+    const saved = await store.saveCart($('list-name').value, list);
     if (!saved) return showToast(t('cartsFull', String(store.MAX_CARTS)));
-    $('cart-name').value = '';
-    showToast(t('cartsSaved', saved.name));
+    $('list-name').value = '';
+    $('list-form').hidden = true;
+    showToast(t('cartsSaved', saved.name), {
+      label: t('listsView'),
+      onClick: () => {
+        tab = 'carts';
+        openList = saved.id;
+        render();
+      },
+    });
   });
 
   // ---------------------------------------------------------------------------
@@ -208,9 +232,31 @@
   async function restoreCart(cart) {
     await store.ensureItems(cart.items);
     const saved = await store.getItems();
+    const todo = cart.items.map((item) => saved[item.articleId]).filter((item) => item && item.status !== STATUS.IN_CART);
+    if (!todo.length) return showToast(t('listAllInCart'));
     game = cart.game || ALL;
     tab = 'cart';
-    await refill(cart.items.map((item) => saved[item.articleId]).filter((item) => item && item.status !== STATUS.IN_CART));
+    render();
+    await refill(todo);
+  }
+
+  /** Replace a saved list's articles with what the Winkelmandje tab holds now, with a way back. */
+  async function updateList(cart) {
+    const list = listToSave();
+    if (!list.length) return showToast(t('cartsNothing'));
+    const before = cart.items;
+    await store.updateCart(cart.id, (current) => ({ ...current, items: store.savedCopies(list), updatedAt: Date.now() }));
+    showToast(t('cartsUpdated', cart.name), {
+      label: t('undo'),
+      onClick: () => store.updateCart(cart.id, (current) => ({ ...current, items: before })),
+    });
+  }
+
+  async function renameList(cart, name) {
+    renamingList = null;
+    const clean = String(name || '').trim().slice(0, 80);
+    if (clean && clean !== cart.name) await store.updateCart(cart.id, (current) => ({ ...current, name: clean }));
+    else render();
   }
 
   /** Favourites go through the same refill job as saved cart articles (amount 1). */
@@ -612,27 +658,82 @@
 
   function renderCarts() {
     $('carts-empty').hidden = carts.length > 0;
+    const busy = store.isJobActive(job);
     $('carts-list').replaceChildren(
       ...carts.map((cart) => {
         const value = cart.items.reduce((sum, item) => sum + (item.price || 0) * (item.wantedAmount || item.amount || 1), 0);
+        const open = openList === cart.id;
+        const meta = t(
+          'cartsMeta',
+          cart.items.length,
+          store.formatPrice(value),
+          [cart.game ? store.gameName(cart.game) : t('allGames'), formatDate(cart.updatedAt || cart.createdAt)].join(' · '),
+        );
+        const head =
+          renamingList === cart.id
+            ? h(
+                'form',
+                {
+                  class: 'cart-form',
+                  onsubmit: (event) => {
+                    event.preventDefault();
+                    renameList(cart, event.target.elements.name.value);
+                  },
+                },
+                h('input', {
+                  name: 'name',
+                  class: 'search',
+                  type: 'text',
+                  maxlength: '80',
+                  value: cart.name,
+                  'aria-label': t('cartsRename'),
+                  onkeydown: (event) => {
+                    if (event.key === 'Escape') {
+                      renamingList = null;
+                      render();
+                    }
+                  },
+                }),
+                h('button', { type: 'submit', class: 'cmcs-btn cmcs-btn--small' }, t('cartsSave')),
+              )
+            : h(
+                'button',
+                {
+                  type: 'button',
+                  class: 'saved-cart-head',
+                  'aria-expanded': String(open),
+                  onclick: () => {
+                    openList = open ? null : cart.id;
+                    render();
+                  },
+                },
+                h('span', { class: 'saved-cart-title' }, h('span', { class: 'saved-cart-name', title: cart.name }, cart.name), h('span', { class: 'saved-cart-meta' }, meta)),
+                ui.icon(open ? 'chevronDown' : 'chevronRight'),
+              );
         return h(
           'div',
-          { class: 'saved-cart' },
-          h('div', { class: 'saved-cart-name', title: cart.name }, cart.name),
-          h(
-            'div',
-            { class: 'saved-cart-meta' },
-            t(
-              'cartsMeta',
-              cart.items.length,
-              store.formatPrice(value),
-              [cart.game ? store.gameName(cart.game) : t('allGames'), formatDate(cart.createdAt)].join(' · '),
-            ),
-          ),
+          { class: 'saved-cart', dataset: { cartId: cart.id } },
+          head,
+          open
+            ? h(
+                'div',
+                { class: 'saved-cart-items' },
+                [...cart.items].sort(bySellerName).map((item) =>
+                  ui.itemRow({ ...item, status: 'offer' }, {
+                    note: null,
+                    extraMeta: item.seller || null,
+                    price: store.formatPrice(item.price != null ? item.price * (item.wantedAmount || item.amount || 1) : null),
+                    href: cm.offerUrl(item) || item.productUrl,
+                  }),
+                ),
+              )
+            : null,
           h(
             'div',
             { class: 'saved-cart-actions' },
-            h('button', { type: 'button', class: 'cmcs-btn cmcs-btn--small', disabled: store.isJobActive(job), onclick: () => restoreCart(cart) }, t('cartsRestore')),
+            h('button', { type: 'button', class: 'cmcs-btn cmcs-btn--small', disabled: busy, onclick: () => restoreCart(cart) }, t('cartsRestore')),
+            open ? h('button', { type: 'button', class: 'cmcs-link', title: t('cartsUpdateHint'), onclick: () => updateList(cart) }, t('cartsUpdate')) : null,
+            open ? h('button', { type: 'button', class: 'cmcs-link', onclick: () => { renamingList = cart.id; render(); } }, t('cartsRename')) : null,
             h('button', { type: 'button', class: 'cmcs-link', onclick: () => copyText(store.exportText(cart.items)) }, t('exportCopy')),
             h('button', { type: 'button', class: 'cmcs-link', onclick: () => download(`${cart.name}.csv`, store.exportCsv(cart.items), 'text/csv') }, 'CSV'),
             h('span', { style: 'flex:1' }),
@@ -641,6 +742,13 @@
         );
       }),
     );
+    if (renamingList) {
+      const input = $('carts-list').querySelector('input[name="name"]');
+      if (input) {
+        input.focus();
+        input.select();
+      }
+    }
   }
 
   function render() {

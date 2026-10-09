@@ -543,11 +543,7 @@
         name: String(name || '').trim().slice(0, 80) || new Date(now).toISOString().slice(0, 10),
         createdAt: now,
         game: new Set(articles.map((item) => item.game)).size === 1 ? articles[0].game : null,
-        items: articles.map((item) => {
-          // No pictures: a saved cart must stay small (storage is limited); they are made again later.
-          const { status, missingSince, missingReason, lastAttempt, priceChange, viaFavorite, thumb, thumbTriedAt, ...rest } = item;
-          return { ...rest, wantedAmount: item.wantedAmount || item.amount || 1 };
-        }),
+        items: store.savedCopies(articles),
       };
       let saved = null;
       await update(KEYS.carts, [], (carts) => {
@@ -556,6 +552,19 @@
         return [cart, ...carts];
       });
       return saved;
+    },
+
+    /** The articles as a saved list keeps them: what they are, not how they are doing now. */
+    savedCopies(articles) {
+      return articles.map((item) => {
+        const { status, missingSince, missingReason, lastAttempt, priceChange, viaFavorite, thumb, thumbTriedAt, ...rest } = item;
+        return { ...rest, wantedAmount: item.wantedAmount || item.amount || 1 };
+      });
+    },
+
+    /** Change one saved cart (rename, new articles…). */
+    updateCart(id, fn) {
+      return update(KEYS.carts, [], (carts) => (carts.some((cart) => cart.id === id) ? carts.map((cart) => (cart.id === id ? fn(cart) : cart)) : undefined));
     },
 
     removeCart: (id) => update(KEYS.carts, [], (carts) => carts.filter((cart) => cart.id !== id)),

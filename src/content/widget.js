@@ -21,7 +21,7 @@
   let host;
   let shadow;
   let panel;
-  let state = { items: {}, favorites: {}, job: null, settings: store.DEFAULT_SETTINGS, meta: {}, interrupted: false };
+  let state = { items: {}, favorites: {}, job: null, settings: store.DEFAULT_SETTINGS, meta: {}, carts: [], interrupted: false };
   let refreshSeq = 0;
   let pollTimer = null;
   let clockTimer = null;
@@ -32,6 +32,10 @@
   const deselected = new Set();
   /** The article a replacement is being looked for: { id, loading, offers, error }. */
   let replacing = null;
+  /** "Bewaar als lijst…": the name field while open, and a short line after saving. */
+  let listForm = null;
+  let listNote = null;
+  let listNoteTimer = null;
 
   const WIDGET_CSS = `
     :host { all: initial; }
@@ -72,6 +76,15 @@
     .cmcs-replace .cmcs-item:first-of-type { border-top: 0; }
     .cmcs-replace .cmcs-item-meta:last-child { white-space: normal; }
     .cmcs-replace-title { font-size: 12px; color: var(--cmcs-muted); margin: 2px 0; }
+    .cmcs-list-form { display: flex; gap: 8px; align-items: center; margin: 8px 0 0; }
+    .cmcs-input {
+      flex: 1; min-width: 0; font: inherit; color: var(--cmcs-text); background: transparent; border: 0; border-radius: 0;
+      border-bottom: 1px solid var(--cmcs-border-strong); padding: 6px 0;
+    }
+    .cmcs-input:focus { outline: none; border-bottom-color: var(--cmcs-text); }
+    .cmcs-saved-list { display: flex; align-items: center; gap: 10px; padding: 6px 0; border-top: 1px solid var(--cmcs-line); }
+    .cmcs-saved-list-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+    .cmcs-saved-list-name { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     @media (max-width: 480px) {
       .cmcs-panel { right: 8px; left: 8px; bottom: 8px; width: auto; max-width: none; }
       .cmcs-pill { right: 8px; bottom: 8px; }
@@ -125,17 +138,18 @@
   async function refresh() {
     if (orphaned) return;
     const seq = (refreshSeq += 1);
-    const [items, favorites, job, settings, meta] = await Promise.all([
+    const [items, favorites, job, settings, meta, carts] = await Promise.all([
       store.getItems(),
       store.getFavorites(),
       store.getJob(),
       store.getSettings(),
       store.getMeta(),
+      store.getCarts(),
     ]);
     const interrupted = await isInterrupted(job);
     // A slower, older refresh must not paint over a newer one.
     if (seq !== refreshSeq) return;
-    state = { items, favorites, job, settings, meta, interrupted };
+    state = { items, favorites, job, settings, meta, carts, interrupted };
     render();
   }
 
@@ -235,6 +249,38 @@
         );
       }),
     );
+  }
+
+  /** A short line in the panel ("Bewaard als …"), gone after a few seconds. */
+  function noteInPanel(text) {
+    listNote = text;
+    clearTimeout(listNoteTimer);
+    listNoteTimer = setTimeout(() => {
+      listNote = null;
+      render();
+    }, 5000);
+    render();
+  }
+
+  /** Save the list (everything that can still go back, every game) under a name. */
+  async function saveList(name) {
+    const list = Object.values(state.items).filter((item) => item.status !== store.STATUS.UNAVAILABLE);
+    listForm = null;
+    if (!list.length) return noteInPanel(t('cartsNothing'));
+    const saved = await store.saveCart(name, list);
+    noteInPanel(saved ? t('cartsSaved', saved.name) : t('cartsFull', String(store.MAX_CARTS)));
+  }
+
+  /** Put a saved list back: its articles join the list and what is not in the cart goes in. */
+  async function restoreList(cart) {
+    await store.ensureItems(cart.items);
+    const saved = await store.getItems();
+    const ids = cart.items
+      .map((item) => saved[item.articleId])
+      .filter((item) => item && item.status !== store.STATUS.IN_CART)
+      .map((item) => item.articleId);
+    if (!ids.length) return noteInPanel(t('listAllInCart'));
+    await refill(ids);
   }
 
   async function dismissReminder() {
@@ -525,6 +571,16 @@
           expiryLine(),
         ),
       );
+    } else if (!inCart.length && !unavailable.length) {
+      // Nothing saved yet (or a cleared list): say how it works.
+      body.push(
+        h(
+          'div',
+          { class: 'cmcs-summary' },
+          h('h2', { class: 'cmcs-summary-title' }, t('panelNoItemsTitle')),
+          h('p', { class: 'cmcs-summary-sub' }, t(state.settings.autoTrack ? 'panelNoItemsLead' : 'panelNoItemsLeadManual')),
+        ),
+      );
     } else {
       body.push(
         h(
@@ -606,6 +662,8 @@
       );
     }
 
+    body.push(listsSection(missing.length + inCart.length));
+
     if (!state.settings.autoTrack) {
       body.push(
         h(
@@ -622,6 +680,62 @@
         })
       : null;
     return shell({ onCollapse: () => setCollapsed(true), footer }, body);
+  }
+
+  /** Saved lists on the cart page: save the current list under a name, or put a saved one back. */
+  function listsSection(savable) {
+    const carts = state.carts || [];
+    const parts = [];
+    if (listForm) {
+      parts.push(
+        h(
+          'form',
+          {
+            class: 'cmcs-list-form',
+            onsubmit: (event) => {
+              event.preventDefault();
+              saveList(event.target.elements.name.value);
+            },
+          },
+          h('input', {
+            name: 'name',
+            class: 'cmcs-input',
+            type: 'text',
+            maxlength: '80',
+            value: listForm.name || '',
+            placeholder: t('cartsNamePlaceholder'),
+            'aria-label': t('cartsNamePlaceholder'),
+            oninput: (event) => (listForm.name = event.target.value),
+          }),
+          h('button', { type: 'submit', class: 'cmcs-btn cmcs-btn--small' }, t('cartsSave')),
+          h('button', { type: 'button', class: 'cmcs-link', onclick: () => { listForm = null; render(); } }, t('cancel')),
+        ),
+      );
+    } else if (savable) {
+      parts.push(
+        h('div', { class: 'cmcs-links' }, h('button', { type: 'button', class: 'cmcs-link', onclick: () => { listForm = { name: '' }; render(); } }, t('listsSaveOpen'))),
+      );
+    }
+    if (listNote) parts.push(h('p', { class: 'cmcs-muted', role: 'status' }, listNote));
+    if (carts.length) {
+      parts.push(
+        h('div', { class: 'cmcs-section-title' }, t('panelListsTitle', String(carts.length))),
+        carts.map((cart) =>
+          h(
+            'div',
+            { class: 'cmcs-saved-list', dataset: { cartId: cart.id } },
+            h(
+              'span',
+              { class: 'cmcs-saved-list-text' },
+              h('span', { class: 'cmcs-saved-list-name', title: cart.name }, cart.name),
+              h('small', { class: 'cmcs-muted' }, t('listsFormMeta', String(cart.items.length), cart.game ? store.gameName(cart.game) : t('allGames'))),
+            ),
+            h('button', { type: 'button', class: 'cmcs-btn cmcs-btn--small cmcs-btn--ghost', onclick: () => restoreList(cart) }, t('cartsRestore')),
+          ),
+        ),
+      );
+    }
+    return parts.length ? h('div', { class: 'cmcs-lists' }, parts) : null;
   }
 
   /** "Cardmarket empties your cart at 14:35 (in 23 min)", when the cart page said so. */
@@ -770,7 +884,7 @@
       view = noticeView();
     } else if (otherAccount) {
       view = accountView(meta.account, meta.accountMismatch);
-    } else if (loc.isCart && forGame.length) {
+    } else if (loc.isCart && (forGame.length || (state.carts || []).length || !settings.autoTrack)) {
       view = cartView(missing, unavailable, inCart);
     } else if (
       !loc.isCart &&
@@ -783,6 +897,14 @@
 
     panel.replaceChildren(...(view ? [view] : []));
     host.style.display = view ? '' : 'none';
+    // A redraw while you type a list name keeps you in the field.
+    if (listForm) {
+      const input = shadow.querySelector('.cmcs-list-form input');
+      if (input) {
+        input.focus();
+        input.setSelectionRange(input.value.length, input.value.length);
+      }
+    }
 
     // The countdown to the emptied cart moves on by itself.
     clearTimeout(clockTimer);

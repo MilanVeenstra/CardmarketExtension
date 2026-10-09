@@ -1220,21 +1220,35 @@ describe('Cardmarket Cart Saver', () => {
       await popup.close();
     });
 
-    it('saves the list as a named cart and puts it back later', async () => {
+    it('saves what the cart tab shows as a named list, and puts it back later', async () => {
       const popup = await openPopup();
-      await popup.locator('#tab-cart').click();
       await popup.locator('#tab-carts').click();
-      assert.match(await popup.locator('#carts-empty').innerText(), /Nog geen bewaarde mandjes/);
-      await popup.fill('#cart-name', 'Commander-deck');
-      await popup.getByRole('button', { name: 'Lijst bewaren' }).click();
-      await waitFor(async () => ((await storage())['cmcs.carts'] || []).length === 1, 'cart saved');
+      assert.match(await popup.locator('#carts-empty').innerText(), /Nog geen bewaarde lijsten[\s\S]*Bewaar als lijst…/);
+      // Saving happens where the list is: the Winkelmandje tab.
+      await popup.locator('#tab-cart').click();
+      await popup.getByRole('button', { name: 'Bewaar als lijst…' }).click();
+      assert.match(await popup.locator('#list-form-meta').innerText(), /^2 artikel\(en\) · /);
+      await popup.fill('#list-name', 'Commander-deck');
+      await popup.locator('#list-form').getByRole('button', { name: 'Bewaren' }).click();
+      await waitFor(async () => ((await storage())['cmcs.carts'] || []).length === 1, 'list saved');
       const [saved] = (await storage())['cmcs.carts'];
       assert.equal(saved.name, 'Commander-deck');
       assert.deepEqual(saved.items.map((i) => i.articleId).sort(), [BOG, SOL_SAME_SELLER].sort(), 'unavailable articles are not saved');
-      await waitFor(async () => /Commander-deck[\s\S]*2 artikel\(en\) · 2,58 €/.test(await popup.locator('#carts-list').innerText()), 'listed');
+
+      // "Bekijken" in the message opens the list.
+      await popup.locator('#toast').getByRole('button', { name: 'Bekijken' }).click();
+      const entry = popup.locator(`#carts-list [data-cart-id="${saved.id}"]`);
+      await waitFor(async () => (await entry.locator('.cmcs-item').count()) === 2, 'list unfolded with its articles');
+      assert.match(await entry.innerText(), /Commander-deck[\s\S]*2 artikel\(en\) · 2,58 €/);
       await shot(popup, '16-popup-carts');
 
-      // Later: the list and the cart are empty, the saved cart brings both back.
+      // Rename it.
+      await entry.getByRole('button', { name: 'Hernoemen' }).click();
+      await entry.locator('input[name="name"]').fill('Commander');
+      await entry.locator('input[name="name"]').press('Enter');
+      await waitFor(async () => (await storage())['cmcs.carts'][0].name === 'Commander', 'renamed');
+
+      // Later: the list and the cart are empty, the saved list brings both back.
       await sw.evaluate(() => chrome.storage.local.set({ 'cmcs.items': {} }));
       mock.state.cart.clear();
       const job = await runViaNewTab(popup.getByRole('button', { name: 'In mandje zetten' }));
@@ -1244,6 +1258,37 @@ describe('Cardmarket Cart Saver', () => {
       const all = await items();
       assert.equal(all[BOG].status, 'in_cart');
       assert.equal(all[SOL_SAME_SELLER].status, 'in_cart');
+
+      // Once more: everything is there already, and the popup says so.
+      await popup.locator('#tab-carts').click();
+      await popup.getByRole('button', { name: 'In mandje zetten' }).click();
+      await waitFor(async () => /Alles van deze lijst zit al in je mandje/.test(await popup.locator('#toast').innerText()), 'nothing to do');
+      await popup.close();
+    });
+
+    it('shows saved lists on the cart page, to save and put back there too', async () => {
+      await sw.evaluate(() => chrome.storage.local.set({ 'cmcs.job': null }));
+      await page.goto(`${CM}/en/Magic/ShoppingCart`);
+      const panel = widget(page);
+      await waitFor(() => panel.getByText('Bewaarde lijsten (1)').isVisible(), 'saved lists in the panel');
+      assert.match(await panel.locator('.cmcs-saved-list').innerText(), /Commander[\s\S]*2 artikel\(en\)/);
+
+      await panel.getByRole('button', { name: 'Bewaar als lijst…' }).click();
+      await panel.locator('.cmcs-list-form input').fill('Pauper');
+      await panel.locator('.cmcs-list-form').getByRole('button', { name: 'Bewaren' }).click();
+      await waitFor(async () => ((await storage())['cmcs.carts'] || []).some((c) => c.name === 'Pauper'), 'saved from the panel');
+      await waitFor(() => panel.getByText('Bewaarde lijsten (2)').isVisible(), 'two lists');
+    });
+
+    it('deleting a saved list can be undone', async () => {
+      const popup = await openPopup();
+      await popup.locator('#tab-carts').click();
+      const first = popup.locator('#carts-list .saved-cart').first();
+      const name = await first.locator('.saved-cart-name').innerText();
+      await first.getByRole('button', { name: 'Verwijderen' }).click();
+      await waitFor(async () => !(await storage())['cmcs.carts'].some((c) => c.name === name), 'deleted');
+      await popup.locator('#toast').getByRole('button', { name: 'Ongedaan maken' }).click();
+      await waitFor(async () => (await storage())['cmcs.carts'].some((c) => c.name === name), 'back again');
       await popup.close();
     });
   });
