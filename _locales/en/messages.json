@@ -447,7 +447,7 @@
     "message": "Shipping per seller ($1)"
   },
   "shippingSummaryKnown": {
-    "message": "$1 sellers · shipping $2 ($3% of the total)"
+    "message": "$1 seller(s) · shipping $2 ($3% of the total)"
   },
   "shippingTracked": {
     "message": "over 25 €: usually tracked shipping (dearer)"

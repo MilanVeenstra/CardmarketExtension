@@ -1160,7 +1160,7 @@ describe('Cardmarket Cart Saver', () => {
 
     it('sums up shipping per seller', async () => {
       const panel = widget(page);
-      const toggle = panel.getByRole('button', { name: /2 verkopers · verzending 2,30 € \(38% van het totaal\)/ });
+      const toggle = panel.getByRole('button', { name: /2 verkoper\(s\) · verzending 2,30 € \(38% van het totaal\)/ });
       await toggle.click();
       const rows = await panel.locator('.cmcs-shipping-row').allInnerTexts();
       assert.equal(rows.length, 2);

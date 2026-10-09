@@ -447,7 +447,7 @@
     "message": "Verzending per verkoper ($1)"
   },
   "shippingSummaryKnown": {
-    "message": "$1 verkopers · verzending $2 ($3% van het totaal)"
+    "message": "$1 verkoper(s) · verzending $2 ($3% van het totaal)"
   },
   "shippingTracked": {
     "message": "boven 25 €: meestal verzending met tracking (duurder)"

@@ -50,7 +50,8 @@
     .cmcs-lead { margin: 0 0 8px; }
     .cmcs-lead strong { font-weight: 700; }
     .cmcs-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
-    .cmcs-actions .cmcs-btn { flex: 1; }
+    /* Buttons share the row, and move to a new line rather than break their label. */
+    .cmcs-actions .cmcs-btn { flex: 1 1 auto; }
     .cmcs-list { margin-top: 4px; }
     .cmcs-row-between { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
     .cmcs-linklike { appearance: none; border: 0; background: none; padding: 0; color: var(--cmcs-accent); font: inherit; font-size: 12px; cursor: pointer; }

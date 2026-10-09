@@ -263,8 +263,9 @@
       padding: 7px 12px; font: inherit; font-weight: 600; cursor: pointer;
       background: var(--cmcs-accent); color: var(--cmcs-accent-text);
       display: inline-flex; align-items: center; justify-content: center; gap: 6px;
-      min-height: 32px;
+      min-height: 32px; white-space: nowrap; text-decoration: none;
     }
+    a.cmcs-btn:hover { text-decoration: none; }
     .cmcs-btn:hover { background: var(--cmcs-accent-hover); }
     .cmcs-btn:disabled { opacity: 0.5; cursor: default; }
     .cmcs-btn--ghost { background: transparent; color: var(--cmcs-text); border-color: var(--cmcs-border); }

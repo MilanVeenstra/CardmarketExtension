@@ -6,12 +6,12 @@ mandje (automatisch) leegt, zet je alles met één klik terug, tenminste zolang
 de artikelen nog te koop zijn.
 
 <p>
-  <img src="docs/screenshots/reminder.png" alt="Melding op Cardmarket als je mandje is geleegd" width="380">
-  <img src="docs/screenshots/summary.png" alt="Resultaat na het terugzetten" width="380">
+  <img src="docs/screenshots/panel-reminder.png" alt="Melding op Cardmarket als je mandje is geleegd" width="380">
+  <img src="docs/screenshots/panel-result.png" alt="Resultaat na het terugzetten" width="380">
 </p>
 <p>
-  <img src="docs/screenshots/popup.png" alt="Popup met alle opgeslagen artikelen" width="400">
-  <img src="docs/screenshots/favorites.png" alt="Favorieten in de popup" width="400">
+  <img src="docs/screenshots/popup-cart.png" alt="Popup met alle opgeslagen artikelen" width="400">
+  <img src="docs/screenshots/popup-favorites.png" alt="Favorieten in de popup" width="400">
 </p>
 
 ## Wat het doet
