@@ -19,7 +19,7 @@ const UPDATE_SETTLE_MS = 5000;
 
 async function updateBadge() {
   const summary = store.summarize(await store.getItems());
-  const count = summary.missing;
+  const count = summary.attention;
   await chrome.action.setBadgeBackgroundColor({ color: '#d97706' });
   await chrome.action.setBadgeText({ text: count ? String(count) : '' });
   await chrome.action.setTitle({

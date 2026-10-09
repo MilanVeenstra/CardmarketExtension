@@ -21,7 +21,9 @@
   let host;
   let shadow;
   let panel;
-  let state = { items: {}, favorites: {}, job: null, settings: store.DEFAULT_SETTINGS, meta: {} };
+  let state = { items: {}, favorites: {}, job: null, settings: store.DEFAULT_SETTINGS, meta: {}, interrupted: false };
+  let refreshSeq = 0;
+  let pollTimer = null;
   /** A one-off message (e.g. "favourite not on this page") until the user closes it. */
   let notice = null;
   /** The extension was updated or reloaded underneath this tab. */
@@ -123,6 +125,7 @@
 
   async function refresh() {
     if (orphaned) return;
+    const seq = (refreshSeq += 1);
     const [items, favorites, job, settings, meta] = await Promise.all([
       store.getItems(),
       store.getFavorites(),
@@ -130,8 +133,26 @@
       store.getSettings(),
       store.getMeta(),
     ]);
-    state = { items, favorites, job, settings, meta };
+    const interrupted = await isInterrupted(job);
+    // A slower, older refresh must not paint over a newer one.
+    if (seq !== refreshSeq) return;
+    state = { items, favorites, job, settings, meta, interrupted };
     render();
+  }
+
+  /**
+   * A job that says "running" while no tab holds the refill lock lost its tab
+   * (closed or navigated away). Without lock support: no heartbeat for 2 min.
+   */
+  async function isInterrupted(job) {
+    if (!job || job.state !== 'running' || job.acknowledged) return false;
+    if (store.isJobInterrupted(job)) return true;
+    if (CMCS.refill.isRunning()) return false;
+    try {
+      return navigator.locks && navigator.locks.query ? !(await CMCS.refill.lockHeld()) : false;
+    } catch {
+      return false;
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -141,8 +162,17 @@
   async function refill(ids) {
     if (!ids.length) return;
     const result = await CMCS.refill.start(ids);
-    if (!result.ok) alert(t('errorBusy'));
+    if (!result.ok) showNotice({ title: 'Cart Saver', text: t('errorBusy') });
   }
+
+  /** Continue an interrupted job: the remaining articles become a new job (the cart is checked first). */
+  async function continueJob(ids) {
+    await store.dismissJob();
+    await refill(ids);
+  }
+
+  const useThisAccount = (username) =>
+    store.updateMeta((meta) => ({ ...meta, account: username, accountMismatch: null }));
 
   const removeItems = (ids) => store.removeItems(ids);
 
@@ -231,6 +261,36 @@
     );
   }
 
+  function interruptedView(job) {
+    const ids = CMCS.refill.remainingIds(job, state.items);
+    return shell(
+      t('interruptedTitle'),
+      { onClose: () => store.dismissJob() },
+      h('p', { class: 'cmcs-lead' }, t('interruptedLead', ids.length)),
+      h(
+        'div',
+        { class: 'cmcs-actions' },
+        ids.length
+          ? h('button', { type: 'button', class: 'cmcs-btn', onclick: () => continueJob(ids) }, t('continueRefill', ids.length))
+          : null,
+        h('button', { type: 'button', class: 'cmcs-btn cmcs-btn--ghost', onclick: () => store.dismissJob() }, t('close')),
+      ),
+    );
+  }
+
+  function accountView(saved, current) {
+    return shell(
+      t('accountTitle'),
+      {},
+      h('p', { class: 'cmcs-lead' }, t('accountLead', saved, current)),
+      h(
+        'div',
+        { class: 'cmcs-actions' },
+        h('button', { type: 'button', class: 'cmcs-btn cmcs-btn--ghost', onclick: () => useThisAccount(current) }, t('accountUseThis', current)),
+      ),
+    );
+  }
+
   function alternativeActions(item) {
     const url = cm.alternativesUrl(item);
     return [
@@ -251,7 +311,7 @@
     }
 
     const selected = missing.filter((item) => !deselected.has(item.articleId));
-    const selectedValue = selected.reduce((sum, item) => sum + (item.price || 0) * (item.amount || 1), 0);
+    const selectedValue = selected.reduce((sum, item) => sum + (item.price || 0) * store.refillAmount(item), 0);
 
     const body = [];
     body.push(
@@ -384,7 +444,7 @@
   }
 
   function reminderView(missing) {
-    const value = missing.reduce((sum, item) => sum + (item.price || 0) * (item.amount || 1), 0);
+    const value = missing.reduce((sum, item) => sum + (item.price || 0) * store.refillAmount(item), 0);
     return shell(
       t('reminderTitle'),
       { onClose: dismissReminder },
@@ -402,22 +462,29 @@
     if (orphaned) return;
     const { items, job, settings, meta } = state;
     const game = loc.game;
+    const { STATUS } = store;
     const forGame = Object.values(items).filter((item) => item.game === game);
-    const missing = forGame.filter((item) => item.status === store.STATUS.MISSING);
-    const unavailable = forGame.filter((item) => item.status === store.STATUS.UNAVAILABLE);
-    const inCart = forGame.filter((item) => item.status === store.STATUS.IN_CART);
+    // "Partly in the cart" is both: it is there, and copies can be put back.
+    const missing = forGame.filter((item) => item.status === STATUS.MISSING || item.status === STATUS.PARTIAL);
+    const unavailable = forGame.filter((item) => item.status === STATUS.UNAVAILABLE);
+    const inCart = forGame.filter((item) => item.status === STATUS.IN_CART || item.status === STATUS.PARTIAL);
+    const otherAccount = meta.account && meta.accountMismatch && cm.readUsername(document) === meta.accountMismatch;
 
     const sortByName = (a, b) => (a.seller || '').localeCompare(b.seller || '') || a.name.localeCompare(b.name);
     missing.sort(sortByName);
     unavailable.sort(sortByName);
 
     let view = null;
-    if (store.isJobActive(job)) {
+    if (state.interrupted) {
+      view = interruptedView(job);
+    } else if (store.isJobActive(job)) {
       view = progressView(job);
     } else if (job && job.finishedAt && !job.acknowledged && Date.now() - job.finishedAt < SUMMARY_TTL_MS) {
       view = summaryView(job);
     } else if (notice) {
       view = noticeView();
+    } else if (otherAccount) {
+      view = accountView(meta.account, meta.accountMismatch);
     } else if (loc.isCart && forGame.length) {
       view = cartView(missing, unavailable, inCart);
     } else if (
@@ -431,6 +498,12 @@
 
     panel.replaceChildren(...(view ? [view] : []));
     host.style.display = view ? '' : 'none';
+
+    // A job running in another tab: look again now and then, in case that tab closes.
+    clearTimeout(pollTimer);
+    if (job && job.state === 'running' && !state.interrupted && !CMCS.refill.isRunning()) {
+      pollTimer = setTimeout(refresh, 5000);
+    }
   }
 
   CMCS.widget = { mount, refresh, showNotice };

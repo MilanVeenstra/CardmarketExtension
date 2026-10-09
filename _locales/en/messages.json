@@ -1,4 +1,13 @@
 {
+  "accountLead": {
+    "message": "Your saved articles belong to $1. While you are logged in as $2, nothing is saved or marked missing."
+  },
+  "accountTitle": {
+    "message": "Another Cardmarket account"
+  },
+  "accountUseThis": {
+    "message": "Use $1 from now on"
+  },
   "addedButNotInCart": {
     "message": "Cardmarket accepted it, but it is not in your cart."
   },
@@ -28,6 +37,9 @@
   },
   "collapse": {
     "message": "Minimise"
+  },
+  "continueRefill": {
+    "message": "Continue ($1 to go)"
   },
   "dataSummary": {
     "message": "$1 saved: $2 in cart, $3 missing, $4 unavailable. $5 favourite(s)."
@@ -67,6 +79,9 @@
   },
   "errorNoToken": {
     "message": "Cardmarket's security code (token) was not found on the page. Reload the page and try again."
+  },
+  "errorOtherAccount": {
+    "message": "You are logged in with another Cardmarket account than the one these articles were saved with."
   },
   "errorRateLimited": {
     "message": "Cardmarket asked to slow down. Wait a few minutes and try again."
@@ -167,6 +182,12 @@
   "importFailed": {
     "message": "That file could not be read."
   },
+  "interruptedLead": {
+    "message": "The tab was closed or left before everything was back. $1 still to go."
+  },
+  "interruptedTitle": {
+    "message": "Refill interrupted"
+  },
   "jobCancelled": {
     "message": "Stopped before all articles were put back."
   },
@@ -185,17 +206,35 @@
   "openCart": {
     "message": "Open cart"
   },
+  "partialNote": {
+    "message": "$1 of $2 in your cart"
+  },
   "pillAttention": {
     "message": "Cart Saver · $1 to check"
   },
   "pillSaved": {
     "message": "Cart Saver · $1 saved"
   },
+  "priceDown": {
+    "message": "Price $1 lower (was $2)"
+  },
+  "priceUp": {
+    "message": "Price $1 higher (was $2)"
+  },
   "privacyNote": {
     "message": "Everything is stored locally in your browser. Cart Saver only talks to cardmarket.com, using your own session."
   },
   "progressCount": {
     "message": "$1 of $2"
+  },
+  "reasonEmptied": {
+    "message": "Your whole cart was emptied"
+  },
+  "reasonSeller": {
+    "message": "Everything from this seller left your cart"
+  },
+  "reasonSingle": {
+    "message": "Only this article left your cart, probably sold"
   },
   "refillAll": {
     "message": "Put back $1 article(s)"
@@ -222,10 +261,13 @@
     "message": "Stopped"
   },
   "refillSummary": {
-    "message": "$1 put in your cart, $2 not available."
+    "message": "$1 put in your cart, $2 not added."
   },
   "refillWaiting": {
     "message": "Waiting for Cardmarket to open…"
+  },
+  "refusedUnknown": {
+    "message": "Cardmarket did not accept it. It stays on your list, try again later."
   },
   "reminderLead": {
     "message": "$1 saved article(s) ($2) are no longer in your cart."
@@ -283,6 +325,9 @@
   },
   "statusMissing": {
     "message": "Missing"
+  },
+  "statusPartial": {
+    "message": "Partly in cart"
   },
   "statusUnavailable": {
     "message": "Unavailable"

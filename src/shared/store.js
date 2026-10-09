@@ -26,8 +26,17 @@
 
   const STATUS = {
     IN_CART: 'in_cart',
+    /** In the cart, but fewer copies than wanted (e.g. the seller sold some). */
+    PARTIAL: 'partial',
     MISSING: 'missing',
     UNAVAILABLE: 'unavailable',
+  };
+
+  /** Why an article left the cart, as far as a comparison of two readings can tell. */
+  const REASON = {
+    EMPTIED: 'emptied', // the whole cart went: expired, logged out, or bought elsewhere
+    SELLER: 'seller', // every article of that seller went: removed by the seller, vacation, sold
+    SINGLE: 'single', // only this article went while the seller's others stayed: probably sold
   };
 
   const DEFAULT_SETTINGS = {
@@ -39,8 +48,12 @@
     delayMs: 1200,
   };
 
-  /** A job counts as abandoned when its tab stopped sending heartbeats. */
-  const JOB_STALE_MS = 30 * 1000;
+  /**
+   * A job counts as abandoned when its tab stopped sending heartbeats. Chrome
+   * throttles timers in background tabs to about once a minute, so this must
+   * stay well above that. (The real lock is a Web Lock held by the runner.)
+   */
+  const JOB_STALE_MS = 2 * 60 * 1000;
   /** A pending job (opened from the popup) must be picked up within this time. */
   const JOB_PENDING_TTL_MS = 2 * 60 * 1000;
 
@@ -88,58 +101,93 @@
     const next = { ...items };
     const seen = new Set();
     const added = [];
+    const priceChanged = [];
+    const accept = opts.acceptAmount || {};
     for (const cartItem of cartItems) {
-      seen.add(cartItem.articleId);
-      const prev = next[cartItem.articleId];
+      const id = cartItem.articleId;
+      seen.add(id);
+      const prev = next[id];
       if (!prev && !opts.addNew) continue;
-      if (!prev) added.push(cartItem.articleId);
-      next[cartItem.articleId] = {
+      if (!prev) added.push(id);
+      // How many copies the user wants: the most ever seen in the cart, unless
+      // the user lowered it on purpose (then the new amount is what they want).
+      const previousWanted = prev ? prev.wantedAmount || prev.amount || cartItem.amount : cartItem.amount;
+      const wantedAmount = accept[id] ? cartItem.amount : Math.max(previousWanted, cartItem.amount);
+      let priceChange = (prev && prev.priceChange) || null;
+      if (prev && prev.price != null && cartItem.price != null && Math.abs(prev.price - cartItem.price) >= 0.005) {
+        priceChange = { from: prev.price, to: cartItem.price, at: opts.now };
+        priceChanged.push(id);
+      }
+      next[id] = {
         ...(prev || {}),
         ...cartItem,
+        wantedAmount,
+        priceChange,
         viaFavorite: false,
         firstSavedAt: (prev && prev.firstSavedAt) || opts.now,
         lastSeenInCartAt: opts.now,
-        status: STATUS.IN_CART,
+        status: cartItem.amount < wantedAmount ? STATUS.PARTIAL : STATUS.IN_CART,
         missingSince: null,
+        missingReason: null,
         lastAttempt: (prev && prev.lastAttempt) || null,
       };
     }
 
     const newlyMissing = [];
     if (opts.markMissing) {
+      const sellerKey = (item) => item.sellerId || item.sellerUrl || item.seller || '';
+      const sellersInCart = new Set(cartItems.map(sellerKey));
       for (const [id, item] of Object.entries(next)) {
         if (seen.has(id) || item.game !== opts.game) continue;
-        if (item.status === STATUS.IN_CART) {
-          next[id] = { ...item, status: STATUS.MISSING, missingSince: opts.now };
+        if (item.status === STATUS.IN_CART || item.status === STATUS.PARTIAL) {
+          const missingReason = !cartItems.length
+            ? REASON.EMPTIED
+            : sellersInCart.has(sellerKey(item))
+              ? REASON.SINGLE
+              : REASON.SELLER;
+          next[id] = { ...item, status: STATUS.MISSING, missingSince: opts.now, missingReason };
           newlyMissing.push(id);
         }
       }
     }
-    return { items: next, added, newlyMissing, inCart: seen.size };
+    return { items: next, added, newlyMissing, priceChanged, inCart: seen.size };
+  }
+
+  /** Copies still to add to get back to what the user wanted. */
+  function refillAmount(item) {
+    const wanted = item.wantedAmount || item.amount || 1;
+    if (item.status === STATUS.PARTIAL) return Math.max(1, wanted - (item.amount || 0));
+    return wanted;
   }
 
   /** Counts per status, optionally limited to one game. */
   function summarize(items, game) {
-    const summary = { total: 0, inCart: 0, missing: 0, unavailable: 0, missingValue: 0 };
+    const summary = { total: 0, inCart: 0, partial: 0, missing: 0, unavailable: 0, attention: 0, missingValue: 0 };
     for (const item of Object.values(items || {})) {
       if (game && item.game !== game) continue;
       summary.total += 1;
       if (item.status === STATUS.IN_CART) summary.inCart += 1;
-      else if (item.status === STATUS.UNAVAILABLE) summary.unavailable += 1;
+      else if (item.status === STATUS.PARTIAL) {
+        summary.inCart += 1;
+        summary.partial += 1;
+        summary.missingValue += (item.price || 0) * refillAmount(item);
+      } else if (item.status === STATUS.UNAVAILABLE) summary.unavailable += 1;
       else {
         summary.missing += 1;
-        summary.missingValue += (item.price || 0) * (item.amount || 1);
+        summary.missingValue += (item.price || 0) * refillAmount(item);
       }
     }
+    summary.attention = summary.missing + summary.partial;
     return summary;
   }
 
-  /** Saved items that are not in the cart and worth trying to re-add. */
+  /** Saved items that are not (fully) in the cart and worth trying to re-add. */
   function refillCandidates(items, { game, includeUnavailable = false } = {}) {
     return Object.values(items || {}).filter(
       (item) =>
         (!game || item.game === game) &&
         (item.status === STATUS.MISSING ||
+          item.status === STATUS.PARTIAL ||
           (includeUnavailable && item.status === STATUS.UNAVAILABLE)),
     );
   }
@@ -197,6 +245,11 @@
     };
   }
 
+  /** A job whose tab disappeared (closed, navigated away) before it finished. */
+  function isJobInterrupted(job, now = Date.now()) {
+    return Boolean(job && job.state === 'running' && now - (job.heartbeatAt || 0) >= JOB_STALE_MS);
+  }
+
   function isJobActive(job, now = Date.now()) {
     if (!job) return false;
     if (job.state === 'running') return now - (job.heartbeatAt || 0) < JOB_STALE_MS;
@@ -226,16 +279,19 @@
   const store = {
     KEYS,
     STATUS,
+    REASON,
     DEFAULT_SETTINGS,
     JOB_STALE_MS,
     JOB_PENDING_TTL_MS,
 
     applyCartSnapshot,
     summarize,
+    refillAmount,
     refillCandidates,
     missingSignature,
     newJob,
     isJobActive,
+    isJobInterrupted,
     toFavorite,
     favoriteMatches,
     groupBy,
@@ -259,14 +315,28 @@
     setJob: (job) => set(KEYS.job, job),
     updateJob: (fn) => update(KEYS.job, null, fn),
 
+    /**
+     * Close the job panel. A job that still says "running" (its tab went away)
+     * is ended for good, so it no longer shows as busy anywhere.
+     */
+    dismissJob: () =>
+      update(KEYS.job, null, (job) => {
+        if (!job) return undefined;
+        if (job.state === 'running' || job.state === 'pending') {
+          return { ...job, state: 'error', error: 'interrupted', acknowledged: true, finishedAt: job.finishedAt || Date.now() };
+        }
+        return { ...job, acknowledged: true };
+      }),
+
     /** Store a freshly read cart. Returns what changed. */
-    async syncCart(cartItems, { game, addNew, markMissing }) {
+    async syncCart(cartItems, { game, addNew, markMissing, acceptAmount }) {
       let result;
       await update(KEYS.items, {}, (items) => {
         result = applyCartSnapshot(items, cartItems, {
           game,
           addNew,
           markMissing,
+          acceptAmount,
           now: Date.now(),
         });
         return result.items;
@@ -304,7 +374,7 @@
         const now = Date.now();
         for (const fav of favorites) {
           const prev = next[fav.articleId];
-          if (prev && prev.status === STATUS.IN_CART) continue;
+          if (prev && (prev.status === STATUS.IN_CART || prev.status === STATUS.PARTIAL)) continue;
           const { favoritedAt, lastSeenAt, unavailable, unavailableMessage, available, ...article } = fav;
           next[fav.articleId] = {
             ...article,

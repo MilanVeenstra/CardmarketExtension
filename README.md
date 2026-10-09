@@ -137,8 +137,19 @@ Na een update vragen open Cardmarket-tabbladen om te verversen, via het label
   dezelfde verzoeken als de knoppen op de site zelf, maar als Cardmarket de site
   verandert, kan de extensie stoppen met werken. In dat geval weigert hij liever
   iets te doen dan iets fout te doen:
-  - hij markeert niets als ontbrekend als het mandje niet goed te lezen is;
-  - hij stopt bij een Cloudflare-controle of als je bent uitgelogd.
+  - hij markeert niets als ontbrekend als het mandje niet (helemaal) te lezen
+    is, bijvoorbeeld als een verkopersblok geen leesbare rijen heeft;
+  - hij stopt bij een Cloudflare-controle of als je bent uitgelogd;
+  - ben je ingelogd met een ander Cardmarket-account, dan laat hij je lijst
+    met rust tot je zelf voor dat account kiest.
+- Cart Saver onthoudt **hoeveel exemplaren** je wilde. Verkoopt een verkoper
+  er een paar, dan zie je "1 van 2 in je mandje" en zet hij alleen het
+  verschil terug. Ook zie je **waarom** iets uit je mandje verdween (mandje
+  geleegd, verkoper weg, of alleen dit artikel: waarschijnlijk verkocht) en of
+  de **prijs** veranderde.
+- Er draait altijd maar één terugzet-actie tegelijk, ook met meerdere tabs.
+  Sluit je de tab halverwege, dan biedt de volgende Cardmarket-pagina
+  *Doorgaan* aan; het mandje wordt dan eerst opnieuw gecontroleerd.
 - Een opgeslagen artikel is één specifieke aanbieding van één verkoper. Is die
   verkocht, dan kan Cart Saver hem niet terugzetten. Gebruik dan de knop
   *Zoek vergelijkbaar aanbod*.
@@ -206,8 +217,11 @@ endpoints als de echte site. Getest worden:
 - het terugzetten vanuit de popup;
 - de fallback naar het andere endpoint;
 - de Cloudflare-controle;
-- een onleesbaar mandje;
-- uitgelogd zijn.
+- een (gedeeltelijk) onleesbaar mandje;
+- uitgelogd zijn, of ingelogd met een ander account;
+- aantallen ("1 van 2"), redenen en prijswijzigingen;
+- weigeringen: verkocht, te weinig exemplaren of onduidelijk;
+- één actie tegelijk, en doorgaan na een gesloten tab.
 
 ```bash
 npm install

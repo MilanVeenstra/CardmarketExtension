@@ -11,13 +11,16 @@
   CMCS.localize(document);
   document.documentElement.lang = chrome.i18n.getUILanguage();
 
+  const { STATUS } = store;
+  // "Partly in the cart" shows under both: it is there, and copies can be put back.
   const FILTERS = [
     { id: 'all', label: 'filterAll', test: () => true },
-    { id: 'missing', label: 'statusMissing', test: (item) => item.status === store.STATUS.MISSING },
-    { id: 'in_cart', label: 'statusInCart', test: (item) => item.status === store.STATUS.IN_CART },
-    { id: 'unavailable', label: 'statusUnavailable', test: (item) => item.status === store.STATUS.UNAVAILABLE },
+    { id: 'missing', label: 'statusMissing', test: (item) => item.status === STATUS.MISSING || item.status === STATUS.PARTIAL },
+    { id: 'in_cart', label: 'statusInCart', test: (item) => item.status === STATUS.IN_CART || item.status === STATUS.PARTIAL },
+    { id: 'unavailable', label: 'statusUnavailable', test: (item) => item.status === STATUS.UNAVAILABLE },
   ];
-  const STATUS_ORDER = { missing: 0, unavailable: 1, in_cart: 2 };
+  const STATUS_ORDER = { missing: 0, partial: 1, unavailable: 2, in_cart: 3 };
+  const inCartStatus = (item) => Boolean(item) && (item.status === STATUS.IN_CART || item.status === STATUS.PARTIAL);
 
   const TAB_KEY = 'cmcs.popupTab';
 
@@ -136,11 +139,27 @@
     const box = $('job');
     const active = store.isJobActive(job);
     const recent = job && job.finishedAt && !job.acknowledged && Date.now() - job.finishedAt < 10 * 60 * 1000;
-    if (!active && !recent) {
+    const interrupted = store.isJobInterrupted(job) && !job.acknowledged;
+    if (!active && !recent && !interrupted) {
       box.hidden = true;
       return;
     }
     box.hidden = false;
+    if (interrupted) {
+      const ids = (job.articleIds || []).filter((id) => !(job.results || {})[id] && items[id] && items[id].status !== STATUS.IN_CART);
+      box.replaceChildren(
+        h('p', null, h('strong', null, t('interruptedTitle')), ' — ', t('interruptedLead', ids.length)),
+        h(
+          'div',
+          { class: 'job-row' },
+          ids.length
+            ? h('button', { type: 'button', class: 'cmcs-btn', onclick: () => continueJob(ids) }, t('continueRefill', ids.length))
+            : h('span'),
+          h('button', { type: 'button', class: 'cmcs-btn cmcs-btn--ghost', onclick: () => store.dismissJob() }, t('close')),
+        ),
+      );
+      return;
+    }
     if (active) {
       const total = job.total || job.articleIds.length;
       const pct = total ? Math.round((job.done / total) * 100) : 0;
@@ -192,6 +211,12 @@
     return store.updateJob((current) => (current ? { ...current, acknowledged: true } : undefined));
   }
 
+  async function continueJob(ids) {
+    await store.dismissJob();
+    job = await store.getJob();
+    await refill(ids.map((id) => items[id]).filter(Boolean));
+  }
+
   function starButton(article) {
     const on = Boolean(favorites[article.articleId]);
     return ui.iconButton(
@@ -204,7 +229,7 @@
 
   function itemActions(item) {
     const actions = [starButton(item)];
-    if (item.status !== store.STATUS.IN_CART) {
+    if (item.status !== STATUS.IN_CART) {
       const alt = cm.alternativesUrl(item);
       if (alt) actions.push(ui.iconLink(t('findAlternative'), 'search', alt));
       actions.push(ui.iconButton(t('refillOne'), 'refresh', () => refill([item])));
@@ -245,8 +270,8 @@
       ...(all.length && !visible.length
         ? [h('p', { class: 'cmcs-muted' }, t('favNoMatches'))]
         : visible.map((fav) => {
-            const inCart = items[fav.articleId] && items[fav.articleId].status === store.STATUS.IN_CART;
-            return ui.itemRow(inCart ? { ...fav, status: store.STATUS.IN_CART } : fav, {
+            const inCart = inCartStatus(items[fav.articleId]);
+            return ui.itemRow(inCart ? { ...fav, status: STATUS.IN_CART } : fav, {
               href: cm.offerUrl(fav) || fav.productUrl,
               showStatus: inCart,
               extraMeta: [
@@ -283,7 +308,7 @@
 
     if (!game || !games.includes(game)) {
       const byMissing = games
-        .map((g) => [g, store.summarize(items, g).missing])
+        .map((g) => [g, store.summarize(items, g).attention])
         .sort((a, b) => b[1] - a[1]);
       game = tabLoc && games.includes(tabLoc.game) ? tabLoc.game : byMissing[0][0];
     }
@@ -295,11 +320,11 @@
     const summary = store.summarize(items, game);
     $('summary').replaceChildren(
       stat('in_cart', summary.inCart, t('statusInCart')),
-      stat('missing', summary.missing, t('statusMissing')),
+      stat('missing', summary.attention, t('statusMissing')),
       stat('unavailable', summary.unavailable, t('statusUnavailable')),
     );
 
-    const missing = forGame.filter((item) => item.status === store.STATUS.MISSING);
+    const missing = store.refillCandidates(items, { game });
     const busy = store.isJobActive(job);
     $('actions').replaceChildren(
       h(

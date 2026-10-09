@@ -163,6 +163,7 @@ describe('Cardmarket Cart Saver', () => {
 
     await page.goto(`${CM}/en/Magic`);
     await waitFor(async () => Object.values(await items()).every((i) => i.status === 'missing'), 'all missing');
+    assert.ok(Object.values(await items()).every((i) => i.missingReason === 'emptied'), 'the whole cart went');
 
     await waitFor(() => widget(page).isVisible(), 'reminder');
     const text = await widget(page).innerText();
@@ -206,7 +207,7 @@ describe('Cardmarket Cart Saver', () => {
       assert.ok(posts[i].at - posts[i - 1].at >= DELAY_MS, 'requests are spaced out');
     }
 
-    await waitFor(async () => /2 in je mandje gezet, 1 niet beschikbaar/.test(await widget(page).innerText()), 'summary');
+    await waitFor(async () => /2 in je mandje gezet, 1 niet gelukt/.test(await widget(page).innerText()), 'summary');
     assert.equal(await sw.evaluate(() => chrome.action.getBadgeText({})), '');
     await shot(widget(page), '03-refill-summary');
   });
@@ -624,7 +625,7 @@ describe('Cardmarket Cart Saver', () => {
       const before = addRequests().length;
       const job = await refillMageFromReminder();
       assert.equal(job.error, 'no_token');
-      assert.match(job.errorDetail, /^gezocht: page, site-request, \/en\/Magic\/ShoppingCart, .*\/en\/Magic\/Wants, \/en\/Magic · deze pagina: inputs=0 cmtkn-in-html=0/);
+      assert.match(job.errorDetail, /^searched: page, site-request, \/en\/Magic\/ShoppingCart, .*\/en\/Magic\/Wants, \/en\/Magic · this page: inputs=0 cmtkn-in-html=0/);
       assert.equal(addRequests().length, before, 'nothing sent without a token');
       assert.equal((await items())[MAGE].status, 'missing');
       await shot(widget(page), '11-no-token');
@@ -735,6 +736,220 @@ describe('Cardmarket Cart Saver', () => {
       mock.state.cart.clear();
       await page.goto(`${CM}/en/Magic`);
       await waitFor(async () => (await items())[MAGE]?.status === 'missing', 'marked missing, not forgotten');
+    });
+  });
+
+  describe('reliable refilling', () => {
+    /** Click something that starts a refill and wait for that (new) job to finish. */
+    const refillVia = async (button) => {
+      const previous = (await storage())['cmcs.job'];
+      await button.click();
+      return waitFor(async () => {
+        const j = (await storage())['cmcs.job'];
+        return j && j.id !== (previous && previous.id) && (j.state === 'done' || j.state === 'error') && j;
+      }, 'job finished');
+    };
+    const postsFor = (since, id) =>
+      addRequests()
+        .slice(since)
+        .filter((r) => r.path.includes('ShoppingCart_Add') && JSON.parse(new URLSearchParams(r.body).get('idArticle') || '{}')[id]);
+    const amountOf = (post, id) => JSON.parse(new URLSearchParams(post.body).get('amount'))[id];
+    const settle = (ms = 1500) => new Promise((r) => setTimeout(r, ms));
+
+    it('does not trust a cart page on which a seller block cannot be read', async (t) => {
+      t.after(() => (mock.state.brokenSeller = null));
+      await sw.evaluate(() => chrome.storage.local.set({ 'cmcs.job': null, 'cmcs.meta': {}, 'cmcs.items': {} }));
+      mock.state.cart = new Map([
+        [BOG, 1],
+        [MAGE, 1],
+        [SOL_RING, 1],
+      ]);
+      await page.goto(`${CM}/en/Magic/ShoppingCart`);
+      await waitFor(async () => Object.values(await items()).filter((i) => i.status === 'in_cart').length === 3, 'three saved');
+
+      mock.state.brokenSeller = 'Kärtchen-Laden';
+      await page.goto(`${CM}/en/Magic/ShoppingCart`);
+      await settle();
+      assert.equal((await items())[SOL_RING].status, 'in_cart', 'an unreadable block is not "gone"');
+
+      const before = addRequests().length;
+      const job = await refillMageFromReminder();
+      assert.equal(job.error, 'cart_unreadable');
+      assert.match(job.errorDetail, /1 of 2 seller blocks without rows/);
+      assert.equal(addRequests().length, before, 'nothing added');
+    });
+
+    it('remembers why articles left the cart, and that copies are missing', async () => {
+      await sw.evaluate(() => chrome.storage.local.set({ 'cmcs.job': null }));
+      mock.state.cart = new Map([
+        [BOG, 2],
+        [MAGE, 1],
+        [SOL_RING, 1],
+      ]);
+      await page.goto(`${CM}/en/Magic/ShoppingCart`);
+      await waitFor(async () => {
+        const all = await items();
+        return all[BOG]?.wantedAmount === 2 && [BOG, MAGE, SOL_RING].every((id) => all[id]?.status === 'in_cart');
+      }, 'saved, two copies of the Bog');
+
+      // The seller sold one Bog copy and the Mage; Kärtchen-Laden went on holiday.
+      mock.state.cart = new Map([[BOG, 1]]);
+      await page.goto(`${CM}/en/Magic`);
+      const all = await waitFor(async () => {
+        const saved = await items();
+        return saved[BOG].status === 'partial' && saved[SOL_RING].status === 'missing' && saved;
+      }, 'statuses updated');
+      assert.equal(all[BOG].amount, 1);
+      assert.equal(all[BOG].wantedAmount, 2);
+      assert.equal(all[MAGE].status, 'missing');
+      assert.equal(all[MAGE].missingReason, 'single');
+      assert.equal(all[SOL_RING].missingReason, 'seller');
+      assert.equal(await sw.evaluate(() => chrome.action.getBadgeText({})), '3');
+
+      const popup = await context.newPage();
+      await popup.goto(`chrome-extension://${extensionId}/src/popup/popup.html`);
+      await popup.locator('#tab-cart').click();
+      await waitFor(async () => (await popup.locator('#list .cmcs-item').count()) === 3, 'three rows');
+      const list = await popup.locator('#list').innerText();
+      assert.match(list, /Bojuka Bog[\s\S]*1 van 2 in je mandje/);
+      assert.match(list, /Deels in mandje/);
+      assert.match(list, /Portal Mage[\s\S]*Alleen dit artikel verdween, waarschijnlijk verkocht/);
+      assert.match(list, /Sol Ring[\s\S]*Alles van deze verkoper verdween uit je mandje/);
+      await shot(popup, '12-popup-reasons');
+      await popup.close();
+    });
+
+    it('puts back only the copies that are missing', async () => {
+      const before = addRequests().length;
+      const job = await refillVia(widget(page).getByRole('button', { name: 'Zet 3 artikel(en) terug' }));
+      assert.equal(job.state, 'done');
+      assert.equal(job.added, 3);
+      const bogPosts = postsFor(before, BOG);
+      assert.equal(bogPosts.length, 1);
+      assert.equal(amountOf(bogPosts[0], BOG), '1', 'only the missing copy');
+      assert.equal(mock.state.cart.get(BOG), 2);
+      const all = await items();
+      for (const id of [BOG, MAGE, SOL_RING]) assert.equal(all[id].status, 'in_cart', id);
+    });
+
+    it('tries one copy when the seller has fewer left than you want', async (t) => {
+      t.after(() => mock.state.stock.clear());
+      await widget(page).getByRole('button', { name: 'Sluiten' }).first().click();
+      mock.state.cart.delete(BOG);
+      mock.state.stock.set(BOG, 1);
+      await page.goto(`${CM}/en/Magic`);
+      await waitFor(async () => (await items())[BOG].status === 'missing', 'Bog missing');
+
+      const before = addRequests().length;
+      const job = await refillVia(widget(page).getByRole('button', { name: 'Zet 1 artikel(en) terug' }));
+      assert.equal(job.added, 1);
+      assert.deepEqual(postsFor(before, BOG).map((post) => amountOf(post, BOG)), ['2', '1']);
+      const bog = (await items())[BOG];
+      assert.equal(bog.status, 'partial');
+      assert.equal(bog.amount, 1);
+      assert.equal(bog.wantedAmount, 2);
+    });
+
+    it('keeps an article on the list after an unclear refusal, and gives up after the second', async (t) => {
+      t.after(() => (mock.state.genericRefusal = false));
+      mock.state.cart = new Map([
+        [BOG, 2],
+        [SOL_RING, 1],
+      ]);
+      await page.goto(`${CM}/en/Magic/ShoppingCart`);
+      await waitFor(async () => (await items())[MAGE].status === 'missing' && (await items())[BOG].status === 'in_cart', 'synced');
+      await sw.evaluate(() => chrome.storage.local.set({ 'cmcs.job': null }));
+      mock.state.genericRefusal = true;
+
+      await page.goto(`${CM}/en/Magic`);
+      const job = await refillVia(widget(page).getByRole('button', { name: 'Zet 1 artikel(en) terug' }));
+      assert.equal(job.failed, 1);
+      let mage = (await items())[MAGE];
+      assert.equal(mage.status, 'missing', 'not written off after one unclear refusal');
+      assert.equal(mage.lastAttempt.reason, 'unknown');
+      assert.equal(mage.lastAttempt.message, 'Something went wrong. Please try again.');
+
+      await widget(page).getByRole('button', { name: 'Sluiten' }).first().click();
+      await refillVia(widget(page).getByRole('button', { name: 'Zet 1 artikel(en) terug' }));
+      mage = (await items())[MAGE];
+      assert.equal(mage.status, 'unavailable', 'the second unclear refusal in a row counts as gone');
+    });
+
+    it('takes a lowered amount as what you want', async () => {
+      await page.goto(`${CM}/en/Magic/ShoppingCart`);
+      await page.evaluate((id) => window.cmRemove({ idArticle: id, idSeller: 1001, amount: 1 }), BOG);
+      const bog = await waitFor(async () => {
+        const saved = (await items())[BOG];
+        return saved && saved.amount === 1 && saved;
+      }, 'Bog synced');
+      assert.equal(bog.status, 'in_cart', 'not "partly"');
+      assert.equal(bog.wantedAmount, 1);
+    });
+
+    it('runs one refill at a time and offers to continue when its tab closes', async (t) => {
+      t.after(() => sw.evaluate((delayMs) => chrome.storage.local.set({ 'cmcs.settings': { delayMs } }), DELAY_MS));
+      mock.state.cart = new Map([
+        [BOG, 1],
+        [MAGE, 1],
+        [SOL_RING, 1],
+        [SOL_KINGDOM, 1],
+      ]);
+      await sw.evaluate(() => chrome.storage.local.set({ 'cmcs.job': null, 'cmcs.items': {} }));
+      await page.goto(`${CM}/en/Magic/ShoppingCart`);
+      await waitFor(async () => Object.values(await items()).filter((i) => i.status === 'in_cart').length === 4, 'four saved');
+      mock.state.cart = new Map([[BOG, 1]]);
+      await page.goto(`${CM}/en/Magic`);
+      await waitFor(async () => Object.values(await items()).filter((i) => i.status === 'missing').length === 3, 'three missing');
+      await sw.evaluate(() => chrome.storage.local.set({ 'cmcs.settings': { delayMs: 2500 } }));
+
+      const runner = await context.newPage();
+      await runner.goto(`${CM}/en/Magic`);
+      await widget(runner).getByRole('button', { name: 'Zet 3 artikel(en) terug' }).click();
+      await waitFor(async () => (await storage())['cmcs.job']?.done >= 1, 'first article added');
+
+      // A second tab asking to refill now is told to wait.
+      const reply = await sw.evaluate(async (url) => {
+        const tabs = await chrome.tabs.query({ url });
+        const replies = await Promise.all(
+          tabs.map((tab) => chrome.tabs.sendMessage(tab.id, { type: 'cmcs.refill', articleIds: ['1611110001'] }).catch(() => null)),
+        );
+        return replies.filter(Boolean);
+      }, `${CM}/en/Magic`);
+      assert.ok(reply.length >= 2);
+      assert.ok(reply.every((r) => r.ok === false && r.error === 'busy'), JSON.stringify(reply));
+
+      await runner.close();
+      await waitFor(() => widget(page).getByText('Terugzetten onderbroken').isVisible(), 'interrupted job noticed', 20000);
+      await shot(widget(page), '13-interrupted');
+      await sw.evaluate(() => chrome.storage.local.set({ 'cmcs.settings': { delayMs: 300 } }));
+      await widget(page).getByRole('button', { name: /^Doorgaan \(\d te gaan\)$/ }).click();
+      await waitFor(async () => {
+        const j = (await storage())['cmcs.job'];
+        return j && j.state === 'done' && j.acknowledged !== true && j;
+      }, 'continued job done');
+      for (const id of [MAGE, SOL_RING, SOL_KINGDOM]) assert.equal(mock.state.cart.get(id), 1, `${id} added exactly once`);
+      const all = await items();
+      for (const id of [MAGE, SOL_RING, SOL_KINGDOM]) assert.equal(all[id].status, 'in_cart', id);
+    });
+
+    it("leaves the list alone while you are logged in with another account", async (t) => {
+      t.after(async () => {
+        mock.state.username = 'tester';
+        await sw.evaluate(() => chrome.storage.local.set({ 'cmcs.meta': {} }));
+      });
+      await widget(page).getByRole('button', { name: 'Sluiten' }).first().click();
+      assert.equal((await storage())['cmcs.meta'].account, 'tester');
+      mock.state.username = 'someone-else';
+      mock.state.cart.clear();
+      await page.goto(`${CM}/en/Magic`);
+      await waitFor(() => widget(page).getByText('Ander Cardmarket-account').isVisible(), 'account notice');
+      assert.match(await widget(page).innerText(), /horen bij tester/);
+      const all = await items();
+      for (const id of [MAGE, SOL_RING, SOL_KINGDOM]) assert.equal(all[id].status, 'in_cart', `${id} untouched`);
+      await shot(widget(page), '14-other-account');
+
+      await widget(page).getByRole('button', { name: 'Voortaan someone-else gebruiken' }).click();
+      await waitFor(async () => (await storage())['cmcs.meta'].account === 'someone-else', 'account switched');
     });
   });
 

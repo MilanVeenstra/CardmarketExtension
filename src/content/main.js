@@ -44,35 +44,49 @@
     return false;
   });
 
-  /** Store a cart reading. Articles the user removed by hand are forgotten, not marked missing. */
+  /**
+   * Store a cart reading. Articles the user removed by hand are forgotten,
+   * not marked missing; when they removed only some copies, the lower amount
+   * becomes what they want. A cart of another account changes nothing.
+   */
   async function applyCart(cart) {
     if (!cart.signedIn) return null;
+    if (!(await checkAccount(cart.username))) return null;
     const settings = await store.getSettings();
+    const now = Date.now();
+    const meta = await store.getMeta();
+    const removedByUser = {};
+    for (const [id, at] of Object.entries(meta.userRemoved || {})) {
+      if (now - at < USER_REMOVAL_TTL_MS) removedByUser[id] = at;
+    }
+    const inCartNow = new Set(cart.items.map((item) => item.articleId));
+    // Still there, with fewer copies than last time: the user lowered the amount.
+    const before = await store.getItems();
+    const lowered = cart.trustworthy
+      ? cart.items
+          .filter((item) => removedByUser[item.articleId] && before[item.articleId] && item.amount < before[item.articleId].amount)
+          .map((item) => item.articleId)
+      : [];
+
     // An unreadable cart page never marks anything as missing.
     const result = await store.syncCart(cart.items, {
       game: loc.game,
       addNew: settings.autoTrack,
       markMissing: cart.trustworthy,
+      acceptAmount: Object.fromEntries(lowered.map((id) => [id, true])),
     });
 
     // Articles the user just removed or bought, and that are really gone from
     // the cart, leave the saved list.
-    const now = Date.now();
-    const meta = await store.getMeta();
-    const removedByUser = meta.userRemoved || {};
-    const inCartNow = new Set(cart.items.map((item) => item.articleId));
     const saved = await store.getItems();
-    const forget = cart.trustworthy
-      ? Object.keys(removedByUser).filter(
-          (id) => now - removedByUser[id] < USER_REMOVAL_TTL_MS && !inCartNow.has(id) && saved[id],
-        )
-      : [];
+    const forget = cart.trustworthy ? Object.keys(removedByUser).filter((id) => !inCartNow.has(id) && saved[id]) : [];
     if (forget.length) await store.removeItems(forget);
 
+    const handled = new Set([...forget, ...lowered]);
     await store.updateMeta((current) => {
       const userRemoved = {};
       for (const [id, at] of Object.entries(current.userRemoved || {})) {
-        if (now - at < USER_REMOVAL_TTL_MS && !forget.includes(id)) userRemoved[id] = at;
+        if (now - at < USER_REMOVAL_TTL_MS && !handled.has(id)) userRemoved[id] = at;
       }
       return {
         ...current,
@@ -81,6 +95,24 @@
       };
     });
     return result;
+  }
+
+  /**
+   * The saved list belongs to one Cardmarket account. Logged in as someone
+   * else, nothing is saved or marked missing until the user says otherwise
+   * (the widget offers that). Resolves to true when the cart may be used.
+   */
+  async function checkAccount(username) {
+    if (!username) return true;
+    const meta = await store.getMeta();
+    if (meta.account && meta.account !== username) {
+      if (meta.accountMismatch !== username) await store.updateMeta((current) => ({ ...current, accountMismatch: username }));
+      return false;
+    }
+    if (meta.account !== username || meta.accountMismatch) {
+      await store.updateMeta((current) => ({ ...current, account: username, accountMismatch: null }));
+    }
+    return true;
   }
 
   function syncFromPage() {

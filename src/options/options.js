@@ -42,7 +42,7 @@
       'dataSummary',
       summary.total,
       summary.inCart,
-      summary.missing,
+      summary.attention,
       summary.unavailable,
       Object.keys(favorites).length,
     );
@@ -66,6 +66,27 @@
     setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   });
 
+  /** Links in an imported file must point where they claim to; anything else is dropped. */
+  function cleanLinks(item) {
+    const safe = (value, test) => {
+      if (typeof value !== 'string') return null;
+      try {
+        return test(new URL(value)) ? value : null;
+      } catch {
+        return null;
+      }
+    };
+    const onCardmarket = (u) => u.protocol === 'https:' && u.hostname === 'www.cardmarket.com';
+    const image = (u) => u.protocol === 'https:' && /(^|\.)cardmarket\.com$/.test(u.hostname);
+    return {
+      ...item,
+      productUrl: safe(item.productUrl, onCardmarket),
+      sellerUrl: safe(item.sellerUrl, onCardmarket),
+      imageUrl: safe(item.imageUrl, image),
+      thumb: typeof item.thumb === 'string' && item.thumb.startsWith('data:image/') ? item.thumb : null,
+    };
+  }
+
   $('import').addEventListener('change', async (e) => {
     const file = e.target.files[0];
     e.target.value = '';
@@ -75,8 +96,8 @@
       const isArticle = (item) =>
         item && /^\d+$/.test(String(item.articleId)) && typeof item.name === 'string' && typeof item.game === 'string';
       const incoming = data && typeof data.items === 'object' ? data.items : data;
-      const validItems = Object.values(incoming || {}).filter(isArticle);
-      const validFavorites = Object.values((data && data.favorites) || {}).filter(isArticle);
+      const validItems = Object.values(incoming || {}).filter(isArticle).map(cleanLinks);
+      const validFavorites = Object.values((data && data.favorites) || {}).filter(isArticle).map(cleanLinks);
       if (!validItems.length && !validFavorites.length) throw new Error('nothing to import');
       let added = 0;
       await store.updateItems((items) => {

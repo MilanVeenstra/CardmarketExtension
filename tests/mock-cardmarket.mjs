@@ -179,6 +179,14 @@ export function createMockCardmarket() {
      * 'xhr' (only inside the site's own obfuscated AJAX call), 'none'.
      */
     tokenMode: 'input',
+    /** the logged-in account (its profile link sits in the account menu) */
+    username: 'tester',
+    /** articleId → copies the seller has; adding more is refused with "not enough" */
+    stock: new Map(),
+    /** refuse every add with a message that names no reason */
+    genericRefusal: false,
+    /** render the rows of this seller's block in a shape the extension cannot read */
+    brokenSeller: null,
     requests: [],
   };
 
@@ -200,7 +208,8 @@ export function createMockCardmarket() {
         </a>
         ${
           state.loggedIn
-            ? `<div id="account-dropdown"><a href="/${lang}/${game}/Account">tester</a>
+            ? `<div id="account-dropdown"><a href="/${lang}/${game}/Account">${esc(state.username)}</a>
+               <a href="/${lang}/${game}/Users/${encodeURIComponent(state.username)}">Profile</a>
                <a href="/${lang}/${game}/PostGetAction/User_Logout">Logout</a></div>`
             : `<form action="/${lang}/${game}/PostGetAction/User_Login" method="post">
                <input type="hidden" name="__cmtkn" value="${state.token}">
@@ -231,11 +240,11 @@ export function createMockCardmarket() {
       </body></html>`;
   }
 
-  function row(a, amount, lang) {
+  function row(a, amount, lang, broken = state.brokenRows) {
     const productUrl = `https://www.cardmarket.com/${lang}/${a.game}/Products/Singles/${a.expansionSlug}/${a.cardSlug}?language=1,3&amp;minCondition=5`;
     const img = `&lt;img src=&quot;https://product-images.s3.cardmarket.com/1/X/${a.productId}/${a.productId}.jpg&quot; alt=&quot;${esc(a.name)}&quot;&gt;`;
     return `
-      <tr ${state.brokenRows ? 'data-art' : 'data-article-id'}="${a.articleId}" data-product-id="${a.productId}" data-amount="${amount}"
+      <tr ${broken ? 'data-art' : 'data-article-id'}="${a.articleId}" data-product-id="${a.productId}" data-amount="${amount}"
           data-name="${esc(a.name)}" data-expansion="1533852000" data-expansion-name="${esc(a.expansion)}"
           data-number="${a.number}" data-rarity="20" data-condition="${a.condition}" data-language="${a.language}"
           data-price="${a.price}" data-comment="">
@@ -288,10 +297,10 @@ export function createMockCardmarket() {
             <button type="button" class="btn btn-link btn-sm remove-shipment" onclick="return cmRemoveSeller({ idSeller: ${rows[0][0].sellerId} })">
               <span class="fonticon-delete"></span> Remove all articles from this seller</button>
             <table class="table table-sm article-table mb-1 table-striped product-table"><tbody>
-              ${rows.map(([a, amount]) => row(a, amount, lang)).join('')}
+              ${rows.map(([a, amount]) => row(a, amount, lang, state.brokenRows || state.brokenSeller === seller)).join('')}
             </tbody></table>
             <!-- Cardmarket renders some rows a second time (mobile layout) -->
-            <table class="table d-none mobile-table"><tbody>${row(rows[0][0], rows[0][1], lang)}</tbody></table>
+            <table class="table d-none mobile-table"><tbody>${row(rows[0][0], rows[0][1], lang, state.brokenRows || state.brokenSeller === seller)}</tbody></table>
             <form method="post" action="/${lang}/${game}/PostGetAction/ShoppingCart_CheckoutShipment">
               <input type="hidden" name="idSeller" value="${rows[0][0].sellerId}">
               <button type="submit" class="btn btn-primary checkout">Commit to purchase</button>
@@ -434,13 +443,20 @@ export function createMockCardmarket() {
     if (params.get('__cmtkn') !== state.token || !state.loggedIn) {
       return { status: 200, contentType: 'text/xml', body: ajax(false, 'The requested action could not be completed.') };
     }
+    if (state.genericRefusal) {
+      return { status: 200, contentType: 'text/xml', body: ajax(false, 'Something went wrong. Please try again.') };
+    }
     const ids = JSON.parse(params.get('idArticle') || '{}');
     const amounts = JSON.parse(params.get('amount') || '{}');
     for (const id of Object.keys(ids)) {
       if (!state.available.has(id)) {
         return { status: 200, contentType: 'text/xml', body: ajax(false, 'This article is no longer available.') };
       }
-      state.cart.set(id, (state.cart.get(id) || 0) + (parseInt(amounts[id], 10) || 1));
+      const amount = parseInt(amounts[id], 10) || 1;
+      if (state.stock.has(id) && (state.cart.get(id) || 0) + amount > state.stock.get(id)) {
+        return { status: 200, contentType: 'text/xml', body: ajax(false, 'Not enough articles available.') };
+      }
+      state.cart.set(id, (state.cart.get(id) || 0) + amount);
     }
     return { status: 200, contentType: 'text/xml', body: ajax(true, 'The article was put in your shopping cart.') };
   }

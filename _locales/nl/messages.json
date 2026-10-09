@@ -1,4 +1,13 @@
 {
+  "accountLead": {
+    "message": "Je opgeslagen artikelen horen bij $1. Zolang je als $2 bent ingelogd, wordt niets opgeslagen of als ontbrekend gemarkeerd."
+  },
+  "accountTitle": {
+    "message": "Ander Cardmarket-account"
+  },
+  "accountUseThis": {
+    "message": "Voortaan $1 gebruiken"
+  },
   "addedButNotInCart": {
     "message": "Cardmarket accepteerde het, maar het staat niet in je mandje."
   },
@@ -28,6 +37,9 @@
   },
   "collapse": {
     "message": "Minimaliseren"
+  },
+  "continueRefill": {
+    "message": "Doorgaan ($1 te gaan)"
   },
   "dataSummary": {
     "message": "$1 opgeslagen: $2 in mandje, $3 ontbreken, $4 niet beschikbaar. $5 favoriet(en)."
@@ -67,6 +79,9 @@
   },
   "errorNoToken": {
     "message": "De beveiligingscode van Cardmarket (token) is niet gevonden op de pagina. Ververs de pagina en probeer het opnieuw."
+  },
+  "errorOtherAccount": {
+    "message": "Je bent ingelogd met een ander Cardmarket-account dan waarmee deze artikelen zijn opgeslagen."
   },
   "errorRateLimited": {
     "message": "Cardmarket vraagt om het rustiger aan te doen. Wacht een paar minuten en probeer het opnieuw."
@@ -167,6 +182,12 @@
   "importFailed": {
     "message": "Dat bestand kon niet worden gelezen."
   },
+  "interruptedLead": {
+    "message": "Het tabblad werd gesloten of verlaten voordat alles terug was. Nog $1 te gaan."
+  },
+  "interruptedTitle": {
+    "message": "Terugzetten onderbroken"
+  },
   "jobCancelled": {
     "message": "Gestopt voordat alle artikelen waren teruggezet."
   },
@@ -185,17 +206,35 @@
   "openCart": {
     "message": "Open winkelmandje"
   },
+  "partialNote": {
+    "message": "$1 van $2 in je mandje"
+  },
   "pillAttention": {
     "message": "Cart Saver · $1 te bekijken"
   },
   "pillSaved": {
     "message": "Cart Saver · $1 opgeslagen"
   },
+  "priceDown": {
+    "message": "Prijs $1 lager (was $2)"
+  },
+  "priceUp": {
+    "message": "Prijs $1 hoger (was $2)"
+  },
   "privacyNote": {
     "message": "Alles wordt lokaal in je browser bewaard. Cart Saver praat alleen met cardmarket.com, via je eigen sessie."
   },
   "progressCount": {
     "message": "$1 van $2"
+  },
+  "reasonEmptied": {
+    "message": "Je hele mandje werd geleegd"
+  },
+  "reasonSeller": {
+    "message": "Alles van deze verkoper verdween uit je mandje"
+  },
+  "reasonSingle": {
+    "message": "Alleen dit artikel verdween, waarschijnlijk verkocht"
   },
   "refillAll": {
     "message": "Zet $1 artikel(en) terug"
@@ -222,10 +261,13 @@
     "message": "Gestopt"
   },
   "refillSummary": {
-    "message": "$1 in je mandje gezet, $2 niet beschikbaar."
+    "message": "$1 in je mandje gezet, $2 niet gelukt."
   },
   "refillWaiting": {
     "message": "Wachten tot Cardmarket opent…"
+  },
+  "refusedUnknown": {
+    "message": "Cardmarket nam het niet aan. Het blijft op je lijst, probeer het later opnieuw."
   },
   "reminderLead": {
     "message": "$1 opgeslagen artikel(en) ($2) zitten niet meer in je winkelmandje."
@@ -283,6 +325,9 @@
   },
   "statusMissing": {
     "message": "Ontbreekt"
+  },
+  "statusPartial": {
+    "message": "Deels in mandje"
   },
   "statusUnavailable": {
     "message": "Niet beschikbaar"

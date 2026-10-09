@@ -30,12 +30,14 @@ Notatie:
 | FR-02 | Op elke andere Cardmarket-pagina vergelijkt de extensie de mandjesteller in de header met de vorige keer. Is die veranderd, dan haalt ze het mandje één keer op en werkt de lijst bij. | ✔ |
 | FR-03 | Verandert de teller live, bijvoorbeeld als je op de site op "in winkelmandje" klikt, dan wordt het nieuwe artikel binnen ~1,5 s opgeslagen, zonder dat je de pagina herlaadt. | ✔ |
 | FR-04 | Artikelen die dubbel op de pagina staan (desktop- en mobiele weergave) worden één keer opgeslagen. | ✔ |
-| FR-05 | Een artikel dat uit het mandje verdwijnt, wordt **niet** verwijderd. Het krijgt de status *ontbreekt*. Mogelijke statussen: *in mandje*, *ontbreekt*, *niet beschikbaar*. | ✔ |
+| FR-05 | Een artikel dat uit het mandje verdwijnt, wordt **niet** verwijderd. Het krijgt de status *ontbreekt*, met de vermoedelijke reden: het hele mandje werd geleegd, alles van die verkoper verdween, of alleen dit artikel verdween (waarschijnlijk verkocht). Mogelijke statussen: *in mandje*, *deels in mandje*, *ontbreekt*, *niet beschikbaar*. | ✔ |
 | FR-06 | Artikelen die je zelf verwijdert, worden vergeten in plaats van als ontbrekend gemarkeerd. Dat geldt voor het prullenbakje, "alles van deze verkoper" en "mandje legen". Hetzelfde geldt voor artikelen die je afrekent. De extensie herkent dit aan het verwijderverzoek van de site zelf, aan formulieren en aan de knoppen. | ✔ |
 | FR-07 | Artikelen die op een bestelpagina (`/Orders/…`) staan, zijn gekocht en worden uit de lijst gehaald. | ✔ |
 | FR-08 | Automatisch opslaan kan uit. Op de mandjepagina staat dan de knop *Huidig mandje opslaan*. | — |
 | FR-09 | Werkt per spel (Magic, Pokémon, Yu-Gi-Oh!, …) en in elke sitetaal (en, de, fr, es, it). Het spel van elk artikel wordt afgeleid uit de product-URL. | ✔ (deels) |
-| FR-10 | Ben je uitgelogd, dan doet de extensie niets met de lijst: een loginpagina wordt nooit als leeg mandje gezien. | ✔ |
+| FR-10 | Ben je uitgelogd, dan doet de extensie niets met de lijst: een loginpagina wordt nooit als leeg mandje gezien. Ben je ingelogd met een **ander account** dan waarmee de lijst is opgebouwd, dan wordt niets opgeslagen of als ontbrekend gemarkeerd tot je kiest voor het nieuwe account. | ✔ |
+| FR-10a | Het gewenste aantal wordt apart bewaard. Staan er minder exemplaren in het mandje dan je had (de verkoper verkocht er een paar), dan heet het artikel *deels in mandje* ("1 van 2 in je mandje"). Verlaag je het aantal zelf, dan wordt het lagere aantal het nieuwe gewenste aantal. | ✔ |
+| FR-10b | Verandert de prijs van een artikel in je mandje, dan zie je dat drie dagen lang ("Prijs €0,10 hoger (was €0,99)"). | ✔ |
 
 ### A2. Leeg mandje herkennen en melden
 
@@ -43,7 +45,7 @@ Notatie:
 |---|---|---|
 | FR-11 | Ontbreken er opgeslagen artikelen, dan verschijnt rechtsonder op Cardmarket een melding met het aantal en de totale waarde, plus de knoppen *Zet terug* en *Bekijken*. | ✔ |
 | FR-12 | Wegklikken onthoudt de melding voor precies deze set ontbrekende artikelen. Verdwijnen er nieuwe artikelen, dan komt hij terug. | — |
-| FR-13 | Het icoon in de werkbalk toont het aantal ontbrekende artikelen (badge). | ✔ |
+| FR-13 | Het icoon in de werkbalk toont het aantal ontbrekende en deels aanwezige artikelen (badge). | ✔ |
 | FR-14 | Op de mandjepagina toont een paneel de ontbrekende artikelen, elk met een vinkje, plus *alles/niets selecteren* en de totale waarde van de selectie. | ✔ |
 | FR-15 | Niet-beschikbare artikelen staan in een aparte groep. Daarin staan de reden van Cardmarket, de knoppen *Zoek vergelijkbaar aanbod*, *Toch opnieuw proberen* en *Lijst opschonen*. | ✔ |
 | FR-16 | Het paneel kan worden ingeklapt tot een klein label. Die keuze wordt onthouden. | — |
@@ -54,16 +56,19 @@ Notatie:
 |---|---|---|
 | FR-17 | Je kunt terugzetten met één klik: vanuit de melding, het mandjepaneel of de popup, voor alle ontbrekende artikelen of voor één artikel. | ✔ |
 | FR-18 | Het terugzetten draait in een Cardmarket-tab, met je eigen sessie. Start je het vanuit de popup terwijl je niet op Cardmarket zit, dan opent de extensie je winkelmandje en start het daar vanzelf (de actie wacht maximaal 2 minuten). | ✔ |
-| FR-19 | Vooraf wordt het actuele mandje gecontroleerd. Artikelen die er al in zitten, worden overgeslagen, zodat aantallen nooit verdubbelen. | ✔ |
-| FR-20 | Is het mandje niet betrouwbaar te lezen (bijvoorbeeld door een layoutwijziging), dan weigert de extensie te starten. | ✔ |
+| FR-19 | Vooraf wordt het actuele mandje gecontroleerd. Alleen de exemplaren die nog ontbreken gaan terug; artikelen die er al (helemaal) in zitten, worden overgeslagen, zodat aantallen nooit verdubbelen. | ✔ |
+| FR-20 | Is het mandje niet betrouwbaar te lezen, dan weigert de extensie te starten en markeert ze niets als ontbrekend. Onbetrouwbaar is: geen rijen terwijl de header iets telt, een verkopersblok zonder leesbare rijen, of minder artikelen dan de header telt. | ✔ |
 | FR-21 | Artikelen gaan één voor één terug, met een instelbare pauze (standaard 1,2 s plus een willekeurige 0–0,4 s). | ✔ |
-| FR-22 | De extensie gebruikt het CSRF-token van de pagina. Weigert Cardmarket dat, dan haalt ze één keer een vers token op. | ✔ |
+| FR-22 | De extensie gebruikt het CSRF-token van de pagina. Bij elke weigering zonder bekende reden zoekt ze een vers token en probeert ze het één keer opnieuw (maximaal 3 keer per actie). | ✔ |
+| FR-22a | Weigeringen worden ingedeeld: *verkocht* (niet beschikbaar), *te weinig exemplaren* (opnieuw met 1 exemplaar; het artikel wordt dan *deels in mandje*) of *onbekend* (blijft *ontbreekt*, met de melding; pas de tweede onbekende weigering op rij telt als niet beschikbaar). | ✔ |
 | FR-23 | Er zijn twee bekende toevoeg-endpoints. Werkt het eerste niet, dan volgt het tweede, en het werkende endpoint wordt onthouden. | ✔ |
 | FR-24 | Bij HTTP 429 wacht de extensie volgens `Retry-After` (maximaal 60 s) en probeert het tot 2× opnieuw. Daarna stopt ze. | — |
 | FR-25 | Bij een Cloudflare-controle, uitloggen of een netwerkfout stopt de extensie direct, met een duidelijke melding. Artikelen worden dan niet ten onrechte als *niet beschikbaar* gemarkeerd. | ✔ |
 | FR-26 | Na afloop wordt het mandje opnieuw gelezen en krijgt elk artikel de juiste status. De weigeringsreden van Cardmarket wordt bewaard. | ✔ |
-| FR-27 | De voortgang is live te volgen in het paneel en in de popup, en het terugzetten is te stoppen. Er draait maximaal één actie tegelijk, over alle tabs heen. | ✔ |
-| FR-28 | Na het terugzetten op de mandjepagina herlaadt de pagina vanzelf, met een samenvatting ("X in je mandje gezet, Y niet beschikbaar"). | ✔ |
+| FR-27 | De voortgang is live te volgen in het paneel en in de popup, en het terugzetten is te stoppen. Er draait maximaal één actie tegelijk, over alle tabs heen (een Web Lock die met de tab verdwijnt). Verlaat je de pagina tijdens het terugzetten, dan vraagt de browser eerst of je zeker bent. | ✔ |
+| FR-27a | Wordt de tab toch gesloten, dan toont de volgende Cardmarket-pagina *Terugzetten onderbroken* met *Doorgaan (N te gaan)*. Doorgaan is veilig: het mandje wordt eerst opnieuw gecontroleerd. | ✔ |
+| FR-27b | Een actie uit de popup start alleen in een zichtbare, ingelogde Cardmarket-tab. Op de loginpagina stopt ze met de melding dat je niet bent ingelogd. | ✔ |
+| FR-28 | Na het terugzetten op de mandjepagina herlaadt de pagina vanzelf, met een samenvatting ("X in je mandje gezet, Y niet gelukt"). De telling komt uit de controle achteraf. | ✔ |
 | FR-29 | *Zoek vergelijkbaar aanbod* opent de productpagina, gefilterd op dezelfde taal, minimaal dezelfde conditie en dezelfde foil-status. | ✔ |
 
 ### A4. Favorieten
@@ -101,7 +106,7 @@ Notatie:
 | NFR-04 | **Liever niets doen dan iets fout doen.** Bij twijfel (onleesbare pagina, uitgelogd, controle van Cardmarket) worden geen statussen aangepast en geen artikelen toegevoegd. |
 | NFR-05 | **Platform:** Chrome, Edge, Brave en Opera (Manifest V3), zonder build-stap. |
 | NFR-06 | **Isolatie.** De interface op Cardmarket draait in een shadow DOM, zodat de CSS van de site en die van de extensie elkaar niet raken. |
-| NFR-07 | **Testbaarheid.** Er zijn 44 end-to-end-tests met Playwright, tegen een nagebootste Cardmarket. |
+| NFR-07 | **Testbaarheid.** Er zijn 52 end-to-end-tests met Playwright, tegen een nagebootste Cardmarket. |
 
 ### A7. Bekende beperkingen
 

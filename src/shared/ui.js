@@ -48,9 +48,35 @@
 
   const STATUS_LABEL = {
     in_cart: 'statusInCart',
+    partial: 'statusPartial',
     missing: 'statusMissing',
     unavailable: 'statusUnavailable',
   };
+
+  const REASON_KEYS = { emptied: 'reasonEmptied', seller: 'reasonSeller', single: 'reasonSingle' };
+  /** How long "the price changed" stays visible. */
+  const PRICE_CHANGE_TTL_MS = 3 * 24 * 60 * 60 * 1000;
+
+  /**
+   * Short lines on what happened to an article: how many copies made it, why
+   * it left the cart, and whether its price changed. Each is { text, warn }.
+   */
+  function statusInfo(item, now = Date.now()) {
+    const t = CMCS.t;
+    const lines = [];
+    if (item.status === 'partial') {
+      lines.push({ text: t('partialNote', item.amount || 0, item.wantedAmount || item.amount || 1), warn: true });
+    } else if (item.status === 'missing' && REASON_KEYS[item.missingReason]) {
+      lines.push({ text: t(REASON_KEYS[item.missingReason]) });
+    }
+    const change = item.priceChange;
+    if (change && change.from != null && change.to != null && now - (change.at || 0) < PRICE_CHANGE_TTL_MS) {
+      const up = change.to > change.from;
+      const diff = CMCS.store.formatPrice(Math.abs(change.to - change.from));
+      lines.push({ text: t(up ? 'priceUp' : 'priceDown', diff, CMCS.store.formatPrice(change.from)), warn: up });
+    }
+    return lines;
+  }
 
   function itemMeta(item) {
     return [
@@ -72,6 +98,7 @@
    * @param {string} [opts.href]        where the name links to (default: product page)
    * @param {string} [opts.extraMeta]   an extra muted line
    * @param {string} [opts.note]        a warning line (default: last failed attempt)
+   * @param {boolean}[opts.showInfo]    lines on copies, reason and price change (default true)
    */
   function itemRow(item, opts = {}) {
     const t = CMCS.t;
@@ -93,6 +120,9 @@
         h('div', { class: 'cmcs-item-meta' }, itemMeta(item).join(' · ')),
         item.seller && opts.showSeller !== false ? h('div', { class: 'cmcs-item-meta' }, t('soldBy', item.seller)) : null,
         opts.extraMeta ? h('div', { class: 'cmcs-item-meta' }, opts.extraMeta) : null,
+        opts.showInfo === false
+          ? null
+          : statusInfo(item).map((line) => h('div', { class: `cmcs-item-info ${line.warn ? 'cmcs-item-info--warn' : ''}` }, line.text)),
         note ? h('div', { class: 'cmcs-item-note' }, note) : null,
       ),
       h(
@@ -118,6 +148,7 @@
     unexpected_page: 'errorUnexpected',
     unexpected_response: 'errorUnexpected',
     no_token: 'errorNoToken',
+    other_account: 'errorOtherAccount',
     cancelled: 'jobCancelled',
   };
 
@@ -253,13 +284,15 @@
     .cmcs-item-name { display: block; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--cmcs-text); }
     .cmcs-item-meta { color: var(--cmcs-muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .cmcs-item-note { color: var(--cmcs-bad); font-size: 12px; }
+    .cmcs-item-info { color: var(--cmcs-muted); font-size: 12px; }
+    .cmcs-item-info--warn { color: var(--cmcs-warn); }
     .cmcs-item-side { display: flex; flex-direction: column; align-items: flex-end; gap: 3px; flex: none; }
     .cmcs-price { font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
     .cmcs-amount { color: var(--cmcs-muted); font-weight: 500; }
     .cmcs-item-actions { display: flex; gap: 2px; }
     .cmcs-badge { font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 999px; white-space: nowrap; }
     .cmcs-badge--in_cart { color: var(--cmcs-ok); background: var(--cmcs-ok-bg); }
-    .cmcs-badge--missing { color: var(--cmcs-warn); background: var(--cmcs-warn-bg); }
+    .cmcs-badge--missing, .cmcs-badge--partial { color: var(--cmcs-warn); background: var(--cmcs-warn-bg); }
     .cmcs-badge--unavailable { color: var(--cmcs-bad); background: var(--cmcs-bad-bg); }
     .cmcs-progress { height: 6px; border-radius: 999px; background: var(--cmcs-surface); overflow: hidden; }
     .cmcs-progress > div { height: 100%; background: var(--cmcs-accent); transition: width 0.3s ease; }
@@ -269,5 +302,5 @@
     .cmcs-group-title { font-size: 12px; font-weight: 700; color: var(--cmcs-muted); text-transform: uppercase; letter-spacing: 0.03em; margin: 12px 0 2px; }
   `;
 
-  CMCS.ui = { h, icon, itemRow, iconButton, iconLink, errorText, jobError, STYLES };
+  CMCS.ui = { h, icon, itemRow, statusInfo, iconButton, iconLink, errorText, jobError, STYLES };
 })(globalThis);

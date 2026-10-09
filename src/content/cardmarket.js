@@ -172,6 +172,21 @@
     );
   }
 
+  /**
+   * Name of the signed-in account, from the profile link in the account menu.
+   * Null when the menu has no such link: the account check is then skipped.
+   */
+  function readUsername(doc) {
+    const link = doc.querySelector('#account-dropdown a[href*="/Users/"]');
+    const m = link && (link.getAttribute('href') || '').match(/\/Users\/([^/?#]+)/);
+    if (!m) return null;
+    try {
+      return decodeURIComponent(m[1]);
+    } catch {
+      return m[1];
+    }
+  }
+
   const LOOSE_TOKEN_RE = /^[A-Za-z0-9+/=_.:-]{16,}$/;
   const isToken = (value) => typeof value === 'string' && (TOKEN_RE.test(value.trim()) || LOOSE_TOKEN_RE.test(value.trim()));
 
@@ -192,9 +207,14 @@
     const values = [...doc.querySelectorAll('input[name="__cmtkn"]')].map((input) => (input.value || '').trim());
     const fromInput = values.find((v) => TOKEN_RE.test(v)) || values.find((v) => LOOSE_TOKEN_RE.test(v));
     if (fromInput) return fromInput;
-    for (const el of doc.querySelectorAll('[data-cmtkn], [data-token], meta[name="__cmtkn"], meta[name="csrf-token"]')) {
-      const value = el.getAttribute('data-cmtkn') || el.getAttribute('data-token') || el.getAttribute('content');
+    for (const el of doc.querySelectorAll('[data-cmtkn], meta[name="__cmtkn"]')) {
+      const value = el.getAttribute('data-cmtkn') || el.getAttribute('content');
       if (isToken(value)) return value.trim();
+    }
+    // Generically named places may hold other tokens: only a hex value counts there.
+    for (const el of doc.querySelectorAll('[data-token], meta[name="csrf-token"]')) {
+      const value = (el.getAttribute('data-token') || el.getAttribute('content') || '').trim();
+      if (TOKEN_RE.test(value)) return value;
     }
     const html = doc.documentElement ? doc.documentElement.outerHTML : '';
     for (const re of TOKEN_IN_HTML) {
@@ -239,7 +259,7 @@
     doc.querySelectorAll('a[href*="/Users/"], tr[data-article-id]').forEach((node) => {
       if (node.matches('tr[data-article-id]')) {
         if (!map.has(node) && current) map.set(node, current);
-      } else if (!node.closest('tr[data-article-id]')) {
+      } else if (!node.closest('tr[data-article-id], #account-dropdown, header')) {
         current = node;
       }
     });
@@ -678,9 +698,13 @@
         tried.push(`${path} (${err.kind || 'error'})`);
       }
     }
-    return { token: null, detail: `gezocht: ${tried.join(', ')} · deze pagina: ${tokenStats(document)}` };
+    return { token: null, detail: `searched: ${tried.join(', ')} · this page: ${tokenStats(document)}` };
   }
 
+  /**
+   * Read a cart page. `trustworthy` says whether the page can be taken as the
+   * whole truth: only then may articles that are not on it count as gone.
+   */
   function readCartDocument(doc, { baseUrl, lang, game }) {
     const signedIn = isSignedIn(doc);
     const items = signedIn ? parseCart(doc, { baseUrl, lang, game }) : [];
@@ -689,14 +713,35 @@
     const hasShipments = Boolean(doc.querySelector('section.shipment-block, .shipment-block, section[id*="seller"]'));
     return {
       signedIn,
+      username: signedIn ? readUsername(doc) : null,
       token: findToken(doc),
       headerCount,
       items,
-      // "Empty" is only believable when nothing on the page says otherwise.
-      // If rows could not be read (layout change?) we must not conclude that
-      // the cart was emptied, or a refill would add articles a second time.
-      trustworthy: signedIn && (items.length > 0 || (!(headerCount > 0) && !(headerTotal > 0) && !hasShipments)),
+      ...cartTrust(doc, { signedIn, items, headerCount, headerTotal, hasShipments }),
     };
+  }
+
+  /**
+   * "Empty" is only believable when nothing on the page says otherwise, and a
+   * partly read page is not believable either: a seller block without readable
+   * rows, or fewer articles than the header counts (a layout change?). Either
+   * would make articles look gone, and a refill would add them a second time.
+   */
+  function cartTrust(doc, { signedIn, items, headerCount, headerTotal, hasShipments }) {
+    if (!signedIn) return { trustworthy: false, untrusted: 'not signed in' };
+    if (!items.length) {
+      const empty = !(headerCount > 0) && !(headerTotal > 0) && !hasShipments;
+      return empty ? { trustworthy: true } : { trustworthy: false, untrusted: `no rows read, header ${headerCount}` };
+    }
+    const blocks = [...doc.querySelectorAll('section.shipment-block')];
+    const unread = blocks.filter((block) => !block.querySelector('tr[data-article-id]')).length;
+    if (unread) return { trustworthy: false, untrusted: `${unread} of ${blocks.length} seller blocks without rows` };
+    // The header counts articles (copies); accept a count of rows as well.
+    const copies = items.reduce((sum, item) => sum + (item.amount || 1), 0);
+    if (headerCount > 0 && copies < headerCount && items.length < headerCount) {
+      return { trustworthy: false, untrusted: `read ${copies} articles, header says ${headerCount}` };
+    }
+    return { trustworthy: true };
   }
 
   function decodeBase64(b64) {
@@ -729,6 +774,25 @@
     }
     const ok = /success/i.test(resultType) || /generalOK/i.test(resultsCode);
     return { ok, resultType, resultsCode, message };
+  }
+
+  /** "Not enough copies": retrying with fewer can still work. Checked first, it is the more specific one. */
+  const REFUSAL_AMOUNT =
+    /not enough|insufficient|requested (amount|quantity)|only \d+ (copies|articles|available)|nicht (genügend|ausreichend)|nur noch \d+|gewünschte (menge|anzahl)|pas assez|quantité|cantidad|insuficiente|quantità|non abbastanza|niet genoeg|hoeveelheid/i;
+  /** The offer is gone: sold, withdrawn, reserved by someone else. */
+  const REFUSAL_SOLD =
+    /no longer|not available|unavailable|does not exist|sold|reserved|nicht (mehr )?verfügbar|nicht mehr vorhanden|existiert nicht|verkauft|reserviert|plus disponible|n'existe|vendu|réservé|ya no está disponible|no existe|vendido|reservado|non è più disponibile|non esiste|venduto|riservato|niet (meer )?beschikbaar|bestaat niet|verkocht|gereserveerd/i;
+
+  /**
+   * Why Cardmarket refused to add an article, from its message:
+   * 'sold' (the offer is gone), 'amount' (fewer copies left) or 'unknown'
+   * (anything else, e.g. an expired token — worth a retry with a fresh one).
+   */
+  function classifyRefusal(message) {
+    const text = String(message || '');
+    if (REFUSAL_AMOUNT.test(text)) return 'amount';
+    if (REFUSAL_SOLD.test(text)) return 'sold';
+    return 'unknown';
   }
 
   let preferredEndpoint = 0;
@@ -770,7 +834,9 @@
       const parsed = parseAjaxResponse(res.text);
       if (parsed) {
         preferredEndpoint = index;
-        return { ok: parsed.ok, message: parsed.message };
+        return parsed.ok
+          ? { ok: true, message: parsed.message }
+          : { ok: false, message: parsed.message, reason: classifyRefusal(parsed.message) };
       }
       // Unknown endpoint → try the other one. Anything else is a real failure.
       if (res.status === 404 || res.status === 405) continue;
@@ -799,6 +865,8 @@
     parseCartRow,
     parseOfferRow,
     readHeaderCount,
+    readUsername,
+    classifyRefusal,
     isSignedIn,
     findToken,
     parseCart,
