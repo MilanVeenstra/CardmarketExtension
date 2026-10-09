@@ -50,6 +50,9 @@
   "errorChallenge": {
     "message": "Cardmarket toont een beveiligingscontrole. Ververs de pagina, voltooi de controle en probeer het opnieuw."
   },
+  "errorDetails": {
+    "message": "Details: $1"
+  },
   "errorHttp": {
     "message": "Cardmarket gaf een onverwachte fout. Probeer het later opnieuw."
   },
@@ -62,8 +65,14 @@
   "errorNoEndpoint": {
     "message": "Cardmarket heeft het toevoegen aan het mandje veranderd. Deze extensie heeft een update nodig."
   },
+  "errorNoToken": {
+    "message": "De beveiligingscode van Cardmarket (token) is niet gevonden op de pagina. Ververs de pagina en probeer het opnieuw."
+  },
   "errorRateLimited": {
     "message": "Cardmarket vraagt om het rustiger aan te doen. Wacht een paar minuten en probeer het opnieuw."
+  },
+  "errorUnexpected": {
+    "message": "Cardmarket gaf een onverwacht antwoord, dus er is niets meer toegevoegd. Probeer het opnieuw; blijft het gebeuren, stuur dan de details hieronder door."
   },
   "errorUnknown": {
     "message": "Er ging iets mis. Probeer het opnieuw."

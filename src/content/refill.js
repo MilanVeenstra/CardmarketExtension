@@ -68,6 +68,7 @@
     let added = 0;
     let failed = 0;
     let error = null;
+    let errorDetail = null;
     let token = null;
     let tokenConfirmed = false;
     let tokenRefreshed = false;
@@ -122,15 +123,19 @@
       const alreadyInCart = new Set();
       for (const game of new Set(todo.map((item) => item.game))) {
         const cart = await cm.fetchCart(lang, game);
-        if (!cart.signedIn) throw new cm.CardmarketError('logged_out');
-        if (!cart.trustworthy) throw new cm.CardmarketError('cart_unreadable');
+        // Only Cardmarket's own login form means "not logged in"; any other odd
+        // page is reported as unexpected, with details for a bug report.
+        if (!cart.signedIn) {
+          throw new cm.CardmarketError(cart.loginPage ? 'logged_out' : 'unexpected_page', null, { detail: cart.detail });
+        }
+        if (!cart.trustworthy) throw new cm.CardmarketError('cart_unreadable', null, { detail: cart.detail });
         cart.items.forEach((item) => alreadyInCart.add(item.articleId));
         token = token || cart.token;
       }
       todo = todo.filter((item) => !alreadyInCart.has(item.articleId));
       token = (cm.isSignedIn(document) && cm.findToken(document)) || token;
       await patchJob({ total: todo.length });
-      if (todo.length && !token) throw new cm.CardmarketError('logged_out');
+      if (todo.length && !token) throw new cm.CardmarketError('no_token');
 
       for (let i = 0; i < todo.length; i += 1) {
         const current = await store.getJob();
@@ -149,6 +154,7 @@
       }
     } catch (err) {
       error = err.kind || 'unknown';
+      errorDetail = err.detail || (err.kind ? null : String(err.message || err));
       console.warn('[Cart Saver] refill stopped:', err);
     }
 
@@ -168,6 +174,7 @@
     await patchJob({
       state: error && error !== 'cancelled' ? 'error' : 'done',
       error,
+      errorDetail,
       added,
       failed,
       results,

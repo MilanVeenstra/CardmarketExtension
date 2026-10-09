@@ -519,6 +519,65 @@ describe('Cardmarket Cart Saver', () => {
     await shot(widget(page), '09-favorite-not-found');
   });
 
+  /** Mark MAGE as missing (and out of the mock cart), then refill it from the reminder. */
+  async function refillMageFromReminder() {
+    mock.state.cart.delete(MAGE);
+    // Only MAGE is missing; the header count is "already seen" so the page does not re-sync.
+    const patch = {};
+    for (const [id, item] of Object.entries(await items())) {
+      patch[id] = { status: id === MAGE ? 'missing' : item.status === 'missing' ? 'in_cart' : item.status };
+    }
+    await patchItems(patch);
+    const headerCount = [...mock.state.cart.values()].reduce((sum, n) => sum + n, 0);
+    await sw.evaluate(
+      (count) => chrome.storage.local.set({ 'cmcs.job': null, 'cmcs.meta': { sync: { Magic: { at: Date.now(), headerCount: count } } } }),
+      headerCount,
+    );
+    await page.goto(`${CM}/en/Magic`);
+    await widget(page).getByRole('button', { name: 'Zet 1 artikel(en) terug' }).click();
+    return waitFor(async () => {
+      const j = (await storage())['cmcs.job'];
+      return j && (j.state === 'done' || j.state === 'error') && j;
+    }, 'job finished');
+  }
+
+  it('sends requests from the page itself (page bridge)', async () => {
+    await page.goto(`${CM}/en/Magic`);
+    assert.equal(await page.evaluate(() => window.__cmcsBridge), true);
+  });
+
+  it('reports an unexpected answer as such, not as "not logged in"', async (t) => {
+    t.after(() => (mock.state.weirdAdd = false));
+    mock.state.weirdAdd = true;
+    const job = await refillMageFromReminder();
+    assert.equal(job.state, 'error');
+    assert.equal(job.error, 'unexpected_response');
+    assert.match(job.errorDetail, /HTTP 200 · \/en\/Magic\/AjaxAction\/ShoppingCart_Add_AddArticlesFromUserOffers · text\/html · "Magic \| Cardmarket" · via page/);
+    const text = await widget(page).innerText();
+    assert.match(text, /onverwacht antwoord/);
+    assert.match(text, /Details: HTTP 200/);
+    assert.doesNotMatch(text, /niet ingelogd/);
+    assert.equal((await items())[MAGE].status, 'missing', 'not marked unavailable');
+    await shot(widget(page), '10-unexpected-answer');
+  });
+
+  it('says "not logged in" only when Cardmarket shows its login page', async (t) => {
+    t.after(() => (mock.state.loggedIn = true));
+    mock.state.loggedIn = false;
+    const job = await refillMageFromReminder();
+    assert.equal(job.error, 'logged_out');
+    assert.match(await widget(page).innerText(), /niet ingelogd/);
+  });
+
+  it('falls back to its own requests when the page bridge does not answer', async (t) => {
+    t.after(() => (mock.state.blockBridge = false));
+    mock.state.blockBridge = true;
+    const job = await refillMageFromReminder();
+    assert.equal(job.state, 'done');
+    assert.ok(mock.state.cart.has(MAGE));
+    assert.equal((await items())[MAGE].status, 'in_cart');
+  });
+
   it('options page shows the saved data and stores settings', async () => {
     const options = await context.newPage();
     await options.goto(`chrome-extension://${extensionId}/src/options/options.html`);

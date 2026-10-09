@@ -154,6 +154,10 @@ export function createMockCardmarket() {
     brokenRows: false,
     /** an outdated token printed on pages other than the cart page */
     stalePageToken: null,
+    /** answer add-to-cart with an ordinary HTML page instead of <ajaxResponse> */
+    weirdAdd: false,
+    /** a page script that swallows the extension's page-bridge messages */
+    blockBridge: false,
     requests: [],
   };
 
@@ -188,7 +192,8 @@ export function createMockCardmarket() {
     const pageToken = !isCart && state.stalePageToken ? state.stalePageToken : state.token;
     return `<!DOCTYPE html><html lang="${lang}"><head><meta charset="utf-8"><title>${esc(title)} | Cardmarket</title>
       <style>body{font-family:sans-serif;margin:0;background:#f4f4f4}header{display:flex;gap:16px;align-items:center;padding:12px 20px;background:#012169;color:#fff}header a{color:#fff}.main-nav-badge{background:#28a745;border-radius:8px;padding:0 6px;margin:0 4px}main{padding:20px}section.shipment-block{background:#fff;margin:0 0 16px;padding:12px}table{width:100%}td{padding:4px}</style>
-      <script src="/cdn-cgi/challenge-platform/scripts/jsd/main.js"></script></head>
+      <script src="/cdn-cgi/challenge-platform/scripts/jsd/main.js"></script>
+      ${state.blockBridge ? `<script>window.addEventListener('message', (e) => { if (e.data && e.data.__cmcs === 'request') e.stopImmediatePropagation(); }, true);</script>` : ''}</head>
       <body>${header(lang, game)}<main>${body}</main>
       ${state.loggedIn ? `<form id="filter"><input type="hidden" name="__cmtkn" value="${pageToken}"></form>` : ''}
       </body></html>`;
@@ -361,6 +366,7 @@ export function createMockCardmarket() {
       return { status: 403, contentType: 'text/html', body: '<html><head><title>Just a moment...</title></head><body><div id="cf-chl-widget"></div></body></html>' };
     }
     if (endpoint !== state.addEndpoint) return { status: 404, contentType: 'text/html', body: '<h1>404</h1>' };
+    if (state.weirdAdd) return { status: 200, contentType: 'text/html', body: layout({ title: 'Magic', body: '<h1>Magic</h1>' }) };
     const params = new URLSearchParams(body);
     if (params.get('__cmtkn') !== state.token || !state.loggedIn) {
       return { status: 200, contentType: 'text/xml', body: ajax(false, 'The requested action could not be completed.') };

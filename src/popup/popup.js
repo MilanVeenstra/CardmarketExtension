@@ -166,7 +166,7 @@
         ' — ',
         t('refillSummary', job.added || 0, job.failed || 0),
       ),
-      job.error ? h('p', { class: stopped ? 'cmcs-error' : 'cmcs-muted' }, ui.errorText(job.error)) : null,
+      ...ui.jobError(job),
       h(
         'div',
         { class: 'job-row' },

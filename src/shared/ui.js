@@ -117,12 +117,25 @@
     no_endpoint: 'errorNoEndpoint',
     http_error: 'errorHttp',
     cart_unreadable: 'errorCartUnreadable',
+    unexpected_page: 'errorUnexpected',
+    unexpected_response: 'errorUnexpected',
+    no_token: 'errorNoToken',
     cancelled: 'jobCancelled',
   };
 
   /** User-facing text for a refill job's `error` kind. */
   function errorText(kind) {
     return kind ? CMCS.t(ERROR_KEYS[kind] || 'errorUnknown') : null;
+  }
+
+  /** The error of a finished job plus its technical details (for bug reports). */
+  function jobError(job) {
+    if (!job || !job.error) return [];
+    const stopped = job.error !== 'cancelled';
+    return [
+      h('p', { class: stopped ? 'cmcs-error' : 'cmcs-muted' }, errorText(job.error)),
+      stopped && job.errorDetail ? h('p', { class: 'cmcs-detail' }, CMCS.t('errorDetails', job.errorDetail)) : null,
+    ].filter(Boolean);
   }
 
   function iconButton(label, iconName, onClick, extraClass = '') {
@@ -226,8 +239,9 @@
     .cmcs-progress > div { height: 100%; background: var(--cmcs-accent); transition: width 0.3s ease; }
     .cmcs-muted { color: var(--cmcs-muted); }
     .cmcs-error { color: var(--cmcs-bad); }
+    .cmcs-detail { color: var(--cmcs-muted); font-size: 11px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; word-break: break-word; user-select: all; margin-top: 2px; }
     .cmcs-group-title { font-size: 12px; font-weight: 700; color: var(--cmcs-muted); text-transform: uppercase; letter-spacing: 0.03em; margin: 12px 0 2px; }
   `;
 
-  CMCS.ui = { h, icon, itemRow, iconButton, iconLink, errorText, STYLES };
+  CMCS.ui = { h, icon, itemRow, iconButton, iconLink, errorText, jobError, STYLES };
 })(globalThis);

@@ -174,11 +174,12 @@
       .map(([id]) => state.items[id] || state.favorites[id])
       .filter(Boolean);
     const error = ui.errorText(job.error);
+    const errorLines = ui.jobError(job);
     return shell(
       error && job.error !== 'cancelled' ? t('refillStoppedTitle') : t('refillDoneTitle'),
       { onClose: acknowledgeJob },
       h('p', { class: 'cmcs-lead' }, t('refillSummary', job.added || 0, job.failed || 0)),
-      error ? h('p', { class: job.error === 'cancelled' ? 'cmcs-muted' : 'cmcs-error' }, error) : null,
+      errorLines,
       failedItems.length
         ? h(
             'div',

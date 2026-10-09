@@ -50,6 +50,9 @@
   "errorChallenge": {
     "message": "Cardmarket is showing a security check. Reload the page, complete the check and try again."
   },
+  "errorDetails": {
+    "message": "Details: $1"
+  },
   "errorHttp": {
     "message": "Cardmarket returned an unexpected error. Try again later."
   },
@@ -62,8 +65,14 @@
   "errorNoEndpoint": {
     "message": "Cardmarket changed how adding to the cart works. This extension needs an update."
   },
+  "errorNoToken": {
+    "message": "Cardmarket's security code (token) was not found on the page. Reload the page and try again."
+  },
   "errorRateLimited": {
     "message": "Cardmarket asked to slow down. Wait a few minutes and try again."
+  },
+  "errorUnexpected": {
+    "message": "Cardmarket gave an unexpected answer, so nothing more was added. Try again; if it keeps happening, send the details below to the developer."
   },
   "errorUnknown": {
     "message": "Something went wrong. Try again."

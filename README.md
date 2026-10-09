@@ -122,7 +122,10 @@ samengevat:
     (`AjaxAction/ShoppingCart_Add_AddArticlesFromUserOffers` met het
     `__cmtkn`-CSRF-token van je sessie).
 
-  Omdat dit vanuit de pagina zelf gebeurt, gaan je sessiecookies gewoon mee.
+  De verzoeken gaan via een klein script in de pagina zelf
+  (`src/page/bridge.js`), precies zoals de knoppen van Cardmarket. Zo gaan
+  je sessiecookies gewoon mee. Antwoordt dat script niet, dan valt de
+  extensie terug op een eigen verzoek.
 - **`chrome.storage.local`** bewaart de artikelen en de voortgang van het
   terugzetten. Popup en paneel lezen live mee.
 - De **service worker** doet alleen het badge-getal.

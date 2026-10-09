@@ -161,11 +161,24 @@
     return !loginPage && /account-dropdown|My\s*Account/i.test(html);
   }
 
+  /** Cardmarket serves its login form in place of a page that needs an account. */
+  function looksLikeLoginPage(doc) {
+    const html = doc.documentElement ? doc.documentElement.innerHTML : '';
+    if (/User_Logout/i.test(html) || doc.querySelector('#account-dropdown')) return false;
+    return (
+      /User_Login/i.test(html) ||
+      Boolean(doc.querySelector('input[type="password"]')) ||
+      /name=["']username["']/i.test(html)
+    );
+  }
+
+  /**
+   * The session's CSRF token. Today it is a long hex string; accept any
+   * token-like value too, so a format change does not read as "logged out".
+   */
   function findToken(doc) {
-    for (const input of doc.querySelectorAll('input[name="__cmtkn"]')) {
-      if (TOKEN_RE.test(input.value || '')) return input.value;
-    }
-    return null;
+    const values = [...doc.querySelectorAll('input[name="__cmtkn"]')].map((input) => (input.value || '').trim());
+    return values.find((v) => TOKEN_RE.test(v)) || values.find((v) => /^[A-Za-z0-9+/=_.:-]{16,}$/.test(v)) || null;
   }
 
   function sellerFromLink(link, baseUrl) {
@@ -442,31 +455,127 @@
     }
   }
 
+  // --- Transport ------------------------------------------------------------
+  // Requests preferably leave from the page itself, through the small MAIN-world
+  // script in src/page/bridge.js: Cardmarket does not always answer requests
+  // made from the extension's isolated world like the site's own (another
+  // Cardmarket extension, Lugin, ran into the same and replays in the page).
+  // When the bridge does not answer, the content script's own fetch is used.
+
+  const BRIDGE_PING_MS = 1500;
+  const BRIDGE_REQUEST_MS = 30000;
+  let bridgeReady = null;
+
+  function bridgeCall(payload, timeoutMs) {
+    return new Promise((resolve, reject) => {
+      const id = `cmcs-${crypto.randomUUID()}`;
+      const timer = setTimeout(() => {
+        window.removeEventListener('message', onMessage);
+        reject(new Error('bridge timeout'));
+      }, timeoutMs);
+      function onMessage(event) {
+        if (event.source !== window || !event.data || event.data.__cmcs !== 'response' || event.data.id !== id) return;
+        clearTimeout(timer);
+        window.removeEventListener('message', onMessage);
+        resolve(event.data);
+      }
+      window.addEventListener('message', onMessage);
+      window.postMessage({ __cmcs: 'request', id, ...payload }, location.origin);
+    });
+  }
+
+  function bridgeAvailable() {
+    if (typeof window === 'undefined' || location.origin !== ORIGIN) return Promise.resolve(false);
+    bridgeReady ??= bridgeCall({ ping: true }, BRIDGE_PING_MS).then(
+      (reply) => Boolean(reply.pong),
+      () => false,
+    );
+    return bridgeReady;
+  }
+
+  const headerBag = (entries) => ({ get: (name) => entries[String(name).toLowerCase()] ?? null });
+
+  /**
+   * One request to Cardmarket. `via`: 'auto' (page first), 'page' or
+   * 'extension'. Resolves to { status, ok, url, text, headers, via }.
+   */
+  async function request(url, { method = 'GET', headers = {}, body } = {}, via = 'auto') {
+    if (via !== 'extension' && (await bridgeAvailable())) {
+      try {
+        const reply = await bridgeCall({ url, method, headers, body }, BRIDGE_REQUEST_MS);
+        if (!reply.error) {
+          return { status: reply.status, ok: reply.ok, url: reply.url || url, text: reply.text || '', headers: headerBag(reply.headers || {}), via: 'page' };
+        }
+        if (via === 'page') throw new CardmarketError('network_error', reply.error);
+      } catch (err) {
+        if (via === 'page') throw err instanceof CardmarketError ? err : new CardmarketError('network_error', err.message);
+      }
+    }
+    try {
+      const res = await fetch(url, { method, headers, body, credentials: 'same-origin' });
+      const entries = {};
+      res.headers.forEach((value, name) => (entries[name.toLowerCase()] = value));
+      return { status: res.status, ok: res.ok, url: res.url || url, text: await res.text(), headers: headerBag(entries), via: 'extension' };
+    } catch (err) {
+      throw new CardmarketError('network_error', err.message);
+    }
+  }
+
+  /** A short, privacy-safe description of a response, for error reports. */
+  function describe(res, doc) {
+    const path = (() => {
+      try {
+        return new URL(res.url).pathname;
+      } catch {
+        return res.url;
+      }
+    })();
+    const title = clean(doc && doc.querySelector('title') && doc.querySelector('title').textContent).slice(0, 60);
+    const type = (res.headers.get('content-type') || '').split(';')[0];
+    return [`HTTP ${res.status}`, path, type, title && `"${title}"`, `via ${res.via}`].filter(Boolean).join(' · ');
+  }
+
   function retryAfterSeconds(res) {
-    const n = parseInt(res.headers.get('Retry-After'), 10);
+    const n = parseInt(res.headers.get('retry-after'), 10);
     return Number.isFinite(n) && n > 0 ? n : 10;
   }
 
   /** GET a page of the site and parse it. Throws CardmarketError on trouble. */
-  async function fetchDocument(url) {
-    let res;
-    try {
-      res = await fetch(url, { credentials: 'same-origin' });
-    } catch (err) {
-      throw new CardmarketError('network_error', err.message);
-    }
-    const text = await res.text();
+  async function fetchDocument(url, via = 'auto') {
+    const res = await request(url, {}, via);
     if (res.status === 429) throw new CardmarketError('rate_limited', null, { retryAfter: retryAfterSeconds(res) });
-    if (isChallenge(res.status, text, res.headers)) throw new CardmarketError('challenge');
-    if (!res.ok) throw new CardmarketError('http_error', `HTTP ${res.status}`, { status: res.status });
-    const doc = new DOMParser().parseFromString(text, 'text/html');
-    return { doc, url: res.url || url };
+    if (isChallenge(res.status, res.text, res.headers)) throw new CardmarketError('challenge', null, { detail: describe(res) });
+    if (!res.ok) throw new CardmarketError('http_error', `HTTP ${res.status}`, { status: res.status, detail: describe(res) });
+    const doc = new DOMParser().parseFromString(res.text, 'text/html');
+    return { doc, url: res.url || url, res };
   }
 
-  /** Read the cart of one game. */
+  /**
+   * Read the cart of one game. When the answer does not look like a signed-in
+   * page while this tab clearly is signed in, ask once more through the other
+   * transport before believing it.
+   */
   async function fetchCart(lang, game) {
-    const { doc, url } = await fetchDocument(cartUrl(lang, game));
-    return readCartDocument(doc, { baseUrl: url, lang, game });
+    const url = cartUrl(lang, game);
+    let fetched = await fetchDocument(url);
+    let cart = readCartDocument(fetched.doc, { baseUrl: fetched.url, lang, game });
+    if (!cart.signedIn && isSignedIn(document)) {
+      const other = fetched.res.via === 'page' ? 'extension' : 'page';
+      try {
+        const retry = await fetchDocument(url, other);
+        const retryCart = readCartDocument(retry.doc, { baseUrl: retry.url, lang, game });
+        if (retryCart.signedIn) {
+          fetched = retry;
+          cart = retryCart;
+        }
+      } catch {
+        // Keep the first answer.
+      }
+    }
+    if (!cart.signedIn) {
+      console.warn('[Cart Saver] cart page does not look signed in:', describe(fetched.res, fetched.doc));
+    }
+    return { ...cart, loginPage: looksLikeLoginPage(fetched.doc), detail: describe(fetched.res, fetched.doc) };
   }
 
   function readCartDocument(doc, { baseUrl, lang, game }) {
@@ -544,34 +653,30 @@
     for (let i = 0; i < ADD_ENDPOINTS.length; i += 1) {
       const index = (preferredEndpoint + i) % ADD_ENDPOINTS.length;
       const url = `${ORIGIN}/${lang}/${game}/AjaxAction/${ADD_ENDPOINTS[index]}`;
-      let res;
-      try {
-        res = await fetch(url, {
-          method: 'POST',
-          credentials: 'same-origin',
-          headers: {
-            'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
-            'X-Requested-With': 'XMLHttpRequest',
-          },
-          body: body.toString(),
-        });
-      } catch (err) {
-        throw new CardmarketError('network_error', err.message);
-      }
-      const text = await res.text();
+      const res = await request(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+          'X-Requested-With': 'XMLHttpRequest',
+        },
+        body: body.toString(),
+      });
       if (res.status === 429) throw new CardmarketError('rate_limited', null, { retryAfter: retryAfterSeconds(res) });
-      if (isChallenge(res.status, text, res.headers)) throw new CardmarketError('challenge');
+      if (isChallenge(res.status, res.text, res.headers)) throw new CardmarketError('challenge', null, { detail: describe(res) });
 
-      const parsed = parseAjaxResponse(text);
+      const parsed = parseAjaxResponse(res.text);
       if (parsed) {
         preferredEndpoint = index;
         return { ok: parsed.ok, message: parsed.message };
       }
       // Unknown endpoint → try the other one. Anything else is a real failure.
       if (res.status === 404 || res.status === 405) continue;
-      const doc = new DOMParser().parseFromString(text, 'text/html');
-      if (!isSignedIn(doc)) throw new CardmarketError('logged_out');
-      throw new CardmarketError('http_error', `HTTP ${res.status}`, { status: res.status });
+      const doc = new DOMParser().parseFromString(res.text, 'text/html');
+      const detail = describe(res, doc);
+      console.warn('[Cart Saver] unexpected answer to add-to-cart:', detail, res.text.slice(0, 300));
+      // Only a real login form means "logged out"; anything else is reported as what it is.
+      if (looksLikeLoginPage(doc)) throw new CardmarketError('logged_out', null, { detail });
+      throw new CardmarketError('unexpected_response', `HTTP ${res.status}`, { status: res.status, detail });
     }
     throw new CardmarketError('no_endpoint');
   }
@@ -595,6 +700,8 @@
     parseCart,
     parseOrderArticleIds,
     readCartDocument,
+    looksLikeLoginPage,
+    request,
     isChallenge,
     parseAjaxResponse,
     fetchDocument,
