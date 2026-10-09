@@ -91,6 +91,46 @@ Dit werkt ook in andere Chromium-browsers zoals Edge, Brave en Opera.
 - export en import (JSON), inclusief favorieten;
 - alles wissen.
 
+## Automatisch bijwerken bij elke push (Mac)
+
+De extensie blijft gewoon lokaal staan en werkt zichzelf bij:
+
+- Een klein achtergrondtaakje op je Mac haalt elke 3 minuten de nieuwste
+  versie van deze branch van GitHub op.
+- De extensie merkt elke minuut dat er nieuwe bestanden zijn en herlaadt
+  zichzelf.
+- Een push is dus binnen een paar minuten actief, zonder Web Store en zonder
+  zelf te downloaden.
+
+**Eenmalig instellen:**
+
+1. Zoek op `chrome://extensions`, bij Cart Saver (met *Ontwikkelaarsmodus*
+   aan), de regel *Geladen vanaf:*. Dat is de map van de extensie.
+2. Open **Terminal** en voer uit (vervang het pad door jouw map):
+   ```bash
+   cd "/pad/naar/de/extensiemap"
+   bash scripts/autoupdate-mac.sh install "$PWD"
+   ```
+   Heb je nog geen git, dan vraagt macOS om de *Command Line Tools* te
+   installeren. Doe dat en voer het commando opnieuw uit.
+3. Klik op `chrome://extensions` één keer op ↻ bij Cart Saver.
+
+De map wordt ter plekke een git-kopie van de repository. Chrome ziet hem als
+dezelfde extensie, dus je opgeslagen artikelen en favorieten blijven bewaard.
+Na een update vragen open Cardmarket-tabbladen om te verversen, via het label
+*"Cart Saver bijgewerkt · ververs de pagina"*.
+
+| Wat | Commando |
+|---|---|
+| Status en laatste updates bekijken | `bash scripts/autoupdate-mac.sh status` |
+| Automatisch bijwerken uitzetten | `bash scripts/autoupdate-mac.sh uninstall` |
+
+> **Alternatief: de Chrome Web Store (unlisted).** Dan heb je geen script
+> nodig en kunnen anderen de extensie ook installeren. Daar hangt wel iets aan:
+> - een eenmalige ontwikkelaarsbijdrage van $5;
+> - elke update gaat eerst door een review van uren tot dagen, dus niet
+>   direct na een push.
+
 ## Goed om te weten
 
 - Cart Saver is **onofficieel** en niet verbonden aan Cardmarket. Hij gebruikt

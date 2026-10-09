@@ -3,7 +3,7 @@
   "name": "__MSG_extName__",
   "short_name": "Cart Saver",
   "description": "__MSG_extDescription__",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "default_locale": "en",
   "icons": {
     "16": "icons/icon16.png",
@@ -12,7 +12,8 @@
     "128": "icons/icon128.png"
   },
   "permissions": [
-    "storage"
+    "storage",
+    "alarms"
   ],
   "host_permissions": [
     "https://www.cardmarket.com/*"
@@ -55,6 +56,7 @@
         "src/content/refill.js",
         "src/content/widget.js",
         "src/content/favorites.js",
+        "src/content/thumbs.js",
         "src/content/main.js"
       ],
       "run_at": "document_idle"

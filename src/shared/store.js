@@ -155,7 +155,7 @@
   const FAVORITE_FIELDS = [
     'articleId', 'productId', 'game', 'lang', 'name', 'expansion', 'number', 'productUrl', 'imageUrl',
     'price', 'available', 'condition', 'conditionLabel', 'language', 'languageLabel', 'foil', 'extras',
-    'comment', 'seller', 'sellerUrl',
+    'comment', 'seller', 'sellerUrl', 'thumb',
   ];
 
   /** The part of an article worth keeping as a favourite. */

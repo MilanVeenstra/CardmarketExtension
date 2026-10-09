@@ -99,8 +99,15 @@ before(async () => {
   });
   mock = createMockCardmarket();
   await context.route(`${CM}/**`, mock.route);
+  // Card pictures; anything under /broken/ is refused like a hotlink-protected image.
   await context.route('https://product-images.s3.cardmarket.com/**', (r) =>
-    r.fulfill({ path: path.join(ROOT, 'tests/fixtures/card.png'), contentType: 'image/png' }),
+    r.request().url().includes('/broken/')
+      ? r.fulfill({ status: 403, contentType: 'application/xml', body: '<Error><Code>AccessDenied</Code></Error>' })
+      : r.fulfill({
+          path: path.join(ROOT, 'tests/fixtures/card.png'),
+          contentType: 'image/png',
+          headers: { 'Access-Control-Allow-Origin': '*' },
+        }),
   );
   sw = context.serviceWorkers()[0] || (await context.waitForEvent('serviceworker'));
   extensionId = new URL(sw.url()).host;
@@ -621,6 +628,44 @@ describe('Cardmarket Cart Saver', () => {
       assert.equal(addRequests().length, before, 'nothing sent without a token');
       assert.equal((await items())[MAGE].status, 'missing');
       await shot(widget(page), '11-no-token');
+    });
+  });
+
+  describe('card pictures', () => {
+    it('keeps a small local copy of each picture, so the popup can show it', async () => {
+      await page.goto(`${CM}/en/Magic`);
+      const saved = await waitFor(async () => {
+        const all = Object.values(await items()).filter((i) => i.imageUrl);
+        return all.length && all.every((i) => /^data:image\/jpeg;base64,/.test(i.thumb || '')) && all;
+      }, 'thumbnails for all saved articles');
+      assert.ok(saved.every((i) => i.thumb.length < 12000), 'thumbnails stay small');
+
+      const popup = await context.newPage();
+      await popup.goto(`chrome-extension://${extensionId}/src/popup/popup.html`);
+      await popup.getByRole('tab', { name: 'Winkelmandje' }).click();
+      await waitFor(async () => (await popup.locator('#list img.cmcs-thumb').count()) > 0, 'thumbnails in popup');
+      const sources = await popup.locator('#list img.cmcs-thumb').evaluateAll((imgs) => imgs.map((img) => img.getAttribute('src')));
+      assert.ok(sources.every((src) => src.startsWith('data:image/jpeg')), 'popup uses the local copies');
+      await popup.close();
+    });
+
+    it('shows a placeholder instead of a broken image when a picture is refused', async () => {
+      await patchItems({ [MAGE]: { imageUrl: 'https://product-images.s3.cardmarket.com/broken/1.jpg', thumb: null, thumbTriedAt: null } });
+      await page.goto(`${CM}/en/Magic`);
+      const mage = await waitFor(async () => {
+        const item = (await items())[MAGE];
+        return item.thumbTriedAt && item;
+      }, 'thumbnail attempt recorded');
+      assert.equal(mage.thumb, null);
+
+      const popup = await context.newPage();
+      await popup.goto(`chrome-extension://${extensionId}/src/popup/popup.html`);
+      await popup.getByRole('tab', { name: 'Winkelmandje' }).click();
+      const row = popup.locator(`#list [data-article-id="${MAGE}"]`);
+      await row.locator('.cmcs-thumb--empty').waitFor({ timeout: 10000 });
+      assert.equal(await row.locator('img').count(), 0, 'no broken image left');
+      assert.equal(await row.locator('.cmcs-thumb--empty').innerText(), 'P');
+      await popup.close();
     });
   });
 

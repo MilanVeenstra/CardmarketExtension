@@ -153,6 +153,9 @@
     }
 
     await CMCS.refill.resumePending();
+
+    // Local thumbnails for the popup, made quietly once the page has settled.
+    setTimeout(() => CMCS.thumbs.capture().catch(() => {}), 2000);
   } catch (err) {
     console.warn('[Cart Saver]', err);
   }

@@ -296,6 +296,9 @@
   "tabFavorites": {
     "message": "Favorieten ($1)"
   },
+  "updatedPill": {
+    "message": "Cart Saver bijgewerkt · ververs de pagina"
+  },
   "viewInCart": {
     "message": "Bekijken"
   }

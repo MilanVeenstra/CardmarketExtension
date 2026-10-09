@@ -83,9 +83,7 @@
       'div',
       { class: `cmcs-item cmcs-item--${item.status}`, dataset: { articleId: item.articleId } },
       opts.leading || null,
-      item.imageUrl
-        ? h('img', { class: 'cmcs-thumb', src: item.imageUrl, alt: '', loading: 'lazy', referrerpolicy: 'no-referrer' })
-        : h('div', { class: 'cmcs-thumb cmcs-thumb--empty' }),
+      thumbnail(item),
       h(
         'div',
         { class: 'cmcs-item-main' },
@@ -136,6 +134,28 @@
       h('p', { class: stopped ? 'cmcs-error' : 'cmcs-muted' }, errorText(job.error)),
       stopped && job.errorDetail ? h('p', { class: 'cmcs-detail' }, CMCS.t('errorDetails', job.errorDetail)) : null,
     ].filter(Boolean);
+  }
+
+  /** A neutral card-shaped stand-in when there is no picture (or it cannot load). */
+  function thumbPlaceholder(item) {
+    return h(
+      'div',
+      { class: 'cmcs-thumb cmcs-thumb--empty', title: item.name || '' },
+      h('span', null, (item.name || '?').trim().charAt(0).toUpperCase()),
+    );
+  }
+
+  /**
+   * The card picture: the small copy saved while browsing Cardmarket first
+   * (works everywhere, also in the popup), else Cardmarket's own image URL,
+   * else a placeholder. A picture that fails to load turns into the placeholder.
+   */
+  function thumbnail(item) {
+    const src = item.thumb || item.imageUrl;
+    if (!src) return thumbPlaceholder(item);
+    const img = h('img', { class: 'cmcs-thumb', src, alt: '', loading: 'lazy', decoding: 'async' });
+    img.addEventListener('error', () => img.replaceWith(thumbPlaceholder(item)), { once: true });
+    return img;
   }
 
   function iconButton(label, iconName, onClick, extraClass = '') {
@@ -223,6 +243,12 @@
     .cmcs-item:first-child { border-top: 0; }
     .cmcs-item input[type="checkbox"] { margin: 10px 0 0; accent-color: var(--cmcs-accent); }
     .cmcs-thumb { width: 30px; height: 42px; object-fit: cover; border-radius: 3px; flex: none; background: var(--cmcs-surface); }
+    .cmcs-thumb--empty {
+      display: flex; align-items: center; justify-content: center;
+      border: 1px solid var(--cmcs-border); color: var(--cmcs-muted);
+      font-size: 13px; font-weight: 700;
+      background: linear-gradient(160deg, var(--cmcs-surface), var(--cmcs-bg));
+    }
     .cmcs-item-main { flex: 1; min-width: 0; }
     .cmcs-item-name { display: block; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--cmcs-text); }
     .cmcs-item-meta { color: var(--cmcs-muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

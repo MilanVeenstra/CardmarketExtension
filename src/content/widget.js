@@ -24,6 +24,8 @@
   let state = { items: {}, favorites: {}, job: null, settings: store.DEFAULT_SETTINGS, meta: {} };
   /** A one-off message (e.g. "favourite not on this page") until the user closes it. */
   let notice = null;
+  /** The extension was updated or reloaded underneath this tab. */
+  let orphaned = false;
   const deselected = new Set();
 
   const WIDGET_CSS = `
@@ -86,10 +88,41 @@
     store.onChanged((changes) => {
       if (Object.keys(changes).some((key) => Object.values(store.KEYS).includes(key))) refresh();
     });
+    watchForUpdate();
     return refresh();
   }
 
+  /**
+   * After the extension updated itself this script keeps running in tabs that
+   * were already open, but can no longer reach the extension. Notice that and
+   * ask for a page reload. Texts are read up front: chrome.i18n is gone too.
+   */
+  function watchForUpdate() {
+    const label = t('updatedPill');
+    const timer = setInterval(() => {
+      let alive = false;
+      try {
+        alive = Boolean(chrome.runtime && chrome.runtime.id);
+      } catch {
+        alive = false;
+      }
+      if (alive) return;
+      clearInterval(timer);
+      orphaned = true;
+      panel.replaceChildren(
+        h(
+          'button',
+          { type: 'button', class: 'cmcs-pill', title: label, onclick: () => location.reload() },
+          h('span', { class: 'cmcs-dot cmcs-dot--warn' }),
+          label,
+        ),
+      );
+      host.style.display = '';
+    }, 3000);
+  }
+
   async function refresh() {
+    if (orphaned) return;
     const [items, favorites, job, settings, meta] = await Promise.all([
       store.getItems(),
       store.getFavorites(),
@@ -366,6 +399,7 @@
   }
 
   function render() {
+    if (orphaned) return;
     const { items, job, settings, meta } = state;
     const game = loc.game;
     const forGame = Object.values(items).filter((item) => item.game === game);

@@ -278,14 +278,7 @@
       null;
     const extras = iconLabels.filter((l) => l !== languageLabel);
 
-    const thumb = tr.querySelector('.thumbnail-icon');
-    const thumbHtml = thumb
-      ? thumb.getAttribute('aria-label') ||
-        thumb.getAttribute('data-bs-original-title') ||
-        thumb.getAttribute('data-bs-title') ||
-        ''
-      : '';
-    const imageUrl = (thumbHtml.match(/src=["']([^"']+)["']/) || [])[1] || null;
+    const imageUrl = findImageUrl(tr.querySelector('.thumbnail-icon')) || findImageUrl(tr);
 
     let price = parseFloat(tr.getAttribute('data-price'));
     if (!Number.isFinite(price)) {
@@ -354,11 +347,30 @@
     return { name: name || null, expansion: expansion || null };
   }
 
+  const IMAGE_URL_RE = /(?:https?:)?\/\/product-images[^"'\s)<>]*?\.(?:jpe?g|png|webp)/i;
+  const IMAGE_ATTRS = ['aria-label', 'data-bs-original-title', 'data-bs-title', 'title', 'data-original-title', 'src', 'data-src', 'data-echo', 'data-original', 'srcset', 'style', 'content'];
+
+  /**
+   * The first Cardmarket product image URL under `root`, wherever the page put
+   * it: a tooltip with an <img>, a (lazy) src, a background image or a meta tag.
+   */
+  function findImageUrl(root) {
+    if (!root) return null;
+    for (const el of [root, ...root.querySelectorAll('*')]) {
+      for (const attr of IMAGE_ATTRS) {
+        const value = el.getAttribute && el.getAttribute(attr);
+        const m = value && value.match(IMAGE_URL_RE);
+        if (m) return m[0].startsWith('//') ? `https:${m[0]}` : m[0].replace(/^http:/, 'https:');
+      }
+    }
+    return null;
+  }
+
   function productImage(doc) {
-    const img = doc.querySelector('#image img[src], .image img[src]');
-    if (img) return new URL(img.getAttribute('src'), ORIGIN).toString();
-    const og = doc.querySelector('meta[property="og:image"]');
-    return og ? og.getAttribute('content') : null;
+    return (
+      findImageUrl(doc.querySelector('#image, .image, [class*="product-image"]')) ||
+      findImageUrl(doc.querySelector('meta[property="og:image"]'))
+    );
   }
 
   /**
@@ -427,10 +439,6 @@
       }
     }
     const countEl = row.querySelector('.col-offer .item-count') || row.querySelector('.item-count');
-    const thumb = row.querySelector('.thumbnail-icon');
-    const thumbHtml = thumb
-      ? thumb.getAttribute('data-bs-title') || thumb.getAttribute('data-bs-original-title') || thumb.getAttribute('aria-label') || ''
-      : '';
     const comment = row.querySelector('.product-comments .text-truncate, .product-comments');
 
     return {
@@ -442,7 +450,7 @@
       expansion: (expansionEl && labelOf(expansionEl)) || title.expansion,
       number: null,
       productUrl,
-      imageUrl: (thumbHtml.match(/src=["']([^"']+)["']/) || [])[1] || productImage(doc),
+      imageUrl: findImageUrl(row.querySelector('.thumbnail-icon')) || findImageUrl(row) || productImage(doc),
       price,
       available: parseInt(clean(countEl && countEl.textContent), 10) || null,
       condition: CONDITION_IDS[conditionLabel] || null,
@@ -534,6 +542,9 @@
    * 'extension'. Resolves to { status, ok, url, text, headers, via }.
    */
   async function request(url, { method = 'GET', headers = {}, body } = {}, via = 'auto') {
+    // A write (POST) is never sent twice: if it went out through the page and
+    // its answer got lost, a second attempt could add an article twice.
+    if (via === 'auto' && method !== 'GET') via = (await bridgeAvailable()) ? 'page' : 'extension';
     if (via !== 'extension' && (await bridgeAvailable())) {
       try {
         const reply = await bridgeCall({ url, method, headers, body }, BRIDGE_REQUEST_MS);
@@ -768,6 +779,7 @@
     offerUrl,
     sellerSearchUrl,
     mapRowsToSellers,
+    findImageUrl,
     parseCartRow,
     parseOfferRow,
     readHeaderCount,

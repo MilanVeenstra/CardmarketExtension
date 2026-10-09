@@ -296,6 +296,9 @@
   "tabFavorites": {
     "message": "Favourites ($1)"
   },
+  "updatedPill": {
+    "message": "Cart Saver updated · reload the page"
+  },
   "viewInCart": {
     "message": "View"
   }
