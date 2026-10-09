@@ -86,7 +86,7 @@ async function runViaNewTab(locator) {
   return job;
 }
 
-const addRequests = () => mock.state.requests.filter((r) => r.method === 'POST' && r.path.includes('/AjaxAction/'));
+const addRequests = () => mock.state.requests.filter((r) => r.method === 'POST' && r.path.includes('/AjaxAction/ShoppingCart_'));
 
 before(async () => {
   const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cmcs-profile-'));
@@ -576,6 +576,52 @@ describe('Cardmarket Cart Saver', () => {
     assert.equal(job.state, 'done');
     assert.ok(mock.state.cart.has(MAGE));
     assert.equal((await items())[MAGE].status, 'in_cart');
+  });
+
+  describe('finding the CSRF token on current Cardmarket pages', () => {
+    const getsSince = (since, path) => mock.state.requests.slice(since).filter((r) => r.method === 'GET' && r.path === path);
+
+    it('reads it from an inline script when no form field carries it', async (t) => {
+      t.after(() => (mock.state.tokenMode = 'input'));
+      mock.state.tokenMode = 'script';
+      const job = await refillMageFromReminder();
+      assert.equal(job.state, 'done', job.errorDetail);
+      assert.ok(mock.state.cart.has(MAGE));
+    });
+
+    it("picks it up from the site's own (obfuscated) AJAX request", async (t) => {
+      t.after(() => (mock.state.tokenMode = 'input'));
+      mock.state.tokenMode = 'xhr';
+      const since = mock.state.requests.length;
+      const job = await refillMageFromReminder();
+      assert.equal(job.state, 'done', job.errorDetail);
+      assert.ok(mock.state.cart.has(MAGE));
+      assert.equal(getsSince(since, '/en/Magic/Wants').length, 0, 'no extra page needed');
+      const body = new URLSearchParams(addRequests().at(-1).body);
+      assert.equal(body.get('__cmtkn'), mock.state.token);
+    });
+
+    it('borrows it from another signed-in page (wants list)', async (t) => {
+      t.after(() => (mock.state.tokenMode = 'input'));
+      mock.state.tokenMode = 'wants';
+      const since = mock.state.requests.length;
+      const job = await refillMageFromReminder();
+      assert.equal(job.state, 'done', job.errorDetail);
+      assert.ok(mock.state.cart.has(MAGE));
+      assert.equal(getsSince(since, '/en/Magic/Wants').length, 1);
+    });
+
+    it('explains where it looked when there is no token anywhere', async (t) => {
+      t.after(() => (mock.state.tokenMode = 'input'));
+      mock.state.tokenMode = 'none';
+      const before = addRequests().length;
+      const job = await refillMageFromReminder();
+      assert.equal(job.error, 'no_token');
+      assert.match(job.errorDetail, /^gezocht: page, site-request, \/en\/Magic\/ShoppingCart, .*\/en\/Magic\/Wants, \/en\/Magic · deze pagina: inputs=0 cmtkn-in-html=0/);
+      assert.equal(addRequests().length, before, 'nothing sent without a token');
+      assert.equal((await items())[MAGE].status, 'missing');
+      await shot(widget(page), '11-no-token');
+    });
   });
 
   it('options page shows the saved data and stores settings', async () => {

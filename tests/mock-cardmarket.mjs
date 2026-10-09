@@ -9,6 +9,21 @@
  */
 
 const b64 = (s) => Buffer.from(s, 'utf8').toString('base64');
+
+/**
+ * Cardmarket's obfuscated AJAX `args`: XOR("action***token") with a counter
+ * starting at `seed`, percent-encoded bytes, then "***" + base64(JSON).
+ */
+export function obfuscatedArgs(action, token, json = '{}', seed = 0x63) {
+  const plain = `${action}***${token}`;
+  let encoded = '';
+  for (let i = 0; i < plain.length; i += 1) {
+    const code = (plain.charCodeAt(i) ^ ((seed + i) & 0xff)) & 0xff;
+    const ch = String.fromCharCode(code);
+    encoded += /[A-Za-z0-9\-._~]/.test(ch) ? ch : `%${code.toString(16).toUpperCase().padStart(2, '0')}`;
+  }
+  return `${encoded}%2A%2A%2A${encodeURIComponent(b64(json))}`;
+}
 const esc = (s) =>
   String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
@@ -158,6 +173,12 @@ export function createMockCardmarket() {
     weirdAdd: false,
     /** a page script that swallows the extension's page-bridge messages */
     blockBridge: false,
+    /**
+     * Where pages carry the CSRF token: 'input' (hidden form field, default),
+     * 'script' (inline JS only), 'wants' (only the wants page has a form),
+     * 'xhr' (only inside the site's own obfuscated AJAX call), 'none'.
+     */
+    tokenMode: 'input',
     requests: [],
   };
 
@@ -195,7 +216,18 @@ export function createMockCardmarket() {
       <script src="/cdn-cgi/challenge-platform/scripts/jsd/main.js"></script>
       ${state.blockBridge ? `<script>window.addEventListener('message', (e) => { if (e.data && e.data.__cmcs === 'request') e.stopImmediatePropagation(); }, true);</script>` : ''}</head>
       <body>${header(lang, game)}<main>${body}</main>
-      ${state.loggedIn ? `<form id="filter"><input type="hidden" name="__cmtkn" value="${pageToken}"></form>` : ''}
+      ${state.loggedIn && state.tokenMode === 'input' ? `<form id="filter"><input type="hidden" name="__cmtkn" value="${pageToken}"></form>` : ''}
+      ${state.loggedIn && state.tokenMode === 'script' ? `<script>window.cmConfig = {"locale":"${lang}","__cmtkn":"${state.token}"};</script>` : ''}
+      ${
+        state.loggedIn && state.tokenMode === 'xhr'
+          ? `<script>(function () {
+               var xhr = new XMLHttpRequest();
+               xhr.open('POST', '/${lang}/${game}/AjaxAction/Notification_GetCount');
+               xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded; charset=UTF-8');
+               xhr.send('args=${obfuscatedArgs('Notification_GetCount', state.token)}');
+             })();</script>`
+          : ''
+      }
       </body></html>`;
   }
 
@@ -403,6 +435,11 @@ export function createMockCardmarket() {
       res = { status: 200, contentType: 'text/html', body: orderPage(lang, game, ids) };
     } else if (page === 'Products') {
       res = { status: 200, contentType: 'text/html', body: productPage(lang, game, rest[1], rest[2]) };
+    } else if (page === 'Wants') {
+      const form = state.loggedIn && (state.tokenMode === 'input' || state.tokenMode === 'wants')
+        ? `<form data-ajax-action="Wantslist_CreateWantsList"><input type="hidden" name="__cmtkn" value="${state.token}"><input name="wlName"></form>`
+        : '';
+      res = { status: 200, contentType: 'text/html', body: layout({ lang, game, title: 'Wants', body: `<h1>Wants</h1>${form}` }) };
     } else if (page === 'Users') {
       const seller = decodeURIComponent(rest[0] || '');
       res = { status: 200, contentType: 'text/html', body: sellerPage(lang, game, seller, url.searchParams.get('name')) };

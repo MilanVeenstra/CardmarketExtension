@@ -73,10 +73,10 @@
     let tokenConfirmed = false;
     let tokenRefreshed = false;
 
-    /** A token straight from a freshly served cart page. */
-    const freshToken = async (game) => {
-      const cart = await cm.fetchCart(lang, game);
-      return cart.signedIn ? cart.token : null;
+    /** Another token than the refused one, from wherever it can be found. */
+    const freshToken = async (item) => {
+      const found = await cm.discoverToken({ lang, game: item.game, extraPages: [item.productUrl], exclude: token });
+      return found.token;
     };
 
     /** One add, with a single wait-and-retry when Cardmarket says "too many requests". */
@@ -93,7 +93,7 @@
           // A refusal before anything worked may be a stale token: refresh once per job.
           if (!result.ok && !tokenConfirmed && !tokenRefreshed) {
             tokenRefreshed = true;
-            const fresh = await freshToken(item.game).catch(() => null);
+            const fresh = await freshToken(item).catch(() => null);
             if (fresh && fresh !== token) {
               token = fresh;
               continue;
@@ -135,7 +135,12 @@
       todo = todo.filter((item) => !alreadyInCart.has(item.articleId));
       token = (cm.isSignedIn(document) && cm.findToken(document)) || token;
       await patchJob({ total: todo.length });
-      if (todo.length && !token) throw new cm.CardmarketError('no_token');
+      if (todo.length && !token) {
+        // Current Cardmarket pages do not always print the token; look further.
+        const found = await cm.discoverToken({ lang, game: todo[0].game, extraPages: [todo[0].productUrl] });
+        if (!found.token) throw new cm.CardmarketError('no_token', null, { detail: found.detail });
+        token = found.token;
+      }
 
       for (let i = 0; i < todo.length; i += 1) {
         const current = await store.getJob();

@@ -172,13 +172,47 @@
     );
   }
 
+  const LOOSE_TOKEN_RE = /^[A-Za-z0-9+/=_.:-]{16,}$/;
+  const isToken = (value) => typeof value === 'string' && (TOKEN_RE.test(value.trim()) || LOOSE_TOKEN_RE.test(value.trim()));
+
+  /** Places in raw HTML / inline scripts where the token shows up. */
+  const TOKEN_IN_HTML = [
+    /name=["']__cmtkn["'][^>]*?value=["']([^"']{16,})["']/i,
+    /value=["']([^"']{16,})["'][^>]*?name=["']__cmtkn["']/i,
+    /__cmtkn\\?["']?\s*[:=,]\s*\\?["']([A-Za-z0-9+/=_.:-]{16,})\\?["']/i,
+    /__cmtkn['"\s:=]+([0-9a-f]{32,})/i,
+  ];
+
   /**
-   * The session's CSRF token. Today it is a long hex string; accept any
-   * token-like value too, so a format change does not read as "logged out".
+   * The session's CSRF token (`__cmtkn`) from a page: form fields first, then
+   * data attributes and meta tags, then the raw HTML (inline scripts). Today
+   * it is a long hex string; any token-like value is accepted too.
    */
   function findToken(doc) {
     const values = [...doc.querySelectorAll('input[name="__cmtkn"]')].map((input) => (input.value || '').trim());
-    return values.find((v) => TOKEN_RE.test(v)) || values.find((v) => /^[A-Za-z0-9+/=_.:-]{16,}$/.test(v)) || null;
+    const fromInput = values.find((v) => TOKEN_RE.test(v)) || values.find((v) => LOOSE_TOKEN_RE.test(v));
+    if (fromInput) return fromInput;
+    for (const el of doc.querySelectorAll('[data-cmtkn], [data-token], meta[name="__cmtkn"], meta[name="csrf-token"]')) {
+      const value = el.getAttribute('data-cmtkn') || el.getAttribute('data-token') || el.getAttribute('content');
+      if (isToken(value)) return value.trim();
+    }
+    const html = doc.documentElement ? doc.documentElement.outerHTML : '';
+    for (const re of TOKEN_IN_HTML) {
+      const m = html.match(re);
+      if (m && isToken(m[1])) return m[1].trim();
+    }
+    return null;
+  }
+
+  /** What a page offers in the way of a token — for the error report when none is found. */
+  function tokenStats(doc) {
+    const html = doc.documentElement ? doc.documentElement.outerHTML : '';
+    return [
+      `inputs=${doc.querySelectorAll('input[name="__cmtkn"]').length}`,
+      `cmtkn-in-html=${(html.match(/cmtkn/gi) || []).length}`,
+      `forms=${doc.querySelectorAll('form').length}`,
+      `ajax-forms=${doc.querySelectorAll('[data-ajax-action]').length}`,
+    ].join(' ');
   }
 
   function sellerFromLink(link, baseUrl) {
@@ -578,6 +612,48 @@
     return { ...cart, loginPage: looksLikeLoginPage(fetched.doc), detail: describe(fetched.res, fetched.doc) };
   }
 
+  /**
+   * Find the session token wherever it is: this page, the site's own requests
+   * (seen by the page bridge), or another signed-in page that carries it.
+   * Resolves to { token, source } or { token: null, detail }.
+   */
+  async function discoverToken({ lang, game, extraPages = [], exclude = null } = {}) {
+    const usable = (t) => t && t !== exclude;
+    const tried = [];
+
+    if (isSignedIn(document)) {
+      const fromPage = findToken(document);
+      if (usable(fromPage)) return { token: fromPage, source: 'page' };
+    }
+    tried.push('page');
+
+    if (await bridgeAvailable()) {
+      try {
+        const reply = await bridgeCall({ getToken: true }, BRIDGE_PING_MS);
+        if (usable(reply.token) && isToken(reply.token)) return { token: reply.token, source: 'site-request' };
+      } catch {
+        // No answer: try the pages below.
+      }
+      tried.push('site-request');
+    }
+
+    const pages = [cartUrl(lang, game), ...extraPages.filter(Boolean), `${ORIGIN}/${lang}/${game}/Wants`, `${ORIGIN}/${lang}/${game}`];
+    for (const url of [...new Set(pages)]) {
+      const path = new URL(url).pathname;
+      try {
+        const { doc } = await fetchDocument(url);
+        tried.push(path);
+        if (!isSignedIn(doc)) continue;
+        const token = findToken(doc);
+        if (usable(token)) return { token, source: path };
+      } catch (err) {
+        if (err.kind === 'challenge' || err.kind === 'rate_limited') throw err;
+        tried.push(`${path} (${err.kind || 'error'})`);
+      }
+    }
+    return { token: null, detail: `gezocht: ${tried.join(', ')} · deze pagina: ${tokenStats(document)}` };
+  }
+
   function readCartDocument(doc, { baseUrl, lang, game }) {
     const signedIn = isSignedIn(doc);
     const items = signedIn ? parseCart(doc, { baseUrl, lang, game }) : [];
@@ -701,6 +777,8 @@
     parseOrderArticleIds,
     readCartDocument,
     looksLikeLoginPage,
+    discoverToken,
+    tokenStats,
     request,
     isChallenge,
     parseAjaxResponse,

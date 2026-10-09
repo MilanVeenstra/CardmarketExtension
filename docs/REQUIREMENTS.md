@@ -101,7 +101,7 @@ Notatie:
 | NFR-04 | **Liever niets doen dan iets fout doen.** Bij twijfel (onleesbare pagina, uitgelogd, controle van Cardmarket) worden geen statussen aangepast en geen artikelen toegevoegd. |
 | NFR-05 | **Platform:** Chrome, Edge, Brave en Opera (Manifest V3), zonder build-stap. |
 | NFR-06 | **Isolatie.** De interface op Cardmarket draait in een shadow DOM, zodat de CSS van de site en die van de extensie elkaar niet raken. |
-| NFR-07 | **Testbaarheid.** Er zijn 22 end-to-end-tests met Playwright, tegen een nagebootste Cardmarket. |
+| NFR-07 | **Testbaarheid.** Er zijn 30 end-to-end-tests met Playwright, tegen een nagebootste Cardmarket. |
 
 ### A7. Bekende beperkingen
 
