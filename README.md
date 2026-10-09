@@ -159,7 +159,8 @@ SCREENSHOT_DIR=shots npm test     # ook screenshots
 
 Meer achtergrond: [onderzoek](docs/RESEARCH.md),
 [functionele eisen](docs/REQUIREMENTS.md),
-[analyse van de cart saver](docs/CART-SAVER-ANALYSE.md) en de
+[analyse van de cart saver](docs/CART-SAVER-ANALYSE.md),
+[analyse voor 1.6](docs/ANALYSE-1.6.md) en de
 [design-brief](docs/DESIGN-BRIEF.md).
 
 </details>
