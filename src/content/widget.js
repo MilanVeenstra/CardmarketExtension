@@ -88,9 +88,11 @@
     shadow.append(style, panel);
     document.documentElement.append(host);
 
+    // Pictures load straight from Cardmarket here; their copies (for the popup) need no redraw.
+    const watched = Object.values(store.KEYS).filter((key) => key !== store.KEYS.thumbs);
     store.onChanged((changes) => {
       if (store.isHeartbeatOnly(changes)) return;
-      if (Object.keys(changes).some((key) => Object.values(store.KEYS).includes(key))) refresh();
+      if (Object.keys(changes).some((key) => watched.includes(key))) refresh();
     });
     watchForUpdate();
     return refresh();
@@ -440,7 +442,14 @@
             href: cm.offerUrl(offer),
             note: null,
             price: store.formatPrice(offer.price),
-            extraMeta: [offer.seller, t(REPLACE_REASONS[offer.reason]), priceNote].filter(Boolean).join(' · '),
+            extraMeta: [
+              offer.seller,
+              t(REPLACE_REASONS[offer.reason]),
+              priceNote,
+              offer.reason === 'cheapest' && offer.shipping != null ? t('replaceShipping', store.formatPrice(offer.shipping)) : null,
+            ]
+              .filter(Boolean)
+              .join(' · '),
             actions: [
               h('button', { type: 'button', class: 'cmcs-btn cmcs-btn--small', onclick: () => useReplacement(item, offer) }, t('replaceAdd')),
             ],

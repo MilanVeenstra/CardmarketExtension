@@ -1,11 +1,13 @@
 /*
  * Finds a replacement for a saved article that was sold.
  *
- * 1. The same seller: their stock, searched for the card (one parcel, and the
- *    price may not be more than 25% higher).
+ * 1. The same seller: their stock of this kind of product (singles, booster
+ *    boxes…), searched for its name (one parcel, and the price may not be
+ *    more than 25% higher).
  * 2. The product page, filtered like the original (language, at least the
  *    same condition, foil). Sellers already in your cart come first when they
- *    are not much dearer: their parcel is coming anyway.
+ *    are not much dearer: their parcel is coming anyway. Another seller costs
+ *    the shipping the product page shows for that offer (or an estimate).
  *
  * Only after a click, at most two page requests, spaced out like a refill.
  */
@@ -17,7 +19,7 @@
 
   /** The same seller may ask this much more (factor) and still be suggested first. */
   const SAME_SELLER_MAX = 1.25;
-  /** Rough cost of one more letter from another seller (€), to compare offers fairly. */
+  /** Rough cost of one more letter from another seller (€), when the page does not say. */
   const EXTRA_PARCEL_EUR = 1.25;
   const MAX_SUGGESTIONS = 3;
 
@@ -48,7 +50,7 @@
 
   async function offersOn(url) {
     const { doc, url: finalUrl } = await cm.fetchDocument(url);
-    return [...doc.querySelectorAll('[id^="articleRow"]')]
+    return [...doc.querySelectorAll(cm.OFFER_ROWS)]
       .map((row) => cm.parseOfferRow(row, { baseUrl: finalUrl }))
       .filter(Boolean);
   }
@@ -59,9 +61,10 @@
    */
   async function find(original) {
     const [items, settings] = await Promise.all([store.getItems(), store.getSettings()]);
+    // One cart for all games: a seller you buy Pokémon from sends your Magic cards in the same parcel.
     const inCartSellers = new Set(
       Object.values(items)
-        .filter((item) => item.game === original.game && (item.status === store.STATUS.IN_CART || item.status === store.STATUS.PARTIAL))
+        .filter((item) => item.status === store.STATUS.IN_CART || item.status === store.STATUS.PARTIAL)
         .map((item) => (item.seller || '').toLowerCase()),
     );
     const found = new Map();
@@ -98,7 +101,8 @@
           ? 'sellerInCart'
           : 'cheapest';
       // What it would really cost: a new seller means another parcel.
-      const cost = offer.price + (sameSeller || inCart ? 0 : EXTRA_PARCEL_EUR);
+      const parcel = sameSeller || inCart ? 0 : offer.shipping != null ? offer.shipping : EXTRA_PARCEL_EUR;
+      const cost = offer.price + parcel;
       return { ...offer, game: offer.game || original.game, lang: offer.lang || original.lang, reason, cost };
     });
     ranked.sort((a, b) => (a.reason === 'sameSeller' ? -1 : 0) - (b.reason === 'sameSeller' ? -1 : 0) || a.cost - b.cost);
@@ -111,7 +115,7 @@
    * original leaves the list (see refill verify).
    */
   async function use(original, offer) {
-    const { reason, cost, available, ...article } = offer;
+    const { reason, cost, available, shipping, ...article } = offer;
     const wanted = Math.min(original.wantedAmount || original.amount || 1, available || Infinity);
     await store.ensureItems([{ ...article, wantedAmount: wanted, amount: wanted, replaces: original.articleId }]);
     return CMCS.refill.start([offer.articleId]);

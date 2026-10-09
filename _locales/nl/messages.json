@@ -407,6 +407,9 @@
   "replaceSearching": {
     "message": "Vervanging zoeken…"
   },
+  "replaceShipping": {
+    "message": "+ $1 verzending"
+  },
   "replaceTitle": {
     "message": "Vervanging"
   },

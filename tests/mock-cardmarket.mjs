@@ -5,7 +5,12 @@
  * Cardmarket pages): `section.shipment-block` per seller, `tr[data-article-id]`
  * rows with data-* attributes, `#cart .main-nav-badge` in the header, a
  * `__cmtkn` token input, and the AjaxAction add endpoint answering with a
- * base64 <ajaxResponse> envelope.
+ * base64 <ajaxResponse> envelope. Like the live site (checked October 2026):
+ * product pages list `articleRow<id>` offers under a carousel of the previous,
+ * current and next card; a seller's pages exist per kind of product
+ * (`/Users/<seller>/Offers/Singles`, `/Offers/Elite-Trainer-Boxes`…) and list
+ * `stockRow<id>` rows; language flags come from one sprite (16 px per
+ * language id) and are named in the site's language.
  */
 
 const b64 = (s) => Buffer.from(s, 'utf8').toString('base64');
@@ -24,6 +29,21 @@ export function obfuscatedArgs(action, token, json = '{}', seed = 0x63) {
   }
   return `${encoded}%2A%2A%2A${encodeURIComponent(b64(json))}`;
 }
+/** Language names as the German site writes them (the English site uses ARTICLES' own labels). */
+const LANGUAGE_NAMES = {
+  de: { 1: 'Englisch', 2: 'Französisch', 3: 'Deutsch', 4: 'Spanisch', 5: 'Italienisch' },
+};
+const languageLabelOn = (lang, a) => (LANGUAGE_NAMES[lang] || {})[a.language] || a.languageLabel;
+/** A language flag as Cardmarket draws it: one sprite, 16 px per language id. */
+const flag = (lang, a, cls = 'icon me-2') =>
+  `<span class="${cls}" style="display: inline-block; width: 16px; height: 16px; background-position: -${16 * a.language}px -0px;"
+     aria-label="${languageLabelOn(lang, a)}" data-bs-original-title="${languageLabelOn(lang, a)}" data-bs-toggle="tooltip"></span>`;
+/** Where a product lives: singles per expansion, sealed products per kind. */
+const productPath = (lang, a) =>
+  a.category ? `/${lang}/${a.game}/Products/${a.category}/${a.cardSlug}` : `/${lang}/${a.game}/Products/Singles/${a.expansionSlug}/${a.cardSlug}`;
+const pictureUrl = (a) =>
+  a.category ? `https://product-images.s3.cardmarket.com/1016/${a.productId}/${a.productId}.jpg` : `https://product-images.s3.cardmarket.com/1/X/${a.productId}/${a.productId}.jpg`;
+
 const esc = (s) =>
   String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
@@ -201,6 +221,30 @@ export const ARTICLES = [
     foil: false,
     extra: true,
   })),
+  // A sealed product (no condition), sold per kind on Cardmarket ("Elite Trainer Boxes").
+  {
+    articleId: '1633330000',
+    productId: '895551',
+    game: 'Pokemon',
+    category: 'Elite-Trainer-Boxes',
+    name: '30th Celebration Elite Trainer Box',
+    expansion: '30th Celebration',
+    expansionSlug: '30th-Celebration',
+    cardSlug: '30th-Celebration-Elite-Trainer-Box',
+    number: '',
+    rarity: '',
+    condition: null,
+    conditionLabel: null,
+    conditionTitle: null,
+    language: 1,
+    languageLabel: 'English',
+    price: 134.99,
+    available: 2,
+    seller: 'snowc',
+    sellerId: '1001',
+    foil: false,
+    extra: true,
+  },
 ];
 
 export function createMockCardmarket() {
@@ -239,6 +283,8 @@ export function createMockCardmarket() {
     cartNotice: null,
     /** shipping cost shown in every seller block */
     shippingCost: 1.15,
+    /** shipping cost shown under each offer's price on product pages (null: not shown) */
+    offerShipping: 1.15,
     /**
      * How the trash button removes an article: 'plain' (ShoppingCart_RemoveArticle
      * with form fields), 'args' (everything inside an obfuscated `args` value,
@@ -300,12 +346,13 @@ export function createMockCardmarket() {
   }
 
   function row(a, amount, lang, broken = state.brokenRows) {
-    const productUrl = `https://www.cardmarket.com/${lang}/${a.game}/Products/Singles/${a.expansionSlug}/${a.cardSlug}?language=1,3&amp;minCondition=5`;
-    const img = `&lt;img src=&quot;https://product-images.s3.cardmarket.com/1/X/${a.productId}/${a.productId}.jpg&quot; alt=&quot;${esc(a.name)}&quot;&gt;`;
+    const productUrl = `https://www.cardmarket.com${productPath(lang, a)}?language=1,3&amp;minCondition=5`;
+    const img = `&lt;img src=&quot;${pictureUrl(a)}&quot; alt=&quot;${esc(a.name)}&quot;&gt;`;
+    const label = languageLabelOn(lang, a);
     return `
       <tr ${broken ? 'data-art' : 'data-article-id'}="${a.articleId}" data-product-id="${a.productId}" data-amount="${amount}"
           data-name="${esc(a.name)}" data-expansion="1533852000" data-expansion-name="${esc(a.expansion)}"
-          data-number="${a.number}" data-rarity="20" data-condition="${a.condition}" data-language="${a.language}"
+          data-number="${a.number}" data-rarity="20" ${a.condition ? `data-condition="${a.condition}"` : ''} data-language="${a.language}"
           data-price="${a.price}" data-comment="">
         <td class="select min-size"><div class="form-check no-label"><input type="checkbox" class="form-check-input"></div></td>
         <td class="preview min-size"><span data-bs-toggle="tooltip" class="thumbnail-icon icon is-24x24 is-magic"
@@ -316,15 +363,20 @@ export function createMockCardmarket() {
           <div class="text-start d-md-none"><a href="${productUrl}">${esc(a.name)}</a></div>
           <div class="row g-0">
             <div class="col-auto"><div class="expansion d-inline-flex">
-              <span class="collector-num">#${a.number}</span>
+              ${a.number ? `<span class="collector-num">#${a.number}</span>` : ''}
               <a href="https://www.cardmarket.com/${lang}/${a.game}/Expansions/${a.expansionSlug}" class="expansion-symbol is-magic icon is-24x24"
                  aria-label="${esc(a.expansion)}" data-bs-original-title="${esc(a.expansion)}"><span></span></a>
-              <span class="rarity-symbol icon is-24x24 is-magic" aria-label="${a.rarity}" data-bs-original-title="${a.rarity}"><span class="icon rarity-icon"></span></span>
+              ${a.rarity ? `<span class="rarity-symbol icon is-24x24 is-magic" aria-label="${a.rarity}" data-bs-original-title="${a.rarity}"><span class="icon rarity-icon"></span></span>` : ''}
             </div></div>
-            <div class="col-auto"><a href="https://help.cardmarket.com/en/CardCondition" class="article-condition condition-${a.conditionLabel.toLowerCase()}"
-               data-bs-original-title="${a.conditionTitle}"><span class="badge">${a.conditionLabel}</span></a></div>
-            <div class="col-icon col-auto"><span class="icon is-24x24"><span onmouseover="showMsgBox(this,\`${a.languageLabel}\`)"
-               data-original-title="${a.languageLabel}" class="icon" aria-label="${a.languageLabel}" data-bs-original-title="${a.languageLabel}"></span></span></div>
+            ${
+              a.conditionLabel
+                ? `<div class="col-auto"><a href="https://help.cardmarket.com/en/CardCondition" class="article-condition condition-${a.conditionLabel.toLowerCase()}"
+               data-bs-original-title="${a.conditionTitle}"><span class="badge">${a.conditionLabel}</span></a></div>`
+                : ''
+            }
+            <div class="col-icon col-auto"><span class="icon is-24x24"><span onmouseover="showMsgBox(this,\`${label}\`)"
+               data-original-title="${label}" class="icon" aria-label="${label}" data-bs-original-title="${label}"
+               style="display: inline-block; width: 16px; height: 16px; background-position: -${16 * a.language}px -0px;"></span></span></div>
             <div class="col-icon col-auto"></div>
             <div class="col-extras col-auto"><span class="extras d-inline-block">${
               a.foil ? '<span class="icon is-24x24"><span class="icon" aria-label="Foil" data-bs-original-title="Foil"></span></span>' : ''
@@ -421,32 +473,52 @@ export function createMockCardmarket() {
     });
   }
 
-  /** An offer row as on product / card / seller-stock pages (`div.article-row`). */
+  /**
+   * An offer row: `articleRow<id>` on a product page (with the seller and the
+   * shipping cost), `stockRow<id>` on a seller's own page (with the product,
+   * its picture and a checkbox of the seller's own tools).
+   */
   function offerRow(a, lang, { sellerPage = false } = {}) {
-    const product = `/${lang}/${a.game}/Products/Singles/${a.expansionSlug}/${a.cardSlug}`;
+    const product = productPath(lang, a);
+    const img = `&lt;img src=&quot;${pictureUrl(a)}&quot; alt=&quot;${esc(a.name)}&quot;&gt;`;
     const sellerCell = sellerPage
-      ? `<a href="${product}">${esc(a.name)}</a>`
+      ? `<a href="${product}">${esc(a.name)}${a.number ? `  (${esc(a.number)})` : ''}</a>`
       : `<span class="seller-info d-flex align-items-center"><span class="seller-name d-flex">
            <span title="1027&nbsp;Sales&nbsp;|&nbsp;3172&nbsp;Available items" class="badge sell-count">1K</span>
            <span title="Item location: Germany" class="icon d-flex"><span class="icon"></span></span>
            <span class="d-flex"><a href="/${lang}/${a.game}/Users/${encodeURIComponent(a.seller)}">${esc(a.seller)}</a></span>
          </span></span>`;
+    const shipping =
+      !sellerPage && state.offerShipping != null
+        ? `<div class="small text-muted fst-italic text-nowrap text-end"><span class="fonticon-shipping-methods" aria-label="Shipping" data-bs-original-title="Shipping"></span><span class="ms-1">${euro(state.offerShipping)}</span></div>`
+        : '';
     return `
-      <div id="articleRow${a.articleId}" class="row g-0 article-row">
+      <div id="${sellerPage ? 'stockRow' : 'articleRow'}${a.articleId}" class="row g-0 article-row">
         <div class="d-none col"></div>
+        ${
+          sellerPage
+            ? `<div class="col-checkbox col-icon justify-content-end d-none d-lg-flex"><div class="form-check">
+                 <input type="checkbox" class="form-check-input" name="idArticle[${a.articleId}]" id="idArticle[${a.articleId}]-x"><label class="form-check-label"><span></span></label></div></div>
+               <div class="col-thumbnail col-icon"><span class="thumbnail-icon icon is-24x24" data-bs-toggle="tooltip" data-bs-html="true" data-bs-title="${img}"><span class="fonticon-camera"></span></span></div>`
+            : ''
+        }
         <div class="col-sellerProductInfo col"><div class="row g-0">
           <div class="col-seller col-12 col-lg-auto">${sellerCell}</div>
           <div class="col-product col-12 col-lg"><div class="row g-0"><div class="product-attributes col">
-            <a href="/${lang}/${a.game}/Expansions/${a.expansionSlug}" title="${esc(a.expansion)}" class="expansion-symbol is-magic icon is-24x24"><span></span></a>
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="16" height="16" title="${a.rarity}"><path d="M8 1c3.9 0 7 3.1 7 7s-3.1 7-7 7-7-3.1-7-7 3.1-7 7-7Z"/></svg>
-            <a href="https://help.cardmarket.com/en/CardCondition" title="${a.conditionTitle}" class="article-condition condition-${a.conditionLabel.toLowerCase()} me-1"><span class="badge">${a.conditionLabel}</span></a>
-            <span onmouseover="showMsgBox(this,\`${a.languageLabel}\`)" title="${a.languageLabel}" data-original-title="${a.languageLabel}" class="icon me-2"></span>
-            ${a.foil ? '<span title="Foil" data-original-title="Foil" class="icon st_SpecialIcon me-1"></span>' : ''}
+            <a href="/${lang}/${a.game}/Expansions/${a.expansionSlug}" aria-label="${esc(a.expansion)}" data-bs-original-title="${esc(a.expansion)}" class="expansion-symbol is-magic icon is-24x24 d-flex me-1"><span></span></a>
+            ${a.rarity ? `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="16" height="16" title="${a.rarity}"><path d="M8 1c3.9 0 7 3.1 7 7s-3.1 7-7 7-7-3.1-7-7 3.1-7 7-7Z"/></svg>` : ''}
+            ${
+              a.conditionLabel
+                ? `<a href="https://help.cardmarket.com/en/CardCondition" aria-label="${a.conditionTitle}" data-bs-original-title="${a.conditionTitle}" class="article-condition condition-${a.conditionLabel.toLowerCase()} me-1"><span class="badge">${a.conditionLabel}</span></a>`
+                : ''
+            }
+            ${flag(lang, a)}
+            ${a.foil ? '<span aria-label="Foil" data-bs-original-title="Foil" class="icon st_SpecialIcon me-1"></span>' : ''}
           </div></div></div>
         </div></div>
         <div class="col-offer col-auto">
           <div class="price-container d-none d-md-flex justify-content-end"><div class="d-flex flex-column"><div class="d-flex align-items-center justify-content-end">
-            <span class="color-primary small text-end text-nowrap fw-bold">${euro(a.price)}</span></div></div></div>
+            <span class="color-primary small text-end text-nowrap fw-bold">${euro(a.price)}</span></div>${shipping}</div></div>
           <div class="amount-container d-none d-md-flex justify-content-end me-3"><span class="item-count small text-end">${a.available || 1}</span></div>
           <div class="actions-container d-flex align-items-center justify-content-end col ps-2 pe-0">
             <button type="button" class="btn btn-sm btn-primary"><span class="fonticon-cart"></span></button></div>
@@ -454,18 +526,29 @@ export function createMockCardmarket() {
       </div>`;
   }
 
-  function productPage(lang, game, expansionSlug, cardSlug) {
-    const offers = ARTICLES.filter(
-      (a) => a.game === game && a.expansionSlug === expansionSlug && a.cardSlug === cardSlug && state.available.has(a.articleId),
-    );
-    const first = ARTICLES.find((a) => a.cardSlug === cardSlug) || ARTICLES[0];
+  /** The pictures above an offer list: Magic pages show the previous, this and the next card of the set. */
+  function carousel(first) {
+    const slide = (productId, name) =>
+      `<div class="slide"><div class="image card-image is-magic has-shadow"><img src="https://product-images.s3.cardmarket.com/1/X/${productId}/${productId}.jpg" alt="${esc(name)}"></div></div>`;
+    if (first.category) return `<section id="image">${slide(first.productId, first.name).replace('/1/X/', '/1016/')}</section>`;
+    return `<section id="image" class="d-none d-lg-flex">${slide('723521', 'Shimmer Myr')}${slide(first.productId, first.name)}${slide('723538', 'Spectral Searchlight')}</section>`;
+  }
+
+  /** /Products/Singles/<expansion>/<card> or /Products/<kind>/<product> (sealed). */
+  function productPage(lang, game, path) {
+    const [kind, one, two] = path;
+    const same = (a) => (kind === 'Singles' ? !a.category && a.expansionSlug === one && a.cardSlug === two : a.category === kind && a.cardSlug === one);
+    const offers = ARTICLES.filter((a) => a.game === game && same(a) && state.available.has(a.articleId));
+    const first = ARTICLES.find(same) || ARTICLES[0];
+    const subtitle = first.category ? first.category.replace(/-/g, ' ') : `${first.expansion} - Singles`;
     return layout({
       lang,
       game,
       title: first.name,
       body: `
-        <div class="page-title-container d-flex"><div class="flex-fill"><h1>${esc(first.name)}<span class="h4 text-muted fst-italic fw-normal">${esc(first.expansion)} - Singles</span></h1></div></div>
-        <section id="image"><img src="https://product-images.s3.cardmarket.com/1/X/${first.productId}/${first.productId}.jpg" alt="${esc(first.name)}" width="146"></section>
+        <div class="page-title-container d-flex"><div class="flex-fill"><h1>${esc(first.name)}<span class="h4 text-muted fst-italic fw-normal">${esc(subtitle)}</span></h1></div></div>
+        ${carousel(first)}
+        <form class="d-none"><input type="hidden" name="idProduct" value="${first.productId}"></form>
         <!-- A button that behaves like the site's own: AJAX add, then the header badge is updated in place. -->
         <button id="site-add">Put Sol Ring (Kärtchen-Laden) in cart</button>
         <div class="table article-table table-striped"><div class="table-body">${offers.map((a) => offerRow(a, lang)).join('')}</div></div>
@@ -482,15 +565,21 @@ export function createMockCardmarket() {
     });
   }
 
-  function sellerPage(lang, game, seller, name) {
+  /** A seller's own page for one kind of product (/Users/<seller>/Offers/<kind>), searchable by name. */
+  function sellerPage(lang, game, seller, kind = 'Singles', name = null) {
     const offers = ARTICLES.filter(
-      (a) => a.game === game && a.seller === seller && state.available.has(a.articleId) && (!name || a.name === name),
+      (a) =>
+        a.game === game &&
+        a.seller === seller &&
+        state.available.has(a.articleId) &&
+        (a.category || 'Singles') === kind &&
+        (!name || a.name.toLowerCase().includes(name.toLowerCase())),
     );
     return layout({
       lang,
       game,
       title: seller,
-      body: `<h1>${esc(seller)}</h1><div class="table article-table"><div class="table-body">${offers
+      body: `<h1>${esc(seller)}</h1><div id="UserOffersTable" class="table article-table table-striped"><div class="table-body">${offers
         .map((a) => offerRow(a, lang, { sellerPage: true }))
         .join('')}</div></div>`,
     });
@@ -595,15 +684,16 @@ export function createMockCardmarket() {
       const ids = (url.searchParams.get('ids') || '').split(',').filter(Boolean);
       res = { status: 200, contentType: 'text/html', body: orderPage(lang, game, ids) };
     } else if (page === 'Products') {
-      res = { status: 200, contentType: 'text/html', body: productPage(lang, game, rest[1], rest[2]) };
+      res = { status: 200, contentType: 'text/html', body: productPage(lang, game, rest) };
     } else if (page === 'Wants') {
       const form = state.loggedIn && (state.tokenMode === 'input' || state.tokenMode === 'wants')
         ? `<form data-ajax-action="Wantslist_CreateWantsList"><input type="hidden" name="__cmtkn" value="${state.token}"><input name="wlName"></form>`
         : '';
       res = { status: 200, contentType: 'text/html', body: layout({ lang, game, title: 'Wants', body: `<h1>Wants</h1>${form}` }) };
     } else if (page === 'Users') {
+      // /Users/<seller>/Offers/<kind>
       const seller = decodeURIComponent(rest[0] || '');
-      res = { status: 200, contentType: 'text/html', body: sellerPage(lang, game, seller, url.searchParams.get('name')) };
+      res = { status: 200, contentType: 'text/html', body: sellerPage(lang, game, seller, rest[2] || 'Singles', url.searchParams.get('name')) };
     } else {
       res = { status: 200, contentType: 'text/html', body: layout({ lang, game, title: game, body: `<h1>${game}</h1>` }) };
     }

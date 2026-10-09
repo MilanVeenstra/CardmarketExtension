@@ -49,9 +49,22 @@
 
   const CONDITIONS = { 1: 'MT', 2: 'NM', 3: 'EX', 4: 'GD', 5: 'LP', 6: 'PL', 7: 'PO' };
   const CONDITION_IDS = Object.fromEntries(Object.entries(CONDITIONS).map(([id, code]) => [code, Number(id)]));
-  const LANGUAGE_IDS = Object.fromEntries(Object.entries(LANGUAGES).map(([id, name]) => [name, Number(id)]));
+  /**
+   * Language names as the site writes them in its five languages (en, de, fr,
+   * es, it). Only a fallback: the flag itself says which language it is.
+   */
+  const LANGUAGE_ALIASES = {
+    english: 1, french: 2, german: 3, spanish: 4, italian: 5, 's-chinese': 6, japanese: 7, portuguese: 8, russian: 9, korean: 10, 't-chinese': 11,
+    englisch: 1, französisch: 2, deutsch: 3, spanisch: 4, italienisch: 5, 's-chinesisch': 6, japanisch: 7, portugiesisch: 8, russisch: 9, koreanisch: 10, 't-chinesisch': 11,
+    anglais: 1, français: 2, allemand: 3, espagnol: 4, italien: 5, 'chinois-s': 6, japonais: 7, portugais: 8, russe: 9, coréen: 10, 'chinois-t': 11,
+    inglés: 1, francés: 2, alemán: 3, español: 4, italiano: 5, 'chino-s': 6, japonés: 7, portugués: 8, ruso: 9, coreano: 10, 'chino-t': 11,
+    inglese: 1, francese: 2, tedesco: 3, spagnolo: 4, 'cinese-s': 6, giapponese: 7, portoghese: 8, russo: 9, 'cinese-t': 11,
+  };
   /** Article extras that are not the card language. */
-  const EXTRA_RE = /foil|holo|signed|altered|first edition|1st edition|playset|signiert|alteriert|signé|altéré/i;
+  const EXTRA_RE = /foil|holo|signed|altered|first edition|1st edition|playset|signiert|alteriert|signé|altéré|firmad|alterad|firmat|alterat|auflage|édition|edición|edizione/i;
+  /** Offer rows: `articleRow<id>` on product pages, `stockRow<id>` on a seller's own pages. */
+  const OFFER_ROWS = '.article-row[id^="articleRow"], .article-row[id^="stockRow"]';
+  const OFFER_ROW_ID = /^(?:articleRow|stockRow)(\d+)$/;
 
   const TOKEN_RE = /^[0-9a-f]{32,}$/i;
   const LABEL_ATTRS = ['aria-label', 'data-bs-original-title', 'data-original-title', 'title'];
@@ -108,12 +121,45 @@
     return u.toString();
   }
 
-  /** The seller's stock, searched for this card's name. */
+  /** The kind of product, from its URL: "Singles", "Boosters", "Elite-Trainer-Boxes"… (null when unknown). */
+  function productCategory(item) {
+    const m = String((item && item.productUrl) || '').match(/\/Products\/([^/?#]+)\//);
+    return m ? m[1] : null;
+  }
+
+  /**
+   * The seller's stock of this kind of product, searched for its name. A
+   * seller's pages exist per game and per kind ("/Offers/Singles",
+   * "/Offers/Elite-Trainer-Boxes"…), like the product URL; the seller link may
+   * come from another game's page (one cart for all games), so the game and
+   * language are the article's own.
+   */
   function sellerSearchUrl(item) {
     if (!item.sellerUrl) return null;
-    const u = new URL(`${item.sellerUrl.replace(/\/$/, '')}/Offers/Singles`);
+    const from = parseLocation(item.sellerUrl);
+    const slug = (new URL(item.sellerUrl, ORIGIN).pathname.match(/\/Users\/([^/?#]+)/) || [])[1];
+    if (!slug) return null;
+    const lang = item.lang || from.lang || 'en';
+    const game = item.game || from.game || 'Magic';
+    const u = new URL(`${ORIGIN}/${lang}/${game}/Users/${slug}/Offers/${productCategory(item) || 'Singles'}`);
     if (item.name) u.searchParams.set('name', item.name);
     return u.toString();
+  }
+
+  /** A language id (1–11) from what the page calls it, in any of the site's languages. */
+  function languageIdOf(label) {
+    return (label && LANGUAGE_ALIASES[String(label).trim().toLowerCase()]) || null;
+  }
+
+  /**
+   * Cardmarket draws every language flag from one sprite, 16 px per language:
+   * the flag's position is the language id, whatever the site's language.
+   */
+  function languageFromIcon(el) {
+    const m = ((el && el.getAttribute && el.getAttribute('style')) || '').match(/background-position:\s*(-?\d+(?:\.\d+)?)px/);
+    if (!m) return null;
+    const id = Math.round(-Number(m[1]) / 16);
+    return LANGUAGES[id] ? id : null;
   }
 
   // ---------------------------------------------------------------------------
@@ -306,12 +352,9 @@
       const label = labelOf(el);
       if (label && !iconLabels.includes(label)) iconLabels.push(label);
     });
-    const languageLabel =
-      iconLabels.find((l) => Object.values(LANGUAGES).includes(l)) ||
-      LANGUAGES[languageId] ||
-      iconLabels[0] ||
-      null;
-    const extras = iconLabels.filter((l) => l !== languageLabel);
+    // On the German, French… site the language is called "Englisch", "Anglais"…
+    const languageLabel = iconLabels.find((l) => languageIdOf(l)) || LANGUAGES[languageId] || null;
+    const extras = iconLabels.filter((l) => l !== languageLabel && !languageIdOf(l));
 
     const imageUrl = findImageUrl(tr.querySelector('.thumbnail-icon')) || findImageUrl(tr);
 
@@ -338,7 +381,7 @@
         clean(conditionEl && conditionEl.querySelector('.badge') && conditionEl.querySelector('.badge').textContent) ||
         CONDITIONS[conditionId] ||
         null,
-      language: languageId,
+      language: languageId || languageIdOf(languageLabel),
       languageLabel,
       foil: extras.some((l) => /foil/i.test(l)),
       extras,
@@ -402,20 +445,57 @@
     return null;
   }
 
-  function productImage(doc) {
+  /** Every product picture URL under `root`, in page order. */
+  function imageUrls(root) {
+    const urls = [];
+    for (const el of root ? [root, ...root.querySelectorAll('*')] : []) {
+      for (const attr of IMAGE_ATTRS) {
+        const value = el.getAttribute && el.getAttribute(attr);
+        const m = value && value.match(IMAGE_URL_RE);
+        if (m) urls.push(m[0].startsWith('//') ? `https:${m[0]}` : m[0].replace(/^http:/, 'https:'));
+      }
+    }
+    return urls;
+  }
+
+  /** The product id in a picture URL: ".../<id>/<id>.jpg". */
+  const productIdFromImage = (url) => (String(url || '').match(/\/(\d+)\/\1\.(?:jpe?g|png|webp)/i) || [])[1] || null;
+
+  /** The product a product page is about (a hidden form field carries its id). */
+  function pageProductId(doc) {
+    const input = doc.querySelector('input[name="idProduct"]');
+    return input && /^\d+$/.test(input.value || '') ? input.value : null;
+  }
+
+  /**
+   * The picture of the product a page is about. Magic pages show a carousel
+   * with the previous and next card of the set as well, so the picture of
+   * this product is the one with its id in the URL.
+   */
+  function productImage(doc, productId = pageProductId(doc)) {
+    const urls = imageUrls(doc.querySelector('#image, .image, [class*="product-image"]'));
     return (
-      findImageUrl(doc.querySelector('#image, .image, [class*="product-image"]')) ||
+      (productId && urls.find((url) => productIdFromImage(url) === String(productId))) ||
+      urls[0] ||
       findImageUrl(doc.querySelector('meta[property="og:image"]'))
     );
   }
 
+  /** The shipping cost shown under an offer's price on product pages (null when not shown). */
+  function offerShipping(row) {
+    const icon = row.querySelector('.price-container .fonticon-shipping-methods');
+    const box = icon && icon.parentElement;
+    const m = clean(box && box.textContent).match(/(\d[\d.\s]*,\d{2})/);
+    return m ? parseFloat(m[1].replace(/[.\s]/g, '').replace(',', '.')) : null;
+  }
+
   /**
-   * One offer row (`div.article-row#articleRow<id>`) on a product page, a card
-   * page or a seller's stock page.
+   * One offer row: `articleRow<id>` on a product page, `stockRow<id>` on a
+   * seller's own pages.
    */
   function parseOfferRow(row, { baseUrl }) {
     const doc = row.ownerDocument;
-    const articleId = ((row.id || '').match(/articleRow(\d+)/) || [])[1];
+    const articleId = ((row.id || '').match(OFFER_ROW_ID) || [])[1];
     if (!articleId) return null;
     const pageLoc = parseLocation(baseUrl);
     const page = new URL(baseUrl);
@@ -456,13 +536,23 @@
     const expansionEl = attrs.querySelector('.expansion-symbol');
 
     const labels = [];
+    let languageEl = null;
     attrs.querySelectorAll('[aria-label], [title], [data-bs-original-title], [data-original-title]').forEach((el) => {
       if (el.closest('svg') || el.closest('.expansion-symbol') || el.closest('.article-condition')) return;
       const label = labelOf(el);
-      if (label && !labels.includes(label)) labels.push(label);
+      if (!label || labels.includes(label)) return;
+      labels.push(label);
+      if (!languageEl && !EXTRA_RE.test(label)) languageEl = el;
     });
     const extras = labels.filter((l) => EXTRA_RE.test(l));
     const languageLabel = labels.find((l) => !EXTRA_RE.test(l)) || null;
+    const language = languageFromIcon(languageEl) || languageIdOf(languageLabel);
+    // On product pages the page is the product; seller pages show it in each row's picture.
+    const ownImage = findImageUrl(row.querySelector('.thumbnail-icon')) || findImageUrl(row);
+    const productId = (!productLink && pageProductId(doc)) || productIdFromImage(ownImage);
+    // A sealed product's page title names its kind ("Elite Trainer Boxes"), not an expansion.
+    const kind = (productCategory({ productUrl }) || '').replace(/-/g, ' ').toLowerCase();
+    const titleExpansion = title.expansion && title.expansion.toLowerCase() !== kind ? title.expansion : null;
 
     let price = null;
     const priceBox = row.querySelector('.col-offer .price-container') || row.querySelector('.price-container');
@@ -479,19 +569,20 @@
 
     return {
       articleId,
-      productId: null,
+      productId,
       game: productLoc.game || pageLoc.game,
       lang: productLoc.lang || pageLoc.lang,
       name: name || `#${articleId}`,
-      expansion: (expansionEl && labelOf(expansionEl)) || title.expansion,
+      expansion: (expansionEl && labelOf(expansionEl)) || titleExpansion,
       number: null,
       productUrl,
-      imageUrl: findImageUrl(row.querySelector('.thumbnail-icon')) || findImageUrl(row) || productImage(doc),
+      imageUrl: ownImage || productImage(doc, productId),
       price,
+      shipping: offerShipping(row),
       available: parseInt(clean(countEl && countEl.textContent), 10) || null,
       condition: CONDITION_IDS[conditionLabel] || null,
       conditionLabel,
-      language: LANGUAGE_IDS[languageLabel] || null,
+      language,
       languageLabel,
       foil: extras.some((l) => /foil/i.test(l)),
       extras,
@@ -1007,6 +1098,9 @@
     ORIGIN,
     LANGUAGES,
     CONDITIONS,
+    OFFER_ROWS,
+    productCategory,
+    languageIdOf,
     CardmarketError,
     parseLocation,
     cartUrl,

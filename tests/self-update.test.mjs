@@ -13,6 +13,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
+import { BROWSER, extensionWorker } from './browser.mjs';
 import { createMockCardmarket } from './mock-cardmarket.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -46,13 +47,13 @@ before(async () => {
     fs.cpSync(path.join(ROOT, entry), path.join(extDir, entry), { recursive: true });
   }
   context = await chromium.launchPersistentContext(fs.mkdtempSync(path.join(os.tmpdir(), 'cmcs-profile-')), {
-    channel: 'chromium',
+    ...BROWSER,
     headless: true,
     locale: 'nl-NL',
     args: [`--disable-extensions-except=${extDir}`, `--load-extension=${extDir}`, '--lang=nl'],
   });
   await context.route(`${CM}/**`, createMockCardmarket().route);
-  sw = context.serviceWorkers()[0] || (await context.waitForEvent('serviceworker'));
+  sw = await extensionWorker(context);
 });
 
 after(async () => {

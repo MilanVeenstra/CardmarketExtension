@@ -24,6 +24,8 @@
     favorites: 'cmcs.favorites',
     /** Named copies of the list ("Commander deck"), to put back later. */
     carts: 'cmcs.carts',
+    /** Small copies of product pictures, by picture URL (made by the background). */
+    thumbs: 'cmcs.thumbs',
   };
 
   const MAX_CARTS = 30;
@@ -216,7 +218,7 @@
   const FAVORITE_FIELDS = [
     'articleId', 'productId', 'game', 'lang', 'name', 'expansion', 'number', 'productUrl', 'imageUrl',
     'price', 'available', 'condition', 'conditionLabel', 'language', 'languageLabel', 'foil', 'extras',
-    'comment', 'seller', 'sellerUrl', 'thumb',
+    'comment', 'seller', 'sellerUrl',
   ];
 
   /** The part of an article worth keeping as a favourite. */
@@ -546,6 +548,9 @@
     },
 
     removeCart: (id) => update(KEYS.carts, [], (carts) => carts.filter((cart) => cart.id !== id)),
+
+    getThumbs: () => get(KEYS.thumbs, {}),
+    updateThumbs: (fn) => update(KEYS.thumbs, {}, fn),
 
     getFavorites: () => get(KEYS.favorites, {}),
     setFavorites: (favorites) => set(KEYS.favorites, favorites),

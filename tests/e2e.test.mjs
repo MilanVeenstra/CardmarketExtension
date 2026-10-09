@@ -14,6 +14,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
+import { BROWSER, extensionWorker } from './browser.mjs';
 import { createMockCardmarket, ARTICLES } from './mock-cardmarket.mjs';
 
 // Let context.route() also see the extension service worker's requests (the price guide).
@@ -94,7 +95,7 @@ const addRequests = () => mock.state.requests.filter((r) => r.method === 'POST' 
 before(async () => {
   const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cmcs-profile-'));
   context = await chromium.launchPersistentContext(userDataDir, {
-    channel: 'chromium',
+    ...BROWSER,
     headless: true,
     locale: 'nl-NL',
     viewport: { width: 1280, height: 860 },
@@ -102,17 +103,26 @@ before(async () => {
   });
   mock = createMockCardmarket();
   await context.route(`${CM}/**`, mock.route);
-  // Card pictures; anything under /broken/ is refused like a hotlink-protected image.
-  await context.route('https://product-images.s3.cardmarket.com/**', (r) =>
-    r.request().url().includes('/broken/')
-      ? r.fulfill({ status: 403, contentType: 'application/xml', body: '<Error><Code>AccessDenied</Code></Error>' })
-      : r.fulfill({
-          path: path.join(ROOT, 'tests/fixtures/card.png'),
-          contentType: 'image/png',
-          headers: { 'Access-Control-Allow-Origin': '*' },
-        }),
-  );
-  sw = context.serviceWorkers()[0] || (await context.waitForEvent('serviceworker'));
+  // Card pictures, served like Cardmarket's picture server does: never with CORS
+  // headers, and only to cardmarket.com pages and to the extension itself (in
+  // reality its declarativeNetRequest rule gives those requests a cardmarket.com
+  // Referer; Playwright sees requests before that rule, so it is checked on its
+  // own in 'card pictures'). Anything under /broken/ is refused.
+  await context.route('https://product-images.s3.cardmarket.com/**', (r) => {
+    const request = r.request();
+    let from = 'extension';
+    try {
+      from = new URL(request.frame().url()).origin;
+    } catch {
+      // A service-worker request has no frame: the extension's background.
+    }
+    const allowed = from === 'extension' || from.startsWith('chrome-extension://') || from === CM;
+    if (!allowed || request.url().includes('/broken/')) {
+      return r.fulfill({ status: 403, contentType: 'text/html', body: '<h1>403 ERROR</h1><h2>The request could not be satisfied.</h2>' });
+    }
+    return r.fulfill({ path: path.join(ROOT, 'tests/fixtures/card.png'), contentType: 'multerS3.AUTO_CONTENT_TYPE' });
+  });
+  sw = await extensionWorker(context);
   extensionId = new URL(sw.url()).host;
   await sw.evaluate((delayMs) => chrome.storage.local.set({ 'cmcs.settings': { delayMs } }), DELAY_MS);
 });
@@ -420,7 +430,9 @@ describe('Cardmarket Cart Saver', () => {
     assert.equal(fav.languageLabel, 'German');
     assert.equal(fav.language, 3);
     assert.equal(fav.foil, false);
-    assert.match(fav.imageUrl, /500100\.jpg$/);
+    // The page shows the previous and next card of the set too: the picture must be this one.
+    assert.match(fav.imageUrl, /\/500100\/500100\.jpg$/);
+    assert.equal(fav.productId, '500100');
     await waitFor(async () => (await star.getAttribute('aria-pressed')) === 'true', 'star filled');
 
     await page.locator(`#articleRow${SOL_MINT} cmcs-fav button`).click();
@@ -492,8 +504,54 @@ describe('Cardmarket Cart Saver', () => {
 
   it('finds a favourite on the seller page', async () => {
     await page.goto(`${CM}/en/Magic/Users/CardKingdomNL/Offers/Singles?name=Sol+Ring`);
-    const star = page.locator(`#articleRow${SOL_KINGDOM} cmcs-fav button`);
+    // A seller's own pages call their rows stockRow<id>, not articleRow<id>.
+    const star = page.locator(`#stockRow${SOL_KINGDOM} cmcs-fav button`);
     await waitFor(async () => (await star.getAttribute('aria-pressed')) === 'true', 'shown as favourite');
+  });
+
+  it("stars an offer on a seller's page, with the product from the row", async () => {
+    await page.goto(`${CM}/en/Magic/Users/Kärtchen-Laden/Offers/Singles`);
+    await page.locator(`#stockRow${SOL_RING} cmcs-fav button`).click();
+    const fav = await waitFor(async () => (await favorites())[SOL_RING], 'favourite from a seller page');
+    assert.equal(fav.seller, 'Kärtchen-Laden');
+    assert.equal(fav.productUrl, SOL_RING_URL);
+    assert.match(fav.imageUrl, /\/500100\/500100\.jpg$/);
+    assert.equal(fav.productId, '500100', 'read from the picture');
+    assert.equal(fav.language, 1);
+    assert.equal(fav.conditionLabel, 'NM');
+    await page.locator(`#stockRow${SOL_RING} cmcs-fav button`).click();
+    await waitFor(async () => !(await favorites())[SOL_RING], 'unstarred again');
+  });
+
+  it('knows the language on the German site too ("Englisch")', async () => {
+    await page.goto(`${CM}/de/Magic/Products/Singles/Commander-Masters/Sol-Ring`);
+    const star = page.locator(`#articleRow${SOL_RING} cmcs-fav button`);
+    await star.click();
+    const fav = await waitFor(async () => (await favorites())[SOL_RING], 'favourite on the German site');
+    assert.equal(fav.languageLabel, 'Englisch');
+    assert.equal(fav.language, 1, 'the flag says English');
+    assert.equal(fav.lang, 'de');
+    await star.click();
+    await waitFor(async () => !(await favorites())[SOL_RING], 'unstarred again');
+  });
+
+  it("searches a seller's sealed products where they are, in the article's own game", async () => {
+    const popup = await context.newPage();
+    await popup.goto(`chrome-extension://${extensionId}/src/popup/popup.html`);
+    const urls = await popup.evaluate(() => [
+      CMCS.cm.sellerSearchUrl({
+        name: '30th Celebration Elite Trainer Box',
+        game: 'Pokemon',
+        lang: 'en',
+        productUrl: 'https://www.cardmarket.com/en/Pokemon/Products/Elite-Trainer-Boxes/30th-Celebration-Elite-Trainer-Box',
+        // Saved from the Magic cart page: one cart for all games.
+        sellerUrl: 'https://www.cardmarket.com/en/Magic/Users/snowc',
+      }),
+      CMCS.cm.sellerSearchUrl({ name: 'Sol Ring', game: 'Magic', lang: 'en', productUrl: `${location.origin}/x`, sellerUrl: 'https://www.cardmarket.com/en/Magic/Users/snowc' }),
+    ]);
+    assert.equal(urls[0], `${CM}/en/Pokemon/Users/snowc/Offers/Elite-Trainer-Boxes?name=30th+Celebration+Elite+Trainer+Box`);
+    assert.equal(urls[1], `${CM}/en/Magic/Users/snowc/Offers/Singles?name=Sol+Ring`, 'singles when the kind is unknown');
+    await popup.close();
   });
 
   it('puts a favourite in the cart from the popup (one copy)', async () => {
@@ -671,31 +729,41 @@ describe('Cardmarket Cart Saver', () => {
   });
 
   describe('card pictures', () => {
-    it('keeps a small local copy of each picture, so the popup can show it', async () => {
-      await page.goto(`${CM}/en/Magic`);
-      const saved = await waitFor(async () => {
-        const all = Object.values(await items()).filter((i) => i.imageUrl);
-        return all.length && all.every((i) => /^data:image\/jpeg;base64,/.test(i.thumb || '')) && all;
-      }, 'thumbnails for all saved articles');
-      assert.ok(saved.every((i) => i.thumb.length < 12000), 'thumbnails stay small');
+    it("lets only the extension's own picture requests come from cardmarket.com", async () => {
+      const rules = await sw.evaluate(() => chrome.declarativeNetRequest.getDynamicRules());
+      const rule = rules.find((r) => (r.condition.requestDomains || []).includes('product-images.s3.cardmarket.com'));
+      assert.ok(rule, 'a rule for the picture server');
+      assert.deepEqual(rule.condition.initiatorDomains, [extensionId], 'only requests of the extension itself');
+      assert.deepEqual(rule.action.requestHeaders, [{ header: 'referer', operation: 'set', value: 'https://www.cardmarket.com/' }]);
+    });
+
+    it('keeps a small copy of each picture in the background, so the popup can show it', async () => {
+      await sw.evaluate(() => self.cmcs.images.capture());
+      const thumbs = await waitFor(async () => {
+        const all = (await storage())['cmcs.thumbs'] || {};
+        const wanted = Object.values(await items()).map((i) => i.imageUrl).filter(Boolean);
+        return wanted.length && wanted.every((url) => all[url] && all[url].src) && all;
+      }, 'copies of all pictures');
+      for (const thumb of Object.values(thumbs).filter((t) => t.src)) {
+        assert.match(thumb.src, /^data:image\/jpeg;base64,/);
+        assert.ok(thumb.src.length < 12000, 'copies stay small');
+      }
+      assert.ok(Object.values(await items()).every((i) => !i.thumb), 'the saved list itself carries no pictures');
 
       const popup = await context.newPage();
       await popup.goto(`chrome-extension://${extensionId}/src/popup/popup.html`);
       await popup.getByRole('tab', { name: 'Winkelmandje' }).click();
-      await waitFor(async () => (await popup.locator('#list img.cmcs-thumb').count()) > 0, 'thumbnails in popup');
+      await waitFor(async () => (await popup.locator('#list img.cmcs-thumb').count()) > 0, 'pictures in popup');
       const sources = await popup.locator('#list img.cmcs-thumb').evaluateAll((imgs) => imgs.map((img) => img.getAttribute('src')));
-      assert.ok(sources.every((src) => src.startsWith('data:image/jpeg')), 'popup uses the local copies');
+      assert.ok(sources.every((src) => src.startsWith('data:image/jpeg')), 'popup uses the copies');
       await popup.close();
     });
 
     it('shows a placeholder instead of a broken image when a picture is refused', async () => {
-      await patchItems({ [MAGE]: { imageUrl: 'https://product-images.s3.cardmarket.com/broken/1.jpg', thumb: null, thumbTriedAt: null } });
-      await page.goto(`${CM}/en/Magic`);
-      const mage = await waitFor(async () => {
-        const item = (await items())[MAGE];
-        return item.thumbTriedAt && item;
-      }, 'thumbnail attempt recorded');
-      assert.equal(mage.thumb, null);
+      const broken = 'https://product-images.s3.cardmarket.com/broken/1/1.jpg';
+      await patchItems({ [MAGE]: { imageUrl: broken } });
+      await sw.evaluate(() => self.cmcs.images.capture());
+      await waitFor(async () => ((await storage())['cmcs.thumbs'] || {})[broken]?.failedAt, 'failed attempt recorded');
 
       const popup = await context.newPage();
       await popup.goto(`chrome-extension://${extensionId}/src/popup/popup.html`);

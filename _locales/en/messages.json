@@ -407,6 +407,9 @@
   "replaceSearching": {
     "message": "Looking for a replacement…"
   },
+  "replaceShipping": {
+    "message": "+ $1 shipping"
+  },
   "replaceTitle": {
     "message": "Replacement"
   },

@@ -626,7 +626,15 @@
   }
 
   async function load() {
-    [items, favorites, job, carts] = await Promise.all([store.getItems(), store.getFavorites(), store.getJob(), store.getCarts()]);
+    let thumbs;
+    [items, favorites, job, carts, thumbs] = await Promise.all([
+      store.getItems(),
+      store.getFavorites(),
+      store.getJob(),
+      store.getCarts(),
+      store.getThumbs(),
+    ]);
+    ui.setThumbs(thumbs);
     render();
   }
 

@@ -13,10 +13,11 @@
  *    minutes while you are at the computer.
  * 5. Once a day: forgets unavailable articles older than a month, and
  *    (optional) reads Cardmarket's public price guide for the saved cards.
+ * 6. Product pictures for the popup (see images.js).
  */
-importScripts('../shared/store.js');
+importScripts('../shared/store.js', 'images.js');
 
-const { store } = self.CMCS;
+const { store, images } = self.CMCS;
 
 const UPDATE_ALARM = 'cmcs.selfUpdate';
 const UPDATE_CHECK_MINUTES = 1;
@@ -283,6 +284,7 @@ async function refreshPrices({ force = false } = {}) {
 
 async function daily() {
   await pruneStale();
+  await images.pruneThumbs().catch(() => {});
   await refreshPrices().catch(() => {});
 }
 
@@ -294,6 +296,7 @@ function setUp() {
   ensureAwayAlarm();
   ensureDailyAlarm();
   scheduleExpiryAlarm();
+  images.captureSoon();
 }
 
 chrome.runtime.onInstalled.addListener(setUp);
@@ -307,6 +310,7 @@ chrome.alarms.onAlarm.addListener((alarm) => {
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area !== 'local') return;
   if (changes[store.KEYS.items]) updateBadge();
+  if (changes[store.KEYS.items] || changes[store.KEYS.favorites] || changes[store.KEYS.carts]) images.captureSoon();
   if (changes[store.KEYS.meta]) {
     const before = (changes[store.KEYS.meta].oldValue || {}).cartExpiry;
     const after = (changes[store.KEYS.meta].newValue || {}).cartExpiry;
@@ -334,8 +338,9 @@ if (chrome.notifications) {
 ensureUpdateAlarm();
 ensureAwayAlarm();
 ensureDailyAlarm();
+images.ensureImageRule().catch((err) => console.warn('[Cart Saver] picture rule:', err));
 runningFingerprint().catch(() => {});
 
 // Exposed for the end-to-end test.
 self.cmcsCheckForNewVersion = checkForNewVersion;
-self.cmcs = { warnExpiry, scheduleExpiryAlarm, awayCheck, refreshPrices, pruneStale, notify };
+self.cmcs = { warnExpiry, scheduleExpiryAlarm, awayCheck, refreshPrices, pruneStale, notify, images };

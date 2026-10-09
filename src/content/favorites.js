@@ -1,14 +1,16 @@
 /*
  * Favourites on cardmarket.com: a star next to every offer.
  *
- * - Offer rows (`div.article-row#articleRow<id>`) on product, card and seller
- *   pages, and article rows in the shopping cart get a ☆ button. Clicking it
- *   stores that exact offer (seller, condition, language, price…).
+ * - Offer rows (`div.article-row#articleRow<id>` on product pages,
+ *   `#stockRow<id>` on a seller's pages) and article rows in the shopping
+ *   cart get a ☆ button. Clicking it stores that exact offer (seller,
+ *   condition, language, price…).
  * - When a favourite shows up on a page its price and available count are
  *   refreshed, so the list stays current without extra requests.
  * - Links from the popup end in #articleRow<id>: the offer is scrolled into
- *   view and highlighted, or — when it is not on the page — a notice offers
- *   the seller's stock and similar offers instead.
+ *   view and highlighted (also when it appears later, after "Show more"), or
+ *   — when it is not on the page — a notice offers the seller's stock and
+ *   similar offers instead.
  */
 (function (root) {
   'use strict';
@@ -16,8 +18,10 @@
   const CMCS = (root.CMCS = root.CMCS || {});
   const { cm, store, ui, t } = CMCS;
 
-  const OFFER_ROWS = 'div.article-row[id^="articleRow"]';
+  const OFFER_ROWS = cm.OFFER_ROWS;
   const DECORATED = 'data-cmcs-fav';
+  /** Seen favourites are written back at most this often, unless something changed. */
+  const SEEN_REFRESH_MS = 24 * 60 * 60 * 1000;
 
   // Cardmarket's rows are light, so the star is drawn in ink: outline grey, filled black.
   const STAR_CSS = `
@@ -41,6 +45,7 @@
 
   function paint(button, articleId) {
     const on = Boolean(favorites[articleId]);
+    if (button.getAttribute('aria-pressed') === String(on)) return;
     button.setAttribute('aria-pressed', String(on));
     const label = t(on ? 'favRemove' : 'favAdd');
     button.title = label;
@@ -110,33 +115,45 @@
       if (!fav) continue;
       const seen = cm.parseOfferRow(row, { baseUrl: location.href });
       if (!seen) continue;
-      patches[articleId] = {
+      const next = {
         price: seen.price != null ? seen.price : fav.price,
         available: seen.available != null ? seen.available : fav.available,
-        lastSeenAt: Date.now(),
         unavailable: false,
         unavailableMessage: null,
       };
+      // Only write when something changed (or once a day), so browsing stays quiet.
+      const changed = Object.entries(next).some(([key, value]) => (fav[key] ?? null) !== (value ?? null));
+      if (!changed && Date.now() - (fav.lastSeenAt || 0) < SEEN_REFRESH_MS) continue;
+      patches[articleId] = { ...next, lastSeenAt: Date.now() };
     }
     if (Object.keys(patches).length) await store.patchFavorites(patches);
   }
 
+  /** The offer the popup linked to (#articleRow<id>), until it has been shown. */
+  let wanted = null;
+  let wantedNotice = false;
+
+  function highlight(articleId) {
+    const row = document.getElementById(`articleRow${articleId}`) || document.getElementById(`stockRow${articleId}`);
+    if (!row) return false;
+    row.setAttribute('data-cmcs-highlight', '');
+    row.style.outline = '2px solid #141414';
+    row.style.outlineOffset = '-2px';
+    row.style.boxShadow = 'inset 4px 0 0 #b3122b';
+    row.scrollIntoView({ block: 'center' });
+    return true;
+  }
+
   /** Arriving from the popup with #articleRow<id>: show that offer. */
   function focusFromHash() {
-    const match = location.hash.match(/^#articleRow(\d+)$/);
+    const match = location.hash.match(/^#(?:articleRow|stockRow)(\d+)$/);
     if (!match) return;
     const articleId = match[1];
-    const row = document.getElementById(`articleRow${articleId}`);
-    if (row) {
-      row.setAttribute('data-cmcs-highlight', '');
-      row.style.outline = '2px solid #141414';
-      row.style.outlineOffset = '-2px';
-      row.style.boxShadow = 'inset 4px 0 0 #b3122b';
-      row.scrollIntoView({ block: 'center' });
-      return;
-    }
+    if (highlight(articleId)) return;
+    wanted = articleId;
     const fav = favorites[articleId];
     if (!fav) return;
+    wantedNotice = true;
     CMCS.widget.showNotice({
       title: t('favNotOnPageTitle'),
       text: t('favNotOnPageLead', fav.seller || '?'),
@@ -175,6 +192,12 @@
       timer = setTimeout(() => {
         const fresh = decorate();
         if (fresh.length) refreshSeen(fresh);
+        // The linked offer may only appear now ("Show more results").
+        if (wanted && highlight(wanted)) {
+          wanted = null;
+          if (wantedNotice) CMCS.widget.showNotice(null);
+          wantedNotice = false;
+        }
       }, 250);
     }).observe(document.body, { childList: true, subtree: true });
   }

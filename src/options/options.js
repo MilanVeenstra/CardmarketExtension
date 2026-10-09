@@ -102,12 +102,13 @@
     };
     const onCardmarket = (u) => u.protocol === 'https:' && u.hostname === 'www.cardmarket.com';
     const image = (u) => u.protocol === 'https:' && /(^|\.)cardmarket\.com$/.test(u.hostname);
+    // Pictures are fetched again by the background; old exports may still carry copies.
+    const { thumb, thumbTriedAt, ...rest } = item;
     return {
-      ...item,
+      ...rest,
       productUrl: safe(item.productUrl, onCardmarket),
       sellerUrl: safe(item.sellerUrl, onCardmarket),
       imageUrl: safe(item.imageUrl, image),
-      thumb: typeof item.thumb === 'string' && item.thumb.startsWith('data:image/') ? item.thumb : null,
     };
   }
 

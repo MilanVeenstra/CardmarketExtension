@@ -136,11 +136,12 @@ src/
   shared/      store.js (gegevens en opslag), ui.js (stijl en componenten), i18n.js
   content/     cardmarket.js (kennis van de site), refill.js (terugzetten),
                replace.js (vervanging), widget.js (paneel), favorites.js (sterren),
-               thumbs.js (plaatjes), main.js (opstarten, mandje lezen)
+               main.js (opstarten, mandje lezen)
   page/        bridge.js (verzoeken vanuit de pagina zelf, via een privé kanaal)
   popup/       popup.html/css/js
   options/     options.html/css/js
-  background/  service-worker.js (badge, meldingen, zelf bijwerken, prijsgids)
+  background/  service-worker.js (badge, meldingen, zelf bijwerken, prijsgids),
+               images.js (plaatjes voor de popup)
 _locales/      nl, en
 scripts/       autoupdate-mac.sh, make-icons.mjs
 tests/         end-to-end-tests tegen een nagebootste Cardmarket
@@ -155,6 +156,8 @@ endpoints:
 npm install
 npm test                          # alle tests
 SCREENSHOT_DIR=shots npm test     # ook screenshots
+CMCS_LIVE=1 npm test              # ook plaatjes van de echte Cardmarket-beeldserver
+CHROMIUM_PATH=/pad/naar/chrome npm test   # een Chromium die al op je computer staat
 ```
 
 Meer achtergrond: [onderzoek](docs/RESEARCH.md),

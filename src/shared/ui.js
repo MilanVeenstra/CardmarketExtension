@@ -125,21 +125,28 @@
     return [...lines.filter((l) => l.warn), ...lines.filter((l) => !l.warn)];
   }
 
-  /** Cardmarket's (English) language names, said the way the interface speaks. */
-  const LANGUAGE_NL = {
-    English: 'Engels', German: 'Duits', French: 'Frans', Spanish: 'Spaans', Italian: 'Italiaans',
-    Japanese: 'Japans', Portuguese: 'Portugees', Russian: 'Russisch', Korean: 'Koreaans',
-    'S-Chinese': 'Vereenvoudigd Chinees', 'T-Chinese': 'Traditioneel Chinees',
+  /** Cardmarket's language ids (1–11), said the way the interface speaks. */
+  const LANGUAGE_EN = {
+    1: 'English', 2: 'French', 3: 'German', 4: 'Spanish', 5: 'Italian', 6: 'S-Chinese',
+    7: 'Japanese', 8: 'Portuguese', 9: 'Russian', 10: 'Korean', 11: 'T-Chinese',
   };
-  function languageName(label) {
-    if (!label) return null;
+  const LANGUAGE_NL = {
+    1: 'Engels', 2: 'Frans', 3: 'Duits', 4: 'Spaans', 5: 'Italiaans', 6: 'Vereenvoudigd Chinees',
+    7: 'Japans', 8: 'Portugees', 9: 'Russisch', 10: 'Koreaans', 11: 'Traditioneel Chinees',
+  };
+  const LANGUAGE_BY_NAME = Object.fromEntries(Object.entries(LANGUAGE_EN).map(([id, name]) => [name, Number(id)]));
+
+  /** The article's language in the interface's language (the site may have said "Englisch"). */
+  function languageName(label, id) {
+    const known = Number(id) || LANGUAGE_BY_NAME[label];
+    if (!known || !LANGUAGE_EN[known]) return label || null;
     const dutch = /^nl/i.test((root.chrome && chrome.i18n && chrome.i18n.getUILanguage()) || '');
-    return (dutch && LANGUAGE_NL[label]) || label;
+    return dutch ? LANGUAGE_NL[known] : LANGUAGE_EN[known];
   }
 
   /** "Commander Masters · EX · Duits · Foil" */
   const shortMeta = (item) =>
-    [item.expansion, item.conditionLabel, languageName(item.languageLabel), ...(item.extras || [])].filter(Boolean).join(' · ');
+    [item.expansion, item.conditionLabel, languageName(item.languageLabel, item.language), ...(item.extras || [])].filter(Boolean).join(' · ');
 
   /** How many copies the row is about: what is in your cart, or what would go back. */
   const copiesOf = (item) => (item.status === 'in_cart' ? item.amount || 1 : CMCS.store.refillAmount(item));
@@ -232,7 +239,7 @@
     if (opts.open) {
       const longMeta = [
         item.expansion,
-        languageName(item.languageLabel),
+        languageName(item.languageLabel, item.language),
         ...(item.extras || []),
         opts.showSeller === false ? null : item.seller,
         CMCS.store.gameName ? CMCS.store.gameName(item.game) : item.game,
@@ -306,14 +313,21 @@
     );
   }
 
+  /** Small copies of the pictures (made by the background, see src/background/images.js): url → { src }. */
+  let thumbSources = {};
+  function setThumbs(thumbs) {
+    thumbSources = thumbs || {};
+  }
+
   /**
-   * The card picture: the small copy saved while browsing Cardmarket first
-   * (works everywhere, also in the popup), else Cardmarket's own image URL,
-   * else a placeholder. A picture that fails to load turns into the placeholder.
+   * The product picture: the small local copy when there is one (popup,
+   * options), else Cardmarket's own picture, else a placeholder. A picture
+   * that fails to load turns into the placeholder.
    */
   function thumbnail(item, sold = false) {
     const extra = sold ? 'cmcs-thumb--sold' : '';
-    const src = item.thumb || item.imageUrl;
+    const local = item.imageUrl && thumbSources[item.imageUrl];
+    const src = (local && local.src) || item.imageUrl;
     if (!src) return thumbPlaceholder(item, extra);
     const img = h('img', { class: `cmcs-thumb ${extra}`, src, alt: '', loading: 'lazy', decoding: 'async' });
     img.addEventListener('error', () => img.replaceWith(thumbPlaceholder(item, extra)), { once: true });
@@ -440,7 +454,8 @@
     .cmcs-item-line[role="button"] { cursor: pointer; }
     .cmcs-item--open .cmcs-item-line, .cmcs-item--open .cmcs-item-details { padding-left: 6px; padding-right: 6px; }
     .cmcs-item-line input[type="checkbox"] { margin: 0; accent-color: var(--cmcs-text); flex: none; }
-    .cmcs-thumb { width: 30px; height: 42px; object-fit: cover; border-radius: 2px; flex: none; background: var(--cmcs-line); display: block; }
+    /* Cards fill the box; square pictures (booster boxes, displays) are shown whole. */
+    .cmcs-thumb { width: 30px; height: 42px; object-fit: contain; border-radius: 2px; flex: none; background: var(--cmcs-line); display: block; }
     .cmcs-thumb--empty {
       display: flex; align-items: center; justify-content: center;
       color: var(--cmcs-muted); font-size: 13px; font-weight: 800;
@@ -531,6 +546,7 @@
     errorText,
     jobError,
     thumbnail,
+    setThumbs,
     STYLES,
   };
 })(globalThis);
