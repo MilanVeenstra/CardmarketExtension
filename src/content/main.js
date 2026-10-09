@@ -42,7 +42,7 @@
       return true;
     }
     if (message.type === 'cmcs.undo') {
-      // "Ongedaan maken" from the popup: this tab has the session to take it back.
+      // "Undo" from the popup: this tab has the session to take it back.
       CMCS.refill.undo(message.jobId).then(sendResponse, (err) => sendResponse({ ok: false, error: err.message }));
       return true;
     }

@@ -1242,7 +1242,7 @@ describe('Cardmarket Cart Saver', () => {
       const popup = await openPopup();
       await popup.locator('#tab-carts').click();
       assert.match(await popup.locator('#carts-empty').innerText(), /Nog geen bewaarde lijsten[\s\S]*Bewaar als lijst…/);
-      // Saving happens where the list is: the Winkelmandje tab.
+      // Saving happens where the list is: the Cart tab.
       await popup.locator('#tab-cart').click();
       await popup.getByRole('button', { name: 'Bewaar als lijst…' }).click();
       assert.match(await popup.locator('#list-form-meta').innerText(), /^2 artikelen · /);

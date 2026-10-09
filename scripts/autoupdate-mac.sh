@@ -2,7 +2,7 @@
 #
 # Keep an unpacked Cart Saver install up to date with GitHub (macOS).
 #
-#   ./autoupdate-mac.sh install "/pad/naar/de/extensiemap"
+#   ./autoupdate-mac.sh install "/path/to/the/extension/folder"
 #   ./autoupdate-mac.sh status
 #   ./autoupdate-mac.sh uninstall
 #
@@ -26,8 +26,6 @@ set -euo pipefail
 REPO_URL="https://github.com/MilanVeenstra/CardmarketExtension.git"
 # The repository's default branch: `fetch origin HEAD` follows it, whatever it is called.
 LOCAL_BRANCH="cart-saver"
-# Installs made with an earlier version of this script.
-LEGACY_BRANCH="claude/cardmarket-cart-extension-fvfwx5"
 LABEL="com.cardmarket-cart-saver.autoupdate"
 PLIST="$HOME/Library/LaunchAgents/$LABEL.plist"
 LOG="$HOME/Library/Logs/cart-saver-autoupdate.log"
@@ -36,10 +34,10 @@ INTERVAL_SECONDS=180
 
 usage() {
   cat <<EOF
-Gebruik:
-  $0 install "/pad/naar/de/extensiemap"   automatisch bijwerken aanzetten
-  $0 status                                 laatste updates bekijken
-  $0 uninstall                              automatisch bijwerken uitzetten
+Usage:
+  $0 install "/path/to/the/extension/folder"   turn automatic updates on
+  $0 status                                      show the latest updates
+  $0 uninstall                                   turn automatic updates off
 EOF
   exit 1
 }
@@ -50,7 +48,7 @@ xml_escape() {
 
 refuse() {
   echo "$1" >&2
-  echo "Kies een aparte map voor de geïnstalleerde extensie (bijvoorbeeld een uitgepakte ZIP), niet je eigen werkmap." >&2
+  echo "Pick a separate folder for the installed extension (an unpacked ZIP, for example), not your own working copy." >&2
   exit 1
 }
 
@@ -61,7 +59,7 @@ install() {
   local git_bin
   git_bin="$(command -v git || true)"
   if [ -z "$git_bin" ]; then
-    echo "git ontbreekt. Installeer het eerst met:  xcode-select --install" >&2
+    echo "git is missing. Install it first with:  xcode-select --install" >&2
     exit 1
   fi
 
@@ -72,28 +70,22 @@ install() {
     local origin branch
     origin="$("$git_bin" -C "$dir" remote get-url origin 2>/dev/null || true)"
     branch="$("$git_bin" -C "$dir" symbolic-ref --short -q HEAD || true)"
-    [ "$origin" = "$REPO_URL" ] || refuse "$dir is een git-map van een andere repository ($origin)."
-    if [ "$branch" = "$LEGACY_BRANCH" ]; then
-      # An install of an earlier version of this script: its job named this folder.
-      grep -qF "$(xml_escape "$dir")" "$PLIST" 2>/dev/null ||
-        refuse "$dir staat op de branch '$branch' zonder dat dit script hem eerder instelde: dat lijkt een werkmap."
-    elif [ "$branch" != "$LOCAL_BRANCH" ]; then
-      refuse "$dir staat op de branch '$branch': dat lijkt een werkmap, geen geïnstalleerde kopie."
-    fi
-    [ -z "$("$git_bin" -C "$dir" status --porcelain)" ] || refuse "$dir bevat eigen wijzigingen; die zouden bij elke update verdwijnen."
+    [ "$origin" = "$REPO_URL" ] || refuse "$dir is a git folder of another repository ($origin)."
+    [ "$branch" = "$LOCAL_BRANCH" ] || refuse "$dir is on the branch '$branch': that looks like a working copy, not an installed one."
+    [ -z "$("$git_bin" -C "$dir" status --porcelain)" ] || refuse "$dir has changes of its own; every update would wipe them."
   else
     if [ -n "$(ls -A "$dir")" ] && [ ! -f "$dir/manifest.json" ]; then
-      echo "$dir is niet leeg en bevat geen manifest.json. Kies de map waaruit Chrome de extensie laadt." >&2
+      echo "$dir is not empty and has no manifest.json. Pick the folder Chrome loads the extension from." >&2
       exit 1
     fi
     "$git_bin" -C "$dir" init -q
     "$git_bin" -C "$dir" remote add origin "$REPO_URL"
   fi
-  echo "Nieuwste versie ophalen…"
+  echo "Fetching the latest version…"
   "$git_bin" -C "$dir" fetch -q origin HEAD
   # Commits that are not on GitHub would be lost: never.
   if "$git_bin" -C "$dir" rev-parse -q --verify HEAD >/dev/null; then
-    "$git_bin" -C "$dir" merge-base --is-ancestor HEAD FETCH_HEAD || refuse "$dir bevat commits die niet op GitHub staan."
+    "$git_bin" -C "$dir" merge-base --is-ancestor HEAD FETCH_HEAD || refuse "$dir has commits that are not on GitHub."
   fi
   "$git_bin" -C "$dir" checkout -q -f -B "$LOCAL_BRANCH" FETCH_HEAD
   "$git_bin" -C "$dir" rev-parse HEAD >"$dir/build-id.txt"
@@ -120,11 +112,11 @@ if [ -f "$log" ] && [ "$(wc -l <"$log")" -gt 500 ]; then
   tail -n 300 "$log" >"$log.tmp" && mv "$log.tmp" "$log"
 fi
 
-cd "$dir" 2>/dev/null || { note "map niet gevonden: $dir"; exit 0; }
+cd "$dir" 2>/dev/null || { note "folder not found: $dir"; exit 0; }
 # Only a folder this updater set up, with nothing of your own in it.
-[ "$("$git" symbolic-ref --short -q HEAD)" = "cart-saver" ] || { note "overgeslagen: de map staat niet meer op de branch cart-saver"; exit 0; }
-[ "$("$git" remote get-url origin 2>/dev/null)" = "$repo" ] || { note "overgeslagen: de map hoort bij een andere repository"; exit 0; }
-[ -z "$("$git" status --porcelain)" ] || { note "overgeslagen: er staan eigen wijzigingen in de map"; exit 0; }
+[ "$("$git" symbolic-ref --short -q HEAD)" = "cart-saver" ] || { note "skipped: the folder is no longer on the branch cart-saver"; exit 0; }
+[ "$("$git" remote get-url origin 2>/dev/null)" = "$repo" ] || { note "skipped: the folder belongs to another repository"; exit 0; }
+[ -z "$("$git" status --porcelain)" ] || { note "skipped: the folder has changes of its own"; exit 0; }
 
 "$git" fetch -q origin HEAD 2>/dev/null || exit 0 # offline: next time
 new="$("$git" rev-parse FETCH_HEAD)"
@@ -137,7 +129,7 @@ trap 'rm -rf "$tmp"' EXIT
 "$git" archive FETCH_HEAD | tar -x -C "$tmp"
 if ! result="$(/usr/bin/osascript -l JavaScript "$here/check-build.js" "$tmp" 2>&1)"; then
   echo "$new" >"$here/skipped"
-  note "versie ${new:0:7} overgeslagen, die zou niet laden: $(printf '%s' "$result" | head -c 200)"
+  note "version ${new:0:7} skipped, it would not load: $(printf '%s' "$result" | head -c 200)"
   exit 0
 fi
 
@@ -179,23 +171,23 @@ EOF
   launchctl bootstrap "gui/$(id -u)" "$PLIST"
 
   echo
-  echo "✓ Automatisch bijwerken staat aan."
-  echo "  Map:        $dir"
-  echo "  Versie:     $("$git_bin" -C "$dir" log -1 --format='%h %s')"
-  echo "  Controle:   elke $((INTERVAL_SECONDS / 60)) minuten (een versie die niet zou laden wordt overgeslagen)"
+  echo "✓ Automatic updates are on."
+  echo "  Folder:     $dir"
+  echo "  Version:    $("$git_bin" -C "$dir" log -1 --format='%h %s')"
+  echo "  Checks:     every $((INTERVAL_SECONDS / 60)) minutes (a version that would not load is skipped)"
   echo
-  echo "Klik nu één keer op ↻ bij Cart Saver in chrome://extensions."
-  echo "Daarna werkt de extensie zichzelf bij; ververs open Cardmarket-tabbladen als daarom gevraagd wordt."
+  echo "Now click ↻ once for Cart Saver in chrome://extensions."
+  echo "From then on the extension updates itself; refresh open Cardmarket tabs when it asks."
 }
 
 status() {
   if launchctl print "gui/$(id -u)/$LABEL" >/dev/null 2>&1; then
-    echo "✓ Automatisch bijwerken staat aan."
+    echo "✓ Automatic updates are on."
   else
-    echo "✗ Automatisch bijwerken staat uit."
+    echo "✗ Automatic updates are off."
   fi
   if [ -f "$LOG" ]; then
-    echo "Laatste meldingen:"
+    echo "Latest messages:"
     tail -n 5 "$LOG"
   fi
 }
@@ -204,7 +196,7 @@ uninstall() {
   launchctl bootout "gui/$(id -u)/$LABEL" 2>/dev/null || true
   rm -f "$PLIST"
   rm -rf "$SUPPORT"
-  echo "✓ Automatisch bijwerken staat uit. De extensie zelf blijft gewoon werken."
+  echo "✓ Automatic updates are off. The extension itself keeps working."
 }
 
 case "${1:-}" in

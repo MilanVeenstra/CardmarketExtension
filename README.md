@@ -5,179 +5,179 @@
 <h1 align="center">CART SAVER</h1>
 
 <p align="center">
-  <b>Je Cardmarket-mandje kwijt? Eén klik en het staat er weer in.</b><br>
-  Een Chrome-extensie voor <a href="https://www.cardmarket.com">Cardmarket</a>.
+  <b>Lost your Cardmarket cart? One click and it is back.</b><br>
+  A Chrome extension for <a href="https://www.cardmarket.com">Cardmarket</a>.
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/popup-cart.png" width="380" alt="De popup: wat terug kan, per verkoper">
+  <img src="docs/screenshots/popup-cart.png" width="380" alt="The popup: what can go back, per seller">
   &nbsp;
-  <img src="docs/screenshots/panel-cart.png" width="380" alt="Het paneel op de mandjepagina van Cardmarket">
+  <img src="docs/screenshots/panel-cart.png" width="380" alt="The panel on Cardmarket's cart page">
 </p>
 
 ---
 
-## Waarvoor
+## What it is for
 
-Wie op Cardmarket een deck bij elkaar zoekt, legt vaak tientallen kaarten van
-verschillende verkopers in zijn mandje, in precies de goede conditie en taal.
-Cardmarket **leegt dat mandje vanzelf**: na verloop van tijd, als een
-verkoper op vakantie gaat of als iets verkocht wordt. Al dat zoekwerk is dan
-weg.
+If you put a deck together on Cardmarket, you often have dozens of cards from
+different sellers in your cart, in exactly the right condition and language.
+Cardmarket **empties that cart by itself**: after a while, when a
+seller goes on vacation or when something is sold. All that searching is then
+gone.
 
-**Cart Saver onthoudt alles wat je in je mandje legt** en zet het met één
-klik terug, zolang het nog te koop is. Is iets verkocht, dan zoekt hij een
-vervanging.
+**Cart Saver remembers everything you put in your cart** and puts it back with one
+click, as long as it is still for sale. If something was sold, it looks for a
+replacement.
 
-## Wat je krijgt
+## What you get
 
 | | |
 |---|---|
-| **Automatisch onthouden** | Elk artikel in je mandje wordt bewaard, kaarten én sealed (boosterboxen, displays…): verkoper, conditie, taal, foil, prijs en aantal, met plaatje. Je hoeft niets te doen. |
-| **Eén klik terug** | Eén verzoek per verkoper, en alleen wat echt ontbreekt. Dus ook "1 van 2 in je mandje" wordt aangevuld. Met vinkjes kies je wat terug moet. Spijt? *Ongedaan maken*. |
-| **Weten wat er gebeurde** | Per artikel zie je of het mandje werd geleegd, of de verkoper verdween of dat alleen dit artikel verkocht is, en of de prijs veranderde. |
-| **Vervanging voor verkochte kaarten** | Dezelfde kaart bij dezelfde verkoper, bij een verkoper die al in je mandje zit (geen extra verzending), of het goedkoopste vergelijkbare aanbod. |
-| **Alle spellen in één mandje** | Magic, Pokémon, Yu-Gi-Oh!, One Piece, Lorcana… Kies zelf welke spellen terug moeten. |
-| **Favorieten en lijsten** | Bewaar een aanbieding met een ☆, of je hele mandje als lijst ("Commander-deck") om later met één klik terug te zetten. |
-| **Op tijd gewaarschuwd** | Verzendkosten per verkoper, een melding als er iets verdwijnt, en hoe laat Cardmarket je mandje leegt (als Cardmarket dat laat zien). |
+| **Remembered automatically** | Every article in your cart is saved, cards and sealed products alike (booster boxes, displays…): seller, condition, language, foil, price and quantity, with a picture. You do not have to do anything. |
+| **One click back** | One request per seller, and only what is really missing. So "1 of 2 in your cart" is topped up too. Use the checkboxes to choose what goes back. Changed your mind? *Undo*. |
+| **Know what happened** | For each article you see whether the cart was emptied, whether the seller disappeared or only this article was sold, and whether the price changed. |
+| **Replacements for sold cards** | The same card from the same seller, from a seller already in your cart (no extra shipping), or the cheapest similar offer. |
+| **All games in one cart** | Magic, Pokémon, Yu-Gi-Oh!, One Piece, Lorcana… You choose which games go back. |
+| **Favourites and lists** | Save an offer with a ☆, or your whole cart as a list ("Commander deck"), to put it back later with one click. |
+| **Warned in time** | Shipping costs per seller, a notification when something disappears, and what time Cardmarket empties your cart (if Cardmarket shows it). |
 
-## Zo werkt het
+## How it works
 
-**1. Shop zoals altijd.** Cart Saver onthoudt wat je in je mandje legt. Op de
-mandjepagina zie je rechtsonder wat er bewaard is, en wat de verzending per
-verkoper kost.
+**1. Shop as usual.** Cart Saver remembers what you put in your cart. On the
+cart page you see at the bottom right what has been saved, and what shipping
+costs per seller.
 
-**2. Mandje geleegd?** Op elke Cardmarket-pagina verschijnt een melding, en
-het icoon in de werkbalk telt mee.
+**2. Cart emptied?** A reminder appears on every Cardmarket page, and
+the icon in the toolbar counts along.
 
 <p align="center">
-  <img src="docs/screenshots/panel-reminder.png" width="380" alt="Melding: je winkelmandje is geleegd">
+  <img src="docs/screenshots/panel-reminder.png" width="380" alt="Reminder: Your cart was emptied">
 </p>
 
-**3. Zet terug.** Eén klik, en de kaarten liggen weer in je mandje. Wat
-verkocht is krijgt een stempel, met *Vervanging zoeken*.
+**3. Put it back.** One click, and the cards are back in your cart. What
+was sold gets a stamp, with *Find a replacement*.
 
 <p align="center">
-  <img src="docs/screenshots/panel-result.png" width="380" alt="Resultaat na het terugzetten">
+  <img src="docs/screenshots/panel-result.png" width="380" alt="Result after putting back">
   &nbsp;
-  <img src="docs/screenshots/panel-replacement.png" width="380" alt="Vervanging voor een verkochte kaart">
+  <img src="docs/screenshots/panel-replacement.png" width="380" alt="Replacement for a sold card">
 </p>
 
-In de popup vind je alles terug: wat terug kan (per verkoper, met de details
-als je op een kaart klikt), je **favorieten** en je **lijsten**. Een lijst maak
-je met *Bewaar als lijst…* in het tabblad Winkelmandje of in het paneel op
+The popup has everything: what can go back (per seller, with the details
+when you click a card), your **favourites** and your **lists**. You make a list
+with *Save as list…* in the Cart tab or in the panel on
 Cardmarket.
 
 <p align="center">
-  <img src="docs/screenshots/popup-favorites.png" width="380" alt="Favorieten in de popup">
+  <img src="docs/screenshots/popup-favorites.png" width="380" alt="Favourites in the popup">
   &nbsp;
-  <img src="docs/screenshots/popup-carts.png" width="380" alt="Bewaarde lijsten in de popup">
+  <img src="docs/screenshots/popup-carts.png" width="380" alt="Saved lists in the popup">
 </p>
 
-## Installeren
+## Installing
 
-Cart Saver staat (nog) niet in de Chrome Web Store; je laadt hem zelf:
+Cart Saver is not in the Chrome Web Store (yet); you load it yourself:
 
-1. **Download** de [ZIP](https://github.com/MilanVeenstra/CardmarketExtension/archive/HEAD.zip) en pak hem uit.
-2. Ga in Chrome naar `chrome://extensions` en zet rechtsboven **Ontwikkelaarsmodus** aan.
-3. Klik op **Uitgepakte extensie laden** en kies de uitgepakte map (met `manifest.json`).
-4. Ververs je open Cardmarket-tabbladen.
+1. **Download** the [ZIP](https://github.com/MilanVeenstra/CardmarketExtension/archive/HEAD.zip) and unzip it.
+2. In Chrome, go to `chrome://extensions` and turn on **Developer mode** at the top right.
+3. Click **Load unpacked** and choose the unzipped folder (the one with `manifest.json`).
+4. Reload your open Cardmarket tabs.
 
-Werkt ook in Edge, Brave en Opera.
+Also works in Edge, Brave and Opera.
 
 <details>
-<summary><b>Automatisch bijwerken (Mac)</b></summary>
+<summary><b>Automatic updates (Mac)</b></summary>
 
-Wil je elke nieuwe versie vanzelf binnenkrijgen? Eén keer instellen:
+Want every new version to arrive by itself? Set it up once:
 
-1. Zoek op `chrome://extensions` bij Cart Saver de regel **Geladen vanaf**: dat is je extensiemap.
-2. Open **Terminal**, typ `cd ` en sleep die map in het venster. Druk op Enter.
-3. Voer uit:
+1. On `chrome://extensions`, find the line **Loaded from** under Cart Saver: that is your extension folder.
+2. Open **Terminal**, type `cd ` and drag that folder into the window. Press Enter.
+3. Run:
    ```bash
    bash scripts/autoupdate-mac.sh install "$PWD"
    ```
-   Vraagt je Mac om de *Command Line Tools*? Installeer ze en herhaal stap 3.
-4. Klik één keer op ↻ bij Cart Saver.
+   Does your Mac ask for the *Command Line Tools*? Install them and repeat step 3.
+4. Click ↻ on Cart Saver once.
 
-Daarna kijkt je Mac elke 3 minuten of er een nieuwe versie is; de extensie
-herstart zichzelf en open tabbladen vragen om te verversen. Je opgeslagen
-artikelen blijven bewaard. Een nieuwe versie die niet zou laden wordt
-overgeslagen, en terwijl je in je mandje of bij het afrekenen bent, wacht de
-extensie met herstarten. Status: `bash scripts/autoupdate-mac.sh status`,
-uitzetten: `bash scripts/autoupdate-mac.sh uninstall`.
+After that, your Mac checks every 3 minutes whether there is a new version; the extension
+restarts itself and open tabs ask to be reloaded. Your saved
+articles are kept. A new version that would not load is
+skipped, and while you are in your cart or checking out, the
+extension waits before restarting. Status: `bash scripts/autoupdate-mac.sh status`,
+turn off: `bash scripts/autoupdate-mac.sh uninstall`.
 
-Gebruik hiervoor een aparte map (zoals de uitgepakte ZIP), nooit een map
-waarin je zelf aan de code werkt: het script weigert een git-map met eigen
-wijzigingen, commits of een andere branch.
+Use a separate folder for this (such as the unzipped ZIP), never a folder
+where you work on the code yourself: the script refuses a git folder with local
+changes, commits or a different branch.
 
 </details>
 
 ## Privacy
 
-- Alles blijft in je eigen browser. Er is geen server en er wordt niets
-  verstuurd.
-- Cart Saver praat alleen met Cardmarket: de site zelf, via je eigen
-  ingelogde sessie, en de plaatjesserver van Cardmarket (voor de plaatjes in
-  de popup). Er worden geen wachtwoorden bewaard.
-- Optioneel (standaard uit): één keer per dag de openbare prijsgids van
-  Cardmarket downloaden om prijzen met de trend te vergelijken.
+- Everything stays in your own browser. There is no server and nothing is
+  sent.
+- Cart Saver only talks to Cardmarket: the site itself, through your own
+  logged-in session, and Cardmarket's image server (for the pictures in
+  the popup). No passwords are stored.
+- Optional (off by default): download Cardmarket's public price guide once a
+  day to compare prices with the trend.
 
-## Goed om te weten
+## Good to know
 
-- Cart Saver is **onofficieel** en niet verbonden aan Cardmarket. Hij gebruikt
-  dezelfde verzoeken als de knoppen op de site. Verandert Cardmarket iets,
-  dan doet hij liever niets dan iets fout: een mandje dat hij niet goed kan
-  lezen markeert hij nergens als leeg.
-- Een opgeslagen artikel is één aanbieding van één verkoper. Is die verkocht,
-  dan kan hij niet terug; gebruik dan *Vervanging zoeken*.
-- Gebruik het met mate: verzoeken gaan alleen na jouw klik (of als je mandje
-  veranderde), één tegelijk en met een pauze ertussen.
-- Cardmarket zegt zelf bovenaan het mandje: houd er alleen artikelen in die je
-  echt wilt kopen; misbruik van het mandje kan tot schorsing van je account
-  leiden. Gebruik Cart Saver dus om terug te zetten wat je wilt kopen, niet om
-  aanbiedingen vast te houden. Daarom zet hij nooit vanzelf iets terug.
+- Cart Saver is **unofficial** and not affiliated with Cardmarket. It uses
+  the same requests as the buttons on the site. If Cardmarket changes something,
+  it would rather do nothing than do something wrong: a cart it cannot read
+  properly is never marked as empty.
+- A saved article is one offer from one seller. If that offer was sold,
+  it cannot go back; use *Find a replacement* instead.
+- Use it in moderation: requests are only sent after your click (or when your cart
+  changed), one at a time and with a pause in between.
+- Cardmarket itself says at the top of the cart: only keep articles in it that you
+  really want to buy; misuse of the cart can lead to the suspension of your account.
+  So use Cart Saver to put back what you want to buy, not to hold on to
+  offers. That is why it never puts anything back by itself.
 
 <details>
-<summary><b>Voor ontwikkelaars</b></summary>
+<summary><b>For developers</b></summary>
 
-Geen build-stap: Chrome laadt de bestanden direct (Manifest V3, gewone
+No build step: Chrome loads the files directly (Manifest V3, plain
 HTML/CSS/JS).
 
 ```
 manifest.json
 src/
-  shared/      store.js (gegevens en opslag), ui.js (stijl en componenten), i18n.js
-  content/     cardmarket.js (kennis van de site), refill.js (terugzetten),
-               replace.js (vervanging), widget.js (paneel), favorites.js (sterren),
-               main.js (opstarten, mandje lezen)
-  page/        bridge.js (verzoeken vanuit de pagina zelf, via een privé kanaal)
+  shared/      store.js (data and storage), ui.js (style and components), i18n.js
+  content/     cardmarket.js (knowledge of the site), refill.js (putting back),
+               replace.js (replacements), widget.js (panel), favorites.js (stars),
+               main.js (start-up, reading the cart)
+  page/        bridge.js (requests from the page itself, over a private channel)
   popup/       popup.html/css/js
   options/     options.html/css/js
-  background/  service-worker.js (badge, meldingen, zelf bijwerken, prijsgids),
-               images.js (plaatjes voor de popup)
+  background/  service-worker.js (badge, notifications, self-update, price guide),
+               images.js (pictures for the popup)
 _locales/      nl, en
-scripts/       autoupdate-mac.sh (met check-build.js), make-icons.mjs
-tests/         end-to-end-tests tegen een nagebootste Cardmarket
-docs/          onderzoek, functionele eisen, design-brief, screenshots
+scripts/       autoupdate-mac.sh (with check-build.js), make-icons.mjs
+tests/         end-to-end tests against a mock Cardmarket
+docs/          research, functional requirements, design brief, screenshots
 ```
 
-De tests laden de echte extensie in Chromium (Playwright) en sturen
-`https://www.cardmarket.com` naar een nagebootste site met dezelfde HTML en
+The tests load the real extension in Chromium (Playwright) and send
+`https://www.cardmarket.com` to a mock site with the same HTML and
 endpoints:
 
 ```bash
 npm install
-npm test                          # alle tests
-SCREENSHOT_DIR=shots npm test     # ook screenshots
-CMCS_LIVE=1 npm test              # ook plaatjes van de echte Cardmarket-beeldserver
-CHROMIUM_PATH=/pad/naar/chrome npm test   # een Chromium die al op je computer staat
+npm test                          # all tests
+SCREENSHOT_DIR=shots npm test     # also screenshots
+CMCS_LIVE=1 npm test              # also pictures from the real Cardmarket image server
+CHROMIUM_PATH=/path/to/chrome npm test   # a Chromium that is already on your computer
 ```
 
-Meer achtergrond: [onderzoek](docs/RESEARCH.md),
-[functionele eisen](docs/REQUIREMENTS.md),
-[analyse van de cart saver](docs/CART-SAVER-ANALYSE.md),
-[analyse voor 1.6](docs/ANALYSE-1.6.md), het
-[plan voor 1.7](docs/PLAN-1.7.md) en de
-[design-brief](docs/DESIGN-BRIEF.md).
+More background: [research](docs/RESEARCH.md),
+[functional requirements](docs/REQUIREMENTS.md),
+[analysis of the cart saver](docs/CART-SAVER-ANALYSIS.md),
+[analysis for 1.6](docs/ANALYSIS-1.6.md), the
+[plan for 1.7](docs/PLAN-1.7.md) and the
+[design brief](docs/DESIGN-BRIEF.md).
 
 </details>

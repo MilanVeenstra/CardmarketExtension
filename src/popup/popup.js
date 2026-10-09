@@ -100,7 +100,7 @@
   $('export-csv').addEventListener('click', () =>
     download(`cart-saver-${game === ALL ? 'all' : game || 'list'}.csv`, store.exportCsv(currentList(), exportOptions), 'text/csv'),
   );
-  // "Bewaar als lijst…": what the Winkelmandje tab shows (the game picked included), under a name.
+  // "Save as list…": what the Cart tab shows (the game picked included), under a name.
   const listToSave = () => currentList().filter((item) => item.status !== STATUS.UNAVAILABLE);
   $('save-list').addEventListener('click', () => {
     const list = listToSave();
@@ -279,7 +279,7 @@
     await refill(todo);
   }
 
-  /** Replace a saved list's articles with what the Winkelmandje tab holds now, with a way back. */
+  /** Replace a saved list's articles with what the Cart tab holds now, with a way back. */
   async function updateList(cart) {
     const list = listToSave();
     if (!list.length) return showToast(t('cartsNothing'));

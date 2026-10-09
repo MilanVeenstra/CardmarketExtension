@@ -297,7 +297,7 @@
     );
   }
 
-  /** A text button for the opened row ("Alleen deze terug", "Op Cardmarket"). */
+  /** A text button for the opened row ("Only this one back", "On Cardmarket"). */
   function detailButton(label, onClick, { strong = false, href = null } = {}) {
     const cls = `cmcs-detail-btn ${strong ? 'cmcs-detail-btn--strong' : ''}`;
     return href

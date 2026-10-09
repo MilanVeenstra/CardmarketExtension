@@ -1,345 +1,345 @@
-# Functionele requirements — Cardmarket Cart Saver
+# Functional requirements — Cardmarket Cart Saver
 
-Stand van zaken: versie 1.0.0, met de latere aanpassingen tot en met 1.6 (zie de analyses in docs/).
+Current state: version 1.0.0, with the later changes up to and including 1.6 (see the analyses in docs/).
 
-Dit document beschrijft:
+This document describes:
 
-- **Deel A** — wat de extensie nu doet (geïmplementeerd en getest).
-- **Deel B** — wat er nog niet is, maar wel handig kan zijn, onderbouwd met
-  research, met prioriteiten en een roadmap.
+- **Part A** — what the extension does now (implemented and tested).
+- **Part B** — what is not there yet but could be useful, backed by
+  research, with priorities and a roadmap.
 
-Notatie:
+Notation:
 
-- `FR-xx` is een functionele requirement en `NFR-xx` een niet-functionele.
-- De kolom *Test* verwijst naar de end-to-end-test in `tests/e2e.test.mjs`.
-  Die draait tegen een nagebootste Cardmarket.
+- `FR-xx` is a functional requirement and `NFR-xx` a non-functional one.
+- The *Test* column refers to the end-to-end test in `tests/e2e.test.mjs`.
+  It runs against a mock Cardmarket.
 
-> Alles in deel A is getest tegen een nagebootste Cardmarket met echte
-> Cardmarket-HTML en -endpoints. Op de live site is het nog **niet**
-> geverifieerd: cardmarket.com was vanuit de ontwikkelomgeving niet bereikbaar.
+> Everything in part A has been tested against a mock Cardmarket with real
+> Cardmarket HTML and endpoints. It has **not** yet been verified on the live
+> site: cardmarket.com could not be reached from the development environment.
 
 ---
 
-## Deel A — Wat nu werkt
+## Part A — What works now
 
-### A1. Winkelmandje automatisch opslaan
-
-| ID | Requirement | Test |
-|---|---|---|
-| FR-01 | Bij elk bezoek aan de winkelmandjepagina (`/{taal}/{spel}/ShoppingCart`) slaat de extensie elk artikel op met: artikel-ID, product, naam, set, nummer, verkoper, conditie, taal, foil/extra's, prijs, aantal, product-URL, afbeelding en opmerking. | ✔ |
-| FR-02 | Op elke andere Cardmarket-pagina vergelijkt de extensie de mandjesteller in de header met de vorige keer. Is die veranderd, dan haalt ze het mandje één keer op en werkt de lijst bij. | ✔ |
-| FR-03 | Verandert de teller live, bijvoorbeeld als je op de site op "in winkelmandje" klikt, dan wordt het nieuwe artikel binnen ~1,5 s opgeslagen, zonder dat je de pagina herlaadt. | ✔ |
-| FR-04 | Artikelen die dubbel op de pagina staan (desktop- en mobiele weergave) worden één keer opgeslagen. | ✔ |
-| FR-05 | Een artikel dat uit het mandje verdwijnt, wordt **niet** verwijderd. Het krijgt de status *ontbreekt*, met de vermoedelijke reden: het hele mandje werd geleegd, alles van die verkoper verdween, of alleen dit artikel verdween (waarschijnlijk verkocht). Mogelijke statussen: *in mandje*, *deels in mandje*, *ontbreekt*, *niet beschikbaar*. | ✔ |
-| FR-06 | Artikelen die je zelf verwijdert, worden vergeten in plaats van als ontbrekend gemarkeerd. Dat geldt voor het prullenbakje, minder exemplaren, "alles van deze verkoper" en "mandje legen", en voor artikelen die je afrekent. Vier signalen, los van elkaar: het verwijderverzoek van de site (ook als het versleuteld in `args` zit), formulieren, de knoppen, en op de mandjepagina zelf: rijen die verdwijnen of minder exemplaren tonen vlak nadat jij iets aanklikte. Alleen wat daarna echt uit het mandje is, wordt vergeten. | ✔ |
-| FR-07 | Artikelen die op een bestelpagina (`/Orders/…`) staan, zijn gekocht en worden uit de lijst gehaald. | ✔ |
-| FR-08 | Automatisch opslaan kan uit. Op de mandjepagina staat dan de knop *Huidig mandje opslaan*. | — |
-| FR-09 | Cardmarket heeft **één mandje voor alle spellen** (Magic, Pokémon, Yu-Gi-Oh!, …); een verkoper kan kaarten van meerdere spellen in één zending hebben. De extensie leest dat mandje als geheel, het spel van elk artikel komt uit de product-URL. Werkt in elke sitetaal (en, de, fr, es, it). | ✔ |
-| FR-09a | **Kiezen welke spellen terug gaan:** in het paneel op de mandjepagina en in de popup één knop per spel ("Magic (2)", "Pokémon (1)") om een spel aan of uit te zetten; de melding op andere pagina's biedt "Of alleen: Magic (2) · Pokémon (1)". De popup heeft een keuze *Alle spellen* of één spel. | ✔ |
-| FR-10 | Ben je uitgelogd, dan doet de extensie niets met de lijst: een loginpagina wordt nooit als leeg mandje gezien. Ben je ingelogd met een **ander account** dan waarmee de lijst is opgebouwd, dan wordt niets opgeslagen of als ontbrekend gemarkeerd tot je kiest voor het nieuwe account. | ✔ |
-| FR-10a | Het gewenste aantal wordt apart bewaard. Staan er minder exemplaren in het mandje dan je had (de verkoper verkocht er een paar), dan heet het artikel *deels in mandje* ("1 van 2 in je mandje"). Verlaag je het aantal zelf, dan wordt het lagere aantal het nieuwe gewenste aantal. | ✔ |
-| FR-10b | Verandert de prijs van een artikel in je mandje, dan zie je dat drie dagen lang ("Prijs €0,10 hoger (was €0,99)"). | ✔ |
-
-### A2. Leeg mandje herkennen en melden
+### A1. Saving the cart automatically
 
 | ID | Requirement | Test |
 |---|---|---|
-| FR-11 | Ontbreken er opgeslagen artikelen, dan verschijnt rechtsonder op Cardmarket een melding met het aantal en de totale waarde, plus de knoppen *Zet terug* en *Bekijken*. | ✔ |
-| FR-12 | Wegklikken onthoudt de melding voor precies deze set ontbrekende artikelen. Verdwijnen er nieuwe artikelen, dan komt hij terug. | — |
-| FR-13 | Het icoon in de werkbalk (logo: een kaart die in een winkelmandje valt) toont het aantal ontbrekende en deels aanwezige artikelen in een rode badge. | ✔ |
-| FR-14 | Op de mandjepagina toont een paneel de ontbrekende artikelen, elk met een vinkje, plus *alles/niets selecteren* en de totale waarde van de selectie. | ✔ |
-| FR-15 | Niet-beschikbare artikelen staan in een aparte groep. Daarin staan de reden van Cardmarket, de knoppen *Zoek vergelijkbaar aanbod*, *Toch opnieuw proberen* en *Lijst opschonen*. | ✔ |
-| FR-16 | Het paneel kan worden ingeklapt tot een klein label. Die keuze wordt onthouden. | — |
+| FR-01 | On every visit to the cart page (`/{taal}/{spel}/ShoppingCart`) the extension saves each article with: article ID, product, name, set, number, seller, condition, language, foil/extras, price, quantity, product URL, image and comment. | ✔ |
+| FR-02 | On every other Cardmarket page the extension compares the cart counter in the header with the previous time. If it has changed, it fetches the cart once and updates the list. | ✔ |
+| FR-03 | If the counter changes live, for example when you click "add to cart" on the site, the new article is saved within ~1.5 s, without you reloading the page. | ✔ |
+| FR-04 | Articles that appear twice on the page (desktop and mobile view) are saved once. | ✔ |
+| FR-05 | An article that disappears from the cart is **not** deleted. It gets the status *missing*, with the likely reason: the whole cart was emptied, everything from that seller disappeared, or only this article disappeared (probably sold). Possible statuses: *in cart*, *partly in cart*, *missing*, *unavailable*. | ✔ |
+| FR-06 | Articles you remove yourself are forgotten instead of being marked as missing. That applies to the bin icon, fewer copies, "everything from this seller" and "empty cart", and to articles you check out. Four signals, independent of each other: the site's remove request (also when it is encrypted in `args`), forms, the buttons, and on the cart page itself: rows that disappear or show fewer copies right after you clicked something. Only what is really out of the cart afterwards is forgotten. | ✔ |
+| FR-07 | Articles that appear on an order page (`/Orders/…`) have been bought and are taken off the list. | ✔ |
+| FR-08 | Automatic saving can be turned off. The cart page then shows the button *Save current cart*. | — |
+| FR-09 | Cardmarket has **one cart for all games** (Magic, Pokémon, Yu-Gi-Oh!, …); a seller can have cards from several games in one shipment. The extension reads that cart as a whole; the game of each article comes from the product URL. Works in every site language (en, de, fr, es, it). | ✔ |
+| FR-09a | **Choosing which games go back:** in the panel on the cart page and in the popup, one button per game ("Magic (2)", "Pokémon (1)") to turn a game on or off; the reminder on other pages offers "Or only: Magic (2) · Pokémon (1)". The popup has a choice of *All games* or one game. | ✔ |
+| FR-10 | If you are logged out, the extension does nothing with the list: a login page is never taken for an empty cart. If you are logged in with a **different account** from the one the list was built with, nothing is saved or marked as missing until you choose the new account. | ✔ |
+| FR-10a | The desired quantity is stored separately. If the cart holds fewer copies than you had (the seller sold a few), the article is called *partly in cart* ("1 of 2 in your cart"). If you lower the quantity yourself, the lower quantity becomes the new desired quantity. | ✔ |
+| FR-10b | If the price of an article in your cart changes, you see that for three days ("Price €0,10 higher (was €0,99)"). | ✔ |
 
-### A3. Terugzetten in het winkelmandje
-
-| ID | Requirement | Test |
-|---|---|---|
-| FR-17 | Je kunt terugzetten met één klik: vanuit de melding, het mandjepaneel of de popup, voor alle ontbrekende artikelen of voor één artikel. | ✔ |
-| FR-18 | Het terugzetten draait in een Cardmarket-tab, met je eigen sessie. Start je het vanuit de popup terwijl je niet op Cardmarket zit, dan opent de extensie je winkelmandje en start het daar vanzelf (de actie wacht maximaal 2 minuten). | ✔ |
-| FR-19 | Vooraf wordt het actuele mandje gecontroleerd. Alleen de exemplaren die nog ontbreken gaan terug; artikelen die er al (helemaal) in zitten, worden overgeslagen, zodat aantallen nooit verdubbelen. | ✔ |
-| FR-20 | Is het mandje niet betrouwbaar te lezen, dan weigert de extensie te starten en markeert ze niets als ontbrekend. Onbetrouwbaar is: geen rijen terwijl de header iets telt, een verkopersblok zonder leesbare rijen, of minder artikelen dan de header telt. | ✔ |
-| FR-21 | Heeft een verkoper meerdere artikelen om terug te zetten, dan gaan die in **één verzoek** (batch). Daarna wordt het mandje gelezen; wat niet aankwam gaat alsnog één voor één. Tussen alle verzoeken zit een instelbare pauze (standaard 1,2 s plus een willekeurige 0–0,4 s). | ✔ |
-| FR-22 | De extensie gebruikt het CSRF-token van de pagina. Bij elke weigering zonder bekende reden zoekt ze een vers token en probeert ze het één keer opnieuw (maximaal 3 keer per actie). | ✔ |
-| FR-22a | Weigeringen worden ingedeeld: *verkocht* (niet beschikbaar), *te weinig exemplaren* (opnieuw met 1 exemplaar; het artikel wordt dan *deels in mandje*) of *onbekend* (blijft *ontbreekt*, met de melding; pas de tweede onbekende weigering op rij telt als niet beschikbaar). | ✔ |
-| FR-23 | Er zijn twee bekende toevoeg-endpoints. Werkt het eerste niet, dan volgt het tweede, en het werkende endpoint wordt onthouden. | ✔ |
-| FR-24 | Bij HTTP 429 wacht de extensie volgens `Retry-After` (maximaal 60 s) en probeert het tot 2× opnieuw. Daarna stopt ze. | — |
-| FR-25 | Bij een Cloudflare-controle, uitloggen of een netwerkfout stopt de extensie direct, met een duidelijke melding. Artikelen worden dan niet ten onrechte als *niet beschikbaar* gemarkeerd. | ✔ |
-| FR-26 | Na afloop wordt het mandje opnieuw gelezen en krijgt elk artikel de juiste status. De weigeringsreden van Cardmarket wordt bewaard. | ✔ |
-| FR-27 | De voortgang is live te volgen in het paneel en in de popup, en het terugzetten is te stoppen. Er draait maximaal één actie tegelijk, over alle tabs heen (een Web Lock die met de tab verdwijnt). Verlaat je de pagina tijdens het terugzetten, dan vraagt de browser eerst of je zeker bent. | ✔ |
-| FR-27a | Wordt de tab toch gesloten, dan toont de volgende Cardmarket-pagina *Terugzetten onderbroken* met *Doorgaan (N te gaan)*. Doorgaan is veilig: het mandje wordt eerst opnieuw gecontroleerd. | ✔ |
-| FR-27b | Een actie uit de popup start alleen in een zichtbare, ingelogde Cardmarket-tab. Op de loginpagina stopt ze met de melding dat je niet bent ingelogd. | ✔ |
-| FR-28 | Na het terugzetten op de mandjepagina herlaadt de pagina vanzelf, met een samenvatting ("X in je mandje gezet, Y niet gelukt"). De telling komt uit de controle achteraf. | ✔ |
-| FR-29 | *Zoek vergelijkbaar aanbod* opent de productpagina, gefilterd op dezelfde taal, minimaal dezelfde conditie en dezelfde foil-status. | ✔ |
-| FR-29a | **Vervanging zoeken** (paneel op Cardmarket, bij niet-beschikbare artikelen): eerst bij dezelfde verkoper (tot +25%), daarna het gefilterde aanbod. Verkopers die al in je mandje zitten krijgen voorrang (geen extra verzending). Maximaal drie voorstellen met de reden en het prijsverschil; *Toevoegen* zet de vervanging in je mandje en haalt het verkochte origineel uit de lijst. | ✔ |
-| FR-29b | **Ongedaan maken**: na het terugzetten haalt één klik precies de toegevoegde exemplaren weer uit je mandje (via het verwijderverzoek van de site). Ze blijven op je lijst als *ontbreekt*. | ✔ |
-
-### A4. Favorieten
+### A2. Detecting and reporting an empty cart
 
 | ID | Requirement | Test |
 |---|---|---|
-| FR-30 | Naast elke aanbieding staat een ☆, op productpagina's, kaartpagina's, verkoperspagina's en in het winkelmandje. Eén klik bewaart dat specifieke artikel; nog een klik haalt het weg. | ✔ |
-| FR-31 | Een favoriet bewaart: verkoper, conditie, taal, foil/extra's, prijs, voorraad, product-URL, afbeelding en de datum. | ✔ |
-| FR-32 | Aanbiedingen die later worden bijgeladen (via "meer laden") krijgen ook een ster. | — |
-| FR-33 | De popup heeft een tab *Favorieten*: nieuwste bovenaan, met het aantal in de tabnaam en zoeken op naam, set, verkoper, taal en conditie (meerdere woorden mogelijk). | ✔ |
-| FR-34 | *Bekijk aanbieding* opent de productpagina, gefilterd op taal en conditie, en springt naar de aanbieding. Die wordt gemarkeerd. | ✔ |
-| FR-35 | Staat de aanbieding niet op de pagina, dan volgt een melding met links naar de voorraad van de verkoper en naar vergelijkbaar aanbod. | ✔ |
-| FR-36 | *Zoek bij deze verkoper* opent de voorraad van de verkoper, gezocht op deze kaart. | ✔ |
-| FR-37 | *In winkelmandje leggen* zet 1 exemplaar in je mandje via hetzelfde mechanisme als terugzetten. Daarna toont de popup het label *In mandje*. | ✔ |
-| FR-38 | Is een favoriet verkocht, dan krijgt hij de markering *niet meer beschikbaar*, met de reden van Cardmarket. Hij blijft dan niet als opgeslagen mandje-artikel achter. | ✔ |
-| FR-39 | Kom je een favoriet tegen op Cardmarket, dan worden de prijs en de voorraad bijgewerkt, zonder extra verzoeken. | ✔ |
+| FR-11 | If saved articles are missing, a reminder appears in the bottom right of Cardmarket with the number and the total value, plus the buttons *Put back* and *View*. | ✔ |
+| FR-12 | Dismissing the reminder remembers that for exactly this set of missing articles. If new articles disappear, it comes back. | — |
+| FR-13 | The toolbar icon (logo: a card falling into a shopping cart) shows the number of missing and partly present articles in a red badge. | ✔ |
+| FR-14 | On the cart page a panel shows the missing articles, each with a checkbox, plus *select all/none* and the total value of the selection. | ✔ |
+| FR-15 | Unavailable articles are in a separate group. It shows Cardmarket's reason and the buttons *Find a similar offer*, *Try again anyway* and *Clear list*. | ✔ |
+| FR-16 | The panel can be collapsed to a small label. That choice is remembered. | — |
 
-### A5. Popup, instellingen en data
+### A3. Putting articles back in the cart
 
 | ID | Requirement | Test |
 |---|---|---|
-| FR-40 | De tab *Winkelmandje* in de popup (ontwerp 1.5): bovenaan de samenvatting ("5 kaart(en) kunnen terug · 9,79 € bij 3 verkoper(s) · je hele mandje werd geleegd"), daaronder per verkoper een rustige lijst met subtotaal (in te klappen tot één regel met kaartjes), een sectie *Niet meer beschikbaar* met de stempel VERKOCHT, en "4 in je mandje" met die artikelen eronder (sinds 1.6.1 altijd uitgeklapt). Elke rij toont naam, één metaregel en één korte extra regel (rood alleen bij een waarschuwing); een klik klapt hem open met alle details en de knoppen *Alleen deze terug*, *Op Cardmarket*, ☆ en ×. Onderaan de zwarte knop "Zet 5 terug in je mandje · 9,79 €". | ✔ |
-| FR-41 | Heb je artikelen uit meerdere spellen, dan is er een spelkeuze. | — |
-| FR-42 | Instellingen: automatisch opslaan aan/uit, melding aan/uit, pauze tussen artikelen (0,5–10 s). | ✔ |
-| FR-43 | Export naar JSON (artikelen en favorieten). Bij import worden nieuwe artikelen toegevoegd zonder bestaande te overschrijven. *Alles wissen* vraagt eerst om bevestiging. | — |
-| FR-43a | **Mandjes bewaren**: in de popup-tab *Mandjes* bewaar je de huidige lijst onder een naam (bijv. "Commander-deck"). Later zet *In mandje zetten* hem met één klik terug. Ook te kopiëren als tekst of te downloaden als CSV, en mee in de JSON-export. | ✔ |
-| FR-43b | De lijst van de tab *Winkelmandje* is te kopiëren als tekst ("2x Bojuka Bog (Commander 2018 #238) · NM · English · 0,99 € · snowc") of te downloaden als CSV (puntkomma's, decimale komma). | ✔ |
-| FR-43c | Iets uit de lijst verwijderen kan ongedaan worden gemaakt (melding met *Ongedaan maken*). | ✔ |
-| FR-45 | **Meldingen** (instelbaar): verdwijnen opgeslagen artikelen uit je mandje terwijl je naar een andere tab kijkt, dan volgt een bureaubladmelding; een klik opent het mandje. | ✔ |
-| FR-46 | **Aftellen**: toont de mandjepagina wanneer Cardmarket het mandje leegt, dan staat in het paneel "Cardmarket leegt je mandje om 14:35 (nog 23 min)" en komt er 5 minuten vooraf een melding. | ✔ (tekst op de live site nog te bevestigen) |
-| FR-47 | **Verzending per verkoper** (paneel op de mandjepagina, inklapbaar): per verkoper het aantal kaarten, de waarde, de verzendkosten en hun aandeel, "verzending kost meer dan de kaarten", en de grens van 25 € voor verzending met tracking. | ✔ (verzendkosten lezen op de live site nog te bevestigen) |
-| FR-48 | **Prijs tegenover trend** (instelbaar, standaard uit): één keer per dag de openbare prijsgids; alleen de opgeslagen kaarten worden bewaard (foil apart). Een aanbieding die minstens 15% en 0,10 € boven de trend zit, krijgt een opmerking; ruim eronder ook. | ✔ |
-| FR-49 | **Controleren als je weg bent** (instelbaar, standaard uit): met een Cardmarket-tab open en jij achter de computer leest één tab hooguit elke 10 minuten het mandje. | ✔ |
-| FR-50 | Artikelen die al een maand *niet beschikbaar* zijn, verdwijnen vanzelf uit de lijst. | ✔ |
-| FR-44 | De interface is Nederlands of Engels, afhankelijk van de taal van de browser, en ondersteunt een lichte en een donkere modus. | ✔ (NL) |
+| FR-17 | You can put articles back with one click: from the reminder, the cart panel or the popup, for all missing articles or for one article. | ✔ |
+| FR-18 | Putting back runs in a Cardmarket tab, with your own session. If you start it from the popup while you are not on Cardmarket, the extension opens your shopping cart and it starts there by itself (the action waits at most 2 minutes). | ✔ |
+| FR-19 | The current cart is checked first. Only the copies that are still missing go back; articles that are already (fully) in it are skipped, so quantities never double. | ✔ |
+| FR-20 | If the cart cannot be read reliably, the extension refuses to start and marks nothing as missing. Unreliable means: no rows while the header counts something, a seller block without readable rows, or fewer articles than the header counts. | ✔ |
+| FR-21 | If a seller has several articles to put back, they go in **one request** (batch). Then the cart is read; whatever did not arrive is still sent one by one. Between all requests there is a configurable pause (default 1.2 s plus a random 0–0.4 s). | ✔ |
+| FR-22 | The extension uses the page's CSRF token. On every refusal without a known reason, it looks for a fresh token and tries once more (at most 3 times per action). | ✔ |
+| FR-22a | Refusals are classified: *sold* (unavailable), *too few copies* (retried with 1 copy; the article then becomes *partly in cart*) or *unknown* (stays *missing*, with the message; only the second unknown refusal in a row counts as unavailable). | ✔ |
+| FR-23 | There are two known add endpoints. If the first one does not work, the second follows, and the working endpoint is remembered. | ✔ |
+| FR-24 | On HTTP 429 the extension waits according to `Retry-After` (at most 60 s) and retries up to 2×. After that it stops. | — |
+| FR-25 | On a Cloudflare check, a logout or a network error, the extension stops immediately, with a clear message. Articles are then not wrongly marked as *unavailable*. | ✔ |
+| FR-26 | Afterwards the cart is read again and each article gets the right status. Cardmarket's refusal reason is stored. | ✔ |
+| FR-27 | Progress can be followed live in the panel and in the popup, and putting back can be stopped. At most one action runs at a time, across all tabs (a Web Lock that disappears with the tab). If you leave the page while articles are being put back, the browser first asks whether you are sure. | ✔ |
+| FR-27a | If the tab is closed anyway, the next Cardmarket page shows *Refill interrupted* with *Continue (N to go)*. Continuing is safe: the cart is checked again first. | ✔ |
+| FR-27b | An action from the popup only starts in a visible, logged-in Cardmarket tab. On the login page it stops with the message that you are not logged in. | ✔ |
+| FR-28 | After putting back on the cart page, the page reloads by itself, with a summary ("X put in your cart, Y not added"). The count comes from the check afterwards. | ✔ |
+| FR-29 | *Find a similar offer* opens the product page, filtered on the same language, at least the same condition and the same foil status. | ✔ |
+| FR-29a | **Find a replacement** (panel on Cardmarket, for unavailable articles): first at the same seller (up to +25%), then the filtered offers. Sellers already in your cart get priority (no extra shipping). At most three suggestions with the reason and the price difference; *Add* puts the replacement in your cart and takes the sold original off the list. | ✔ |
+| FR-29b | **Undo**: after putting back, one click takes exactly the added copies out of your cart again (via the site's remove request). They stay on your list as *missing*. | ✔ |
 
-### A6. Niet-functioneel
+### A4. Favourites
+
+| ID | Requirement | Test |
+|---|---|---|
+| FR-30 | Next to every offer there is a ☆, on product pages, card pages, seller pages and in the shopping cart. One click saves that specific article; another click removes it. | ✔ |
+| FR-31 | A favourite stores: seller, condition, language, foil/extras, price, stock, product URL, image and the date. | ✔ |
+| FR-32 | Offers that are loaded later (via "Load more") also get a star. | — |
+| FR-33 | The popup has a *Favourites* tab: newest at the top, with the count in the tab name and search by name, set, seller, language and condition (several words possible). | ✔ |
+| FR-34 | *View offer on Cardmarket* opens the product page, filtered on language and condition, and jumps to the offer. The offer is highlighted. | ✔ |
+| FR-35 | If the offer is not on the page, a message follows with links to the seller's stock and to similar offers. | ✔ |
+| FR-36 | *Find at this seller* opens the seller's stock, searched for this card. | ✔ |
+| FR-37 | *Put in cart* puts 1 copy in your cart via the same mechanism as putting back. The popup then shows the label *In cart*. | ✔ |
+| FR-38 | If a favourite is sold, it gets the mark *no longer available*, with Cardmarket's reason. It then does not stay behind as a saved cart article. | ✔ |
+| FR-39 | If you come across a favourite on Cardmarket, its price and stock are updated, without extra requests. | ✔ |
+
+### A5. Popup, settings and data
+
+| ID | Requirement | Test |
+|---|---|---|
+| FR-40 | The *Cart* tab in the popup (design 1.5): at the top the summary ("5 articles can go back · 9,79 € from 3 sellers · your whole cart was emptied"), below it a calm list per seller with a subtotal (collapsible to one line with card thumbnails), a section *No longer available* with the stamp SOLD, and "4 in your cart" with those articles below it (always expanded since 1.6.1). Each row shows the name, one meta line and one short extra line (red only for a warning); a click expands it with all details and the buttons *Only this one back*, *On Cardmarket*, ☆ and ×. At the bottom the black button "Put 5 back in your cart · 9,79 €". | ✔ |
+| FR-41 | If you have articles from several games, there is a game choice. | — |
+| FR-42 | Settings: automatic saving on/off, reminder on/off, pause between articles (0.5–10 s). | ✔ |
+| FR-43 | Export to JSON (articles and favourites). On import, new articles are added without overwriting existing ones. *Delete everything* asks for confirmation first. | — |
+| FR-43a | **Saving carts**: in the popup tab *Lists* you save the current list under a name (e.g. "Commander deck"). Later *Put in cart* puts it back with one click. It can also be copied as text or downloaded as CSV, and is included in the JSON export. | ✔ |
+| FR-43b | The list in the *Cart* tab can be copied as text ("2x Bojuka Bog (Commander 2018 #238) · NM · English · 0,99 € · snowc") or downloaded as CSV (semicolons, decimal comma). | ✔ |
+| FR-43c | Removing something from the list can be undone (message with *Undo*). | ✔ |
+| FR-45 | **Notifications** (configurable): if saved articles disappear from your cart while you are looking at another tab, a desktop notification follows; a click opens the cart. | ✔ |
+| FR-46 | **Countdown**: if the cart page shows when Cardmarket empties the cart, the panel says "Cardmarket empties your cart at 14:35 (in 23 min)" and a notification comes 5 minutes beforehand. | ✔ (text on the live site still to be confirmed) |
+| FR-47 | **Shipping per seller** (panel on the cart page, collapsible): per seller the number of cards, the value, the shipping costs and their share, "shipping costs more than the articles", and the 25 € threshold for tracked shipping. | ✔ (reading shipping costs on the live site still to be confirmed) |
+| FR-48 | **Price versus trend** (configurable, off by default): the public price guide once a day; only the saved cards are kept (foil separately). An offer at least 15% and 0,10 € above the trend gets a note; one well below it does too. | ✔ |
+| FR-49 | **Checking while you are away** (configurable, off by default): with a Cardmarket tab open and you at the computer, one tab reads the cart at most every 10 minutes. | ✔ |
+| FR-50 | Articles that have been *unavailable* for a month disappear from the list by themselves. | ✔ |
+| FR-44 | The interface is in Dutch or English, depending on the browser language, and supports a light and a dark mode. | ✔ (NL) |
+
+### A6. Non-functional
 
 | ID | Requirement |
 |---|---|
-| NFR-01 | **Privacy.** Alle data staat lokaal in `chrome.storage.local`. Er is geen server en er worden geen wachtwoorden opgeslagen. De extensie praat alleen met `www.cardmarket.com`, via de sessie van de gebruiker. |
-| NFR-02 | **Minimale permissies:** `storage`, `alarms`, `notifications` en `idle` (geen waarschuwing), plus de host-permissies voor `https://www.cardmarket.com/*` en `https://downloads.s3.cardmarket.com/*` (alleen voor de openbare prijsgids, en alleen als je die aanzet). |
-| NFR-03 | **Fatsoenlijk gebruik.** Verzoeken worden gedaan na een klik, na een verandering van de mandjesteller of als het mandje langer dan 15 minuten niet is gelezen (dan door één tab tegelijk). Alleen met de optionele instelling *Mandje controleren als je niet op Cardmarket kijkt* is er een timer: hooguit elke 10 minuten, en alleen als je achter de computer zit. Altijd één verzoek tegelijk. |
-| NFR-04 | **Liever niets doen dan iets fout doen.** Bij twijfel (onleesbare pagina, uitgelogd, controle van Cardmarket) worden geen statussen aangepast en geen artikelen toegevoegd. |
-| NFR-05 | **Platform:** Chrome, Edge, Brave en Opera (Manifest V3), zonder build-stap. |
-| NFR-06 | **Isolatie.** De interface op Cardmarket draait in een shadow DOM, zodat de CSS van de site en die van de extensie elkaar niet raken. De page bridge praat via een privé `MessageChannel`: scripts van de site kunnen het verkeer niet lezen of vervalsen, en niets op `window` verraadt de extensie. |
-| NFR-07 | **Testbaarheid.** Er zijn 71 end-to-end-tests met Playwright, tegen een nagebootste Cardmarket. |
+| NFR-01 | **Privacy.** All data is stored locally in `chrome.storage.local`. There is no server and no passwords are stored. The extension only talks to `www.cardmarket.com`, through the user's session. |
+| NFR-02 | **Minimal permissions:** `storage`, `alarms`, `notifications` and `idle` (no warning), plus the host permissions for `https://www.cardmarket.com/*` and `https://downloads.s3.cardmarket.com/*` (only for the public price guide, and only if you turn it on). |
+| NFR-03 | **Polite use.** Requests are made after a click, after a change of the cart counter, or when the cart has not been read for more than 15 minutes (then by one tab at a time). Only with the optional setting *Check the cart while you are away from Cardmarket* is there a timer: at most every 10 minutes, and only when you are at the computer. Always one request at a time. |
+| NFR-04 | **Better to do nothing than to do something wrong.** When in doubt (unreadable page, logged out, a Cardmarket check), no statuses are changed and no articles are added. |
+| NFR-05 | **Platform:** Chrome, Edge, Brave and Opera (Manifest V3), without a build step. |
+| NFR-06 | **Isolation.** The interface on Cardmarket runs in a shadow DOM, so the site's CSS and the extension's CSS do not affect each other. The page bridge talks through a private `MessageChannel`: the site's scripts cannot read or forge the traffic, and nothing on `window` gives the extension away. |
+| NFR-07 | **Testability.** There are 71 end-to-end tests with Playwright, against a mock Cardmarket. |
 
-### A7. Bekende beperkingen
+### A7. Known limitations
 
-| Beperking | Gevolg |
+| Limitation | Consequence |
 |---|---|
-| Niet geverifieerd op de live site | Selectors en endpoints komen uit opgeslagen echte HTML en open-source tools. Een kleine aanpassing kan nodig zijn. |
-| Een artikel is één aanbieding van één verkoper | Is die verkocht, dan kan hij niet terug. Er is alleen een link naar vergelijkbaar aanbod. |
+| Not verified on the live site | Selectors and endpoints come from saved real HTML and open-source tools. A small adjustment may be needed. |
+| An article is one offer from one seller | If it is sold, it cannot go back. There is only a link to similar offers. |
 
-| Herkennen van zelf verwijderen | Vier signalen samen; mist toch iets, dan staat het artikel als *ontbreekt* en klik je het weg (met *Ongedaan maken*). |
-| Favorieten worden alleen passief bijgewerkt | Een verkochte favoriet merk je pas als je hem probeert toe te voegen of opent. |
-| Het taalfilter werkt alleen met Engelse taalnamen | Op een Duitse of Franse site werkt *vergelijkbaar aanbod* voor favorieten zonder taalfilter. |
-| Geen synchronisatie tussen apparaten | Alleen via export en import. |
-| Geen Firefox | Dat vraagt aanpassingen aan de manifest en de achtergrondscripts. |
+| Detecting your own removals | Four signals together; if something is still missed, the article shows as *missing* and you click it away (with *Undo*). |
+| Favourites are only updated passively | You only notice a sold favourite when you try to add it or open it. |
+| The language filter only works with English language names | On a German or French site, *similar offer* for favourites works without a language filter. |
+| No sync between devices | Only via export and import. |
+| No Firefox | That requires changes to the manifest and the background scripts. |
 
 ---
 
-## Deel B — Ideeën voor uitbreiding
+## Part B — Ideas for further development
 
-### B0. Wat het onderzoek oplevert
+### B0. What the research shows
 
-Onderzocht zijn:
+The research covered:
 
-- bestaande Cardmarket-extensies en -scripts;
-- klachten en wensen van kopers (fora, Trustpilot, nieuwsberichten van
-  Cardmarket);
-- de data die Cardmarket zelf openbaar maakt;
-- extensies van andere webwinkels en TCG-tools.
+- existing Cardmarket extensions and scripts;
+- buyers' complaints and wishes (forums, Trustpilot, Cardmarket news
+  posts);
+- the data that Cardmarket itself makes public;
+- extensions for other web shops and TCG tools.
 
-Bronnen staan in [B10](#b10-bronnen). Labels: **[Officieel]** = een pagina van
-Cardmarket, **[Code]** = gecontroleerd in open-source code of opgeslagen
-HTML, **[Derden]** = een gids of forum, **[Afgeleid]** = een eigen inschatting.
+Sources are listed in [B10](#b10-sources). Labels: **[Official]** = a Cardmarket
+page, **[Code]** = checked in open-source code or saved
+HTML, **[Third party]** = a guide or forum, **[Inferred]** = our own estimate.
 
-**Concurrentie.**
+**Competition.**
 
-- *Enhanced Cardmarket* (~2K gebruikers) dekt al veel:
-  - filters en standaardtalen;
-  - ingelogd blijven;
-  - prijsalarmen en een eigen prijsgeschiedenis;
-  - een snelle blik op het mandje.
-- Andere tools doen elk één ding:
-  - offers kleuren tegenover de trendprijs (Cardmarket Helper, Boris);
-  - een blocklist van verkopers (CM Helper);
-  - een verzendschatting (Cardmarket Companion);
-  - optimaliseren vanuit een wants-lijst (Regroupeur, Cardmarket Optimizer,
+- *Enhanced Cardmarket* (~2K users) already covers a lot:
+  - filters and default languages;
+  - staying logged in;
+  - price alerts and its own price history;
+  - a quick look at the cart.
+- Other tools each do one thing:
+  - colouring offers against the trend price (Cardmarket Helper, Boris);
+  - a seller blocklist (CM Helper);
+  - a shipping estimate (Cardmarket Companion);
+  - optimising from a wants list (Regroupeur, Cardmarket Optimizer,
     cardmarket_wizard).
-- **De kant van het winkelmandje is het minst bediend:**
-  - wat kost dit mandje echt, inclusief verzending;
-  - welke verkopers zitten er al in;
-  - wat gebeurt er met verkochte artikelen.
+- **The shopping cart side is the least served:**
+  - what does this cart really cost, including shipping;
+  - which sellers are already in it;
+  - what happens to sold articles.
 
-  Daar heeft Cart Saver al data en dus een voorsprong. **[Afgeleid]**
+  Cart Saver already has data for this, and so a head start. **[Inferred]**
 
-**Bruikbare databronnen.**
+**Useful data sources.**
 
-| Bron | Wat | Status |
+| Source | What | Status |
 |---|---|---|
-| `downloads.s3.cardmarket.com/productCatalog/priceGuide/price_guide_{spel-id}.json` | Prijsgids per spel (Magic = 1, Yu-Gi-Oh! = 3, Pokémon = 6, One Piece = 18, Lorcana = 19, …). Bevat per `idProduct`: `low`, `trend`, `avg1`, `avg7`, `avg30`, plus foil-varianten (bij Pokémon met `-holo`). Wordt dagelijks bijgewerkt (~02:48), is openbaar en vraagt geen login. Er is geen opsplitsing naar taal of conditie. | **[Officieel]** en **[Code]**. Er zijn geen CORS-headers, dus ophalen moet via de service worker met een extra host-permissie. Bestanden zijn ~20 MB, dus bewaar alleen relevante producten. |
-| `help.cardmarket.com/api/shippingCosts?fromCountry=…&toCountry=…` | De verzendmethoden tussen twee landen, met prijs, `maxValue`, `maxWeight`, en of het een brief of een tracked zending is. | **[Code]**, gecontroleerd in Lugin. Niet officieel gedocumenteerd. |
-| Inline grafiek op de productpagina | Ongeveer 30 dagen gemiddelde verkoopprijs (`new Chart(...)`), gratis mee te lezen bij elk bezoek. | **[Code]** |
-| `input[name="idProduct"]` op productpagina's, en `data-product-id` op mandjesrijen | Koppelt een pagina of artikel aan de prijsgids. Scryfall's `cardmarket_id` is hetzelfde nummer. | **[Code]** |
-| AJAX-acties voor wants-lijsten (`Wantslist_AddWant`, `AddDeckList`, …) | Wants-lijsten aanmaken en vullen met hetzelfde token-mechanisme als het mandje. | **[Code]** (Lugin) |
+| `downloads.s3.cardmarket.com/productCatalog/priceGuide/price_guide_{spel-id}.json` | Price guide per game (Magic = 1, Yu-Gi-Oh! = 3, Pokémon = 6, One Piece = 18, Lorcana = 19, …). Contains per `idProduct`: `low`, `trend`, `avg1`, `avg7`, `avg30`, plus foil variants (for Pokémon with `-holo`). Updated daily (~02:48), public and requires no login. There is no breakdown by language or condition. | **[Official]** and **[Code]**. There are no CORS headers, so fetching has to go through the service worker with an extra host permission. Files are ~20 MB, so store only relevant products. |
+| `help.cardmarket.com/api/shippingCosts?fromCountry=…&toCountry=…` | The shipping methods between two countries, with price, `maxValue`, `maxWeight`, and whether it is a letter or a tracked shipment. | **[Code]**, checked in Lugin. Not officially documented. |
+| Inline chart on the product page | About 30 days of average sale price (`new Chart(...)`), free to read along on every visit. | **[Code]** |
+| `input[name="idProduct"]` on product pages, and `data-product-id` on cart rows | Links a page or article to the price guide. Scryfall's `cardmarket_id` is the same number. | **[Code]** |
+| AJAX actions for wants lists (`Wantslist_AddWant`, `AddDeckList`, …) | Create and fill wants lists with the same token mechanism as the cart. | **[Code]** (Lugin) |
 
-**Randvoorwaarden.**
+**Constraints.**
 
-- **Tracked verzending** is verplicht boven €25. In sommige gevallen, zoals
-  bij nieuwe verkopers, is dat al boven €10. **[Officieel]**
-- **Internationaal versturen** met tracked brieven is sinds 2026 vervallen,
-  waardoor internationale verzending duurder is. **[Officieel]** en
-  **[Derden]**
-- **De Shopping Wizard** vindt niet altijd de goedkoopste combinatie.
-  - Er geldt een limiet van ~10 runs per dag en 150 items per wants-lijst.
-  - "Alles in mandje" vraagt 6 afgeronde aankopen.
-  - **[Officieel]**
-- **Voorwaarden van Cardmarket.**
-  - Apps van derden zijn voor eigen risico.
-  - Prijzen publiek tonen vraagt toestemming.
-  - Data dus lokaal houden en nooit herpubliceren. **[Officieel]**
-- **Hoe lang artikelen in het mandje blijven**, daarover is niets officieels
-  gevonden. **[Derden]**: ~1–2 uur inactiviteit.
+- **Tracked shipping** is mandatory above €25. In some cases, such as
+  with new sellers, it already is above €10. **[Official]**
+- **Sending internationally** with tracked letters is no longer possible since 2026,
+  which makes international shipping more expensive. **[Official]** and
+  **[Third party]**
+- **The Shopping Wizard** does not always find the cheapest combination.
+  - There is a limit of ~10 runs per day and 150 items per wants list.
+  - "Add all to cart" requires 6 completed purchases.
+  - **[Official]**
+- **Cardmarket's terms.**
+  - Third-party apps are used at your own risk.
+  - Showing prices publicly requires permission.
+  - So keep data local and never republish it. **[Official]**
+- **How long articles stay in the cart**: nothing official was found on
+  this. **[Third party]**: ~1–2 hours of inactivity.
 
-### B1. Top 5 — grootste waarde voor de minste moeite
+### B1. Top 5 — most value for the least effort
 
-1. **Diagnose op de live site** (IDEE-01). De extensie is nog niet op
-   cardmarket.com getest. Een knop "controleer of alles werkt" maakt problemen
-   direct zichtbaar.
-2. **Kostenpaneel per verkoper en drempeladvies** (IDEE-10 en IDEE-11).
-   Verzendkosten zijn de grootste ergernis van kopers, en de tracked-sprong
-   boven €25 is een bekende valkuil.
-3. **Prijs-tegenover-trend en prijsalarmen** (IDEE-05 en IDEE-07), via de
-   openbare prijsgids, dus zonder extra verzoeken aan de site.
-4. **Slim vervangen van verkochte artikelen** (IDEE-14): het logische vervolg
-   op terugzetten.
-5. **Recent bekeken en labels/notities bij favorieten** (IDEE-18 en IDEE-19).
-   Dat sluit direct aan op "makkelijk terugvinden".
+1. **Diagnostics on the live site** (IDEE-01). The extension has not yet been
+   tested on cardmarket.com. A "check that everything works" button makes
+   problems visible right away.
+2. **Cost panel per seller and threshold advice** (IDEE-10 and IDEE-11).
+   Shipping costs are buyers' biggest annoyance, and the tracked jump
+   above €25 is a well-known pitfall.
+3. **Price versus trend and price alerts** (IDEE-05 and IDEE-07), via the
+   public price guide, so without extra requests to the site.
+4. **Smart replacement of sold articles** (IDEE-14): the logical next step
+   after putting back.
+5. **Recently viewed, and labels/notes on favourites** (IDEE-18 and IDEE-19).
+   That ties in directly with "easy to find again".
 
-Notatie in de tabellen hieronder:
+Notation in the tables below:
 
-- **Moeite:** S = uren, M = 1–3 dagen, L = een week of meer.
-- **Prio** (MoSCoW voor de volgende versies): **M**ust, **S**hould,
-  **C**ould, **W**on't (voorlopig niet).
+- **Effort:** S = hours, M = 1–3 days, L = a week or more.
+- **Prio** (MoSCoW for the next versions): **M**ust, **S**hould,
+  **C**ould, **W**on't (not for now).
 
-### B2. Robuustheid en vertrouwen
+### B2. Robustness and trust
 
-| ID | Idee | Waarom / bron | Moeite | Prio |
+| ID | Idea | Why / source | Effort | Prio |
 |---|---|---|---|---|
-| IDEE-01 | **Zelftest en diagnose.** Een knop in de instellingen controleert op de huidige Cardmarket-pagina of de extensie alles vindt: mandjesrijen, mandjesteller, token, aanbiedingsrijen. Het rapport is te kopiëren. | Selectors komen uit opgeslagen HTML en zijn nog niet live geverifieerd. Bij een layoutwijziging zie je zo meteen waar het misgaat. **[Afgeleid]** | S | M |
-| IDEE-02 | **Uitleg waarom terugzetten mislukte.** Onderscheid tussen verkocht, verkoper op vakantie, minder exemplaren beschikbaar en prijs gewijzigd. Herkenbaar aan de melding van Cardmarket en aan het aanbod bij de verkoper. | Vakantiestand verbergt aanbod **[Officieel]**. Nu zie je alleen de ruwe melding. | S–M | S |
-| IDEE-03 | **"Prijs veranderd sinds je hem opsloeg".** Vergelijkt na het terugzetten de prijs in het mandje met de opgeslagen prijs en waarschuwt bij een stijging. | Kost geen extra verzoeken: de controle achteraf leest het mandje al. Geen enkele bestaande tool doet dit. **[Afgeleid]** | S | M |
-| IDEE-04 | **Waarschuwing bij verkopers.** Waarschuwt voor afrekenen bij een rode stip, een nieuwe verkoper of weinig verkopen, met een hint naar de Trustee Service boven €25. | Klachten over kwijtgeraakte of beschadigde zendingen **[Derden]**. Regels voor beoordelingen en Trustee Service **[Officieel]**. | S–M | C |
+| IDEE-01 | **Self-test and diagnostics.** A button in the settings checks on the current Cardmarket page whether the extension finds everything: cart rows, cart counter, token, offer rows. The report can be copied. | Selectors come from saved HTML and have not yet been verified live. After a layout change you see right away where it goes wrong. **[Inferred]** | S | M |
+| IDEE-02 | **Explaining why putting back failed.** Distinguishes between sold, seller on vacation, fewer copies available and price changed. Recognisable from Cardmarket's message and from the seller's offers. | Vacation mode hides offers **[Official]**. Right now you only see the raw message. | S–M | S |
+| IDEE-03 | **"Price changed since you saved it".** After putting back, compares the price in the cart with the saved price and warns about an increase. | Costs no extra requests: the check afterwards already reads the cart. No existing tool does this. **[Inferred]** | S | M |
+| IDEE-04 | **Seller warnings.** Warns before checkout about a red dot, a new seller or few sales, with a hint about the Trustee Service above €25. | Complaints about lost or damaged shipments **[Third party]**. Rules for ratings and the Trustee Service **[Official]**. | S–M | C |
 
-### B3. Prijsinzicht
+### B3. Price insight
 
-| ID | Idee | Waarom / bron | Moeite | Prio |
+| ID | Idea | Why / source | Effort | Prio |
 |---|---|---|---|---|
-| IDEE-05 | **Prijs tegenover trend.** Een label als "−12% / +30% t.o.v. trend" in het mandje, bij favorieten en bij aanbiedingen. Gebruikt de dagelijkse prijsgids, met foil (of holo) apart. | Gevraagd en gebouwd door Cardmarket Helper, Boris en Enhanced Cardmarket **[Code]**. Bronnen: prijsgids **[Officieel]**, `data-product-id` **[Code]**. | M | S |
-| IDEE-06 | **Lokale prijsgeschiedenis met een mini-grafiek** per favoriet of mandje-artikel. Bronnen: de 30-dagengrafiek op de productpagina, dagelijkse momentopnames van de prijsgids en eigen waarnemingen van het aanbod. | Cardmarket toont maar 30 dagen, en geschiedenis valt niet achteraf in te vullen, dus nu beginnen loont **[Derden]** en **[Code]**. | M | S |
-| IDEE-07 | **Doelprijs en prijsalarm.** Stel per favoriet of product een doelprijs in. Een dagelijkse check (`chrome.alarms`, na 03:00) stuurt een melding als trend of laagste prijs eronder zakt. | Kernfunctie van Keepa, CamelCamelCamel en Honey Droplist **[Derden]**. Gebruikt de prijsgids, dus geen belasting voor de site. | M | S |
-| IDEE-08 | **Wijzigingen bij favoriete producten** zichtbaar op de productpagina: nieuw aanbod sinds je laatste bezoek, gewijzigde prijzen en verdwenen aanbiedingen. | TCG Market Wizard **[Derden]**. Werkt passief, dus zonder extra verzoeken. | M | C |
-| IDEE-09 | **Valuta tonen** (GBP, SEK, CHF, DKK, PLN) via de dagelijkse koersen van de ECB. | Cardmarket kent alleen GBP, en dan alleen voor accounts uit het VK **[Officieel]**. Voor Nederlandse gebruikers weinig nut. | S | C |
+| IDEE-05 | **Price versus trend.** A label such as "−12% / +30% vs. trend" in the cart, on favourites and on offers. Uses the daily price guide, with foil (or holo) separately. | Requested and built by Cardmarket Helper, Boris and Enhanced Cardmarket **[Code]**. Sources: price guide **[Official]**, `data-product-id` **[Code]**. | M | S |
+| IDEE-06 | **Local price history with a mini chart** per favourite or cart article. Sources: the 30-day chart on the product page, daily snapshots of the price guide and our own observations of the offers. | Cardmarket shows only 30 days, and history cannot be filled in afterwards, so starting now pays off **[Third party]** and **[Code]**. | M | S |
+| IDEE-07 | **Target price and price alert.** Set a target price per favourite or product. A daily check (`chrome.alarms`, after 03:00) sends a notification when the trend or lowest price drops below it. | Core feature of Keepa, CamelCamelCamel and Honey Droplist **[Third party]**. Uses the price guide, so no load on the site. | M | S |
+| IDEE-08 | **Changes to favourite products** visible on the product page: new offers since your last visit, changed prices and offers that disappeared. | TCG Market Wizard **[Third party]**. Works passively, so without extra requests. | M | C |
+| IDEE-09 | **Showing currencies** (GBP, SEK, CHF, DKK, PLN) via the ECB's daily rates. | Cardmarket only knows GBP, and only for UK accounts **[Official]**. Of little use to Dutch users. | S | C |
 
-### B4. Verzendkosten en de economie van het mandje
+### B4. Shipping costs and the economics of the cart
 
-| ID | Idee | Waarom / bron | Moeite | Prio |
+| ID | Idea | Why / source | Effort | Prio |
 |---|---|---|---|---|
-| IDEE-10 | **Kostenpaneel per verkoper.** Toont per verkoper: subtotaal, verzendkosten, kosten per kaart en het aandeel verzending. Signaleert dure gevallen, zoals "1 kaart van €0,10 met €1,25 verzending". | Verzendkosten zijn de grootste klacht **[Derden]**, en ze stijgen in 2026 **[Officieel]**. De data staat al op de mandjepagina. | M | M |
-| IDEE-11 | **Drempeladvies.** Waarschuwt bij een verkoper vlak onder of boven €25 (tracked verplicht, dus een duurdere methode) en bij gewichtsgrenzen van brieven (~4, 17 of 40 kaarten). Stelt voor wat je kunt weglaten of toevoegen. | €25-regel **[Officieel]**. De verzend-API geeft `maxValue` en `maxWeight` **[Code]**. Regroupeur rekent hier al mee **[Code]**. | M | S |
-| IDEE-12 | **"Verkoper zit al in je mandje"** bij aanbiedingen: een groene markering en "+€0 verzending" tegenover "+€1,25 nieuwe zending". | CM Helper en Lugin **[Code]**. Komt direct uit de opgeslagen mandjedata. | M | S |
-| IDEE-13 | **Geschatte verzendkosten per aanbieding,** op basis van het land van de verkoper ("Item location") en de verzend-API. Wordt per land gecachet. | Cardmarket Companion en scripts van Hukutus **[Derden]**. | M | C |
-| IDEE-14 | **Slim vervangen van verkochte artikelen.** Zoekt voor een niet-beschikbaar artikel het goedkoopste gelijkwaardige aanbod: zelfde product en taal, minimaal dezelfde conditie, zelfde foil. Verkopers die al in je mandje zitten krijgen voorrang, want dat scheelt verzending. Vervangen kan met één klik. | Het logische vervolg op terugzetten. Kost één productpagina per artikel, alleen na een klik en in rustig tempo. **[Afgeleid]** | L | S |
-| IDEE-15 | **Van mandje naar wants-lijst en Shopping Wizard.** Maakt van de ontbrekende of alle artikelen een wants-lijst met dezelfde filters. Daarna rekent Cardmarket's eigen Wizard de optimale combinatie uit. | Laat het zware rekenwerk aan Cardmarket, en zo blijven we binnen het fair-use-tempo. Wants-acties **[Code]**, limieten van de Wizard **[Officieel]**. | M–L | C |
-| IDEE-16 | **Volledige optimalisatie over meerdere verkopers** (zoals TCGmizer of Regroupeur, met een exacte solver). | Veel waarde, maar vereist het ophalen van heel veel pagina's. Groot risico op 429-fouten of Cloudflare, en het concurreert met de Wizard. **[Afgeleid]** | L | W |
+| IDEE-10 | **Cost panel per seller.** Shows per seller: subtotal, shipping costs, cost per card and the shipping share. Flags expensive cases, such as "1 card at €0,10 with €1,25 shipping". | Shipping costs are the biggest complaint **[Third party]**, and they go up in 2026 **[Official]**. The data is already on the cart page. | M | M |
+| IDEE-11 | **Threshold advice.** Warns when a seller is just below or above €25 (tracked mandatory, so a more expensive method) and about letter weight limits (~4, 17 or 40 cards). Suggests what you could leave out or add. | €25 rule **[Official]**. The shipping API returns `maxValue` and `maxWeight` **[Code]**. Regroupeur already takes this into account **[Code]**. | M | S |
+| IDEE-12 | **"Seller already in your cart"** on offers: a green highlight and "+€0 shipping" versus "+€1,25 new shipment". | CM Helper and Lugin **[Code]**. Comes straight from the saved cart data. | M | S |
+| IDEE-13 | **Estimated shipping costs per offer,** based on the seller's country ("Item location") and the shipping API. Cached per country. | Cardmarket Companion and scripts by Hukutus **[Third party]**. | M | C |
+| IDEE-14 | **Smart replacement of sold articles.** For an unavailable article, finds the cheapest equivalent offer: same product and language, at least the same condition, same foil. Sellers already in your cart get priority, because that saves shipping. Replacing takes one click. | The logical next step after putting back. Costs one product page per article, only after a click and at a calm pace. **[Inferred]** | L | S |
+| IDEE-15 | **From cart to wants list and Shopping Wizard.** Turns the missing articles, or all of them, into a wants list with the same filters. Cardmarket's own Wizard then works out the optimal combination. | Leaves the heavy computing to Cardmarket, and that way we stay within the fair-use pace. Wants actions **[Code]**, Wizard limits **[Official]**. | M–L | C |
+| IDEE-16 | **Full optimisation across several sellers** (like TCGmizer or Regroupeur, with an exact solver). | Lots of value, but requires fetching a great many pages. High risk of 429 errors or Cloudflare, and it competes with the Wizard. **[Inferred]** | L | W |
 
-### B5. Favorieten en terugvinden
+### B5. Favourites and finding things again
 
-| ID | Idee | Waarom / bron | Moeite | Prio |
+| ID | Idea | Why / source | Effort | Prio |
 |---|---|---|---|---|
-| IDEE-17 | **Favoriete verkopers en een blocklist.** Favoriete verkopers worden gemarkeerd en komen bovenaan; geblokkeerde verkopers worden gedimd of verborgen. Er komt een ster bij de verkopersnaam. | CM Helper, Lugin en Enhanced Cardmarket **[Code]** en **[Derden]**. Sluit aan op "artikel van iemand". | M | S |
-| IDEE-18 | **Recent bekeken.** Een automatische geschiedenis van de laatste ~200 aanbiedingen en producten die je bekeek, met zoekfunctie. Zo vind je ook terug wat je níét met een ster hebt gemarkeerd. | Geen enkele bestaande tool doet dit. Kost geen verzoeken, want alles wordt tijdens het browsen vastgelegd. **[Afgeleid]** | S | M |
-| IDEE-19 | **Labels, mappen en notities bij favorieten** ("deck Atraxa", "cadeau"), met een filter per label. | Honey Droplist werkt met labels **[Derden]**. Handig zodra de lijst groeit. | S | M |
-| IDEE-20 | **Beschikbaarheid controleren op verzoek.** Een knop "controleer alle favorieten" zoekt bij elke verkoper, in rustig tempo en met een maximum aantal. Optioneel één keer per dag voor maximaal ~10 favorieten. | Nu merk je pas dat iets verkocht is als je het probeert. Het maximum en de opt-in beperken de belasting. **[Afgeleid]** | M | C |
-| IDEE-21 | **Sneltoetsen en contextmenu:** "Bewaar als favoriet" via rechtsklik op een aanbieding, en een sneltoets voor "zet terug". | Comfort. Standaard Chrome-API's (`commands`, `contextMenus`). | S | C |
+| IDEE-17 | **Favourite sellers and a blocklist.** Favourite sellers are highlighted and move to the top; blocked sellers are dimmed or hidden. A star is added next to the seller name. | CM Helper, Lugin and Enhanced Cardmarket **[Code]** and **[Third party]**. Ties in with "an article from someone". | M | S |
+| IDEE-18 | **Recently viewed.** An automatic history of the last ~200 offers and products you viewed, with search. That way you can even find what you did not mark with a star. | No existing tool does this. Costs no requests, because everything is recorded while you browse. **[Inferred]** | S | M |
+| IDEE-19 | **Labels, folders and notes on favourites** ("Atraxa deck", "gift"), with a filter per label. | Honey Droplist works with labels **[Third party]**. Handy once the list grows. | S | M |
+| IDEE-20 | **Checking availability on request.** A "check all favourites" button looks at each seller, at a calm pace and with a maximum number. Optionally once a day for at most ~10 favourites. | Right now you only find out that something was sold when you try it. The maximum and the opt-in limit the load. **[Inferred]** | M | C |
+| IDEE-21 | **Keyboard shortcuts and context menu:** "Save as favourite" via a right-click on an offer, and a keyboard shortcut for "put back". | Comfort. Standard Chrome APIs (`commands`, `contextMenus`). | S | C |
 
-### B6. Mandjes beheren en samen kopen
+### B6. Managing carts and buying together
 
-| ID | Idee | Waarom / bron | Moeite | Prio |
+| ID | Idea | Why / source | Effort | Prio |
 |---|---|---|---|---|
-| IDEE-22 | **Benoemde mandjes** ("Commander-deck", "Pokémon 151"). Sla het huidige mandje op onder een naam, zet elk opgeslagen mandje later terug en vergelijk de totaalprijzen. | Een natuurlijke uitbreiding van de kern. Werkt met de bestaande terugzet-functie. **[Afgeleid]** | S–M | S |
-| IDEE-23 | **Lijsten delen.** Exporteer een mandje of favorietenlijst als tekst of CSV, in het formaat van Cardmarket's decklijsten of van Moxfield, of als een bestand dat een vriend kan importeren. | Wants Lists Helper en Cardmarket Plus **[Derden]**. | S | C |
-| IDEE-24 | **Groepsbestelling.** Label artikelen per persoon ("Milan", "Sem"). De verzendkosten per verkoper worden eerlijk verdeeld en je ziet een overzicht van wie wat betaalt. | Samen bestellen bij dezelfde verkoper scheelt verzending, en verzending wordt duurder in 2026 **[Officieel]**. Geen enkele tool doet dit. **[Afgeleid]** | M | C |
-| IDEE-25 | **Budget en uitgaven.** Een maandbudget, het mandje inclusief verzending tegenover dat budget, en een uitgavenoverzicht per maand en per spel uit de bestelpagina's (passief). | EchoMTG en Deckbox volgen de waarde van je collectie **[Derden]**. Bestelpagina's worden al herkend (FR-07). | M | C |
+| IDEE-22 | **Named carts** ("Commander deck", "Pokémon 151"). Save the current cart under a name, put any saved cart back later and compare the total prices. | A natural extension of the core. Works with the existing put-back feature. **[Inferred]** | S–M | S |
+| IDEE-23 | **Sharing lists.** Export a cart or favourites list as text or CSV, in the format of Cardmarket's deck lists or Moxfield's, or as a file a friend can import. | Wants Lists Helper and Cardmarket Plus **[Third party]**. | S | C |
+| IDEE-24 | **Group order.** Label articles per person ("Milan", "Sem"). Shipping costs per seller are split fairly and you see an overview of who pays what. | Ordering together from the same seller saves shipping, and shipping gets more expensive in 2026 **[Official]**. No tool does this. **[Inferred]** | M | C |
+| IDEE-25 | **Budget and spending.** A monthly budget, the cart including shipping against that budget, and a spending overview per month and per game from the order pages (passively). | EchoMTG and Deckbox track the value of your collection **[Third party]**. Order pages are already recognised (FR-07). | M | C |
 
-### B7. Decks en collectie
+### B7. Decks and collection
 
-| ID | Idee | Waarom / bron | Moeite | Prio |
+| ID | Idea | Why / source | Effort | Prio |
 |---|---|---|---|---|
-| IDEE-26 | **Decklijst importeren** (tekst, Moxfield, Archidekt, ManaBox). Geeft een kostenschatting via de prijsgids en maakt er daarna een wants-lijst of favorieten van, met omzetting van setcodes. | Gevraagd bij Moxfield en gebouwd door Wants Lists Helper en Cardmarket Helper **[Derden]** en **[Code]**. | L | C |
-| IDEE-27 | **"Heb ik al"-labels** op aanbiedingen en in het mandje, vanuit een geïmporteerde collectie-CSV of je eigen bestelgeschiedenis. | Cardmarket Helper (ManaBox-CSV) en Lugin (collectie uit bestellingen) **[Code]**. Voorkomt dat je iets dubbel koopt. | M | C |
+| IDEE-26 | **Importing a deck list** (text, Moxfield, Archidekt, ManaBox). Gives a cost estimate via the price guide and then turns it into a wants list or favourites, converting set codes. | Requested at Moxfield and built by Wants Lists Helper and Cardmarket Helper **[Third party]** and **[Code]**. | L | C |
+| IDEE-27 | **"Already own it" labels** on offers and in the cart, from an imported collection CSV or your own order history. | Cardmarket Helper (ManaBox CSV) and Lugin (collection from orders) **[Code]**. Prevents buying something twice. | M | C |
 
-### B8. Platform en comfort
+### B8. Platform and comfort
 
-| ID | Idee | Waarom / bron | Moeite | Prio |
+| ID | Idea | Why / source | Effort | Prio |
 |---|---|---|---|---|
-| IDEE-28 | **Herinnering voordat het mandje wordt geleegd.** Leest de tijd uit de melding van Cardmarket ("wordt geleegd om HH:MM") en geeft 10 minuten vooraf een melding. | Gebruikers melden zo'n banner **[Derden]**, maar die is niet bevestigd. Eerst op de live site controleren. | S | C |
-| IDEE-29 | **Synchronisatie tussen apparaten:** favorieten en instellingen via `chrome.storage.sync` (limiet ~100 KB), of een eigen bestand in Google Drive. | Nu alleen via export en import (beperking A7). | M | C |
-| IDEE-30 | **Firefox-versie** (MV3 met `background.scripts` en `browser_specific_settings`). | Enhanced Cardmarket en Cardmarket Helper staan ook op addons.mozilla.org. | M | C |
-| IDEE-31 | **Ongedaan maken** na het verwijderen van een artikel of favoriet (een melding met *Ongedaan maken*). | Voorkomt per ongeluk verlies van gegevens. | S | S |
+| IDEE-28 | **Reminder before the cart is emptied.** Reads the time from Cardmarket's message ("will be emptied at HH:MM") and gives a notification 10 minutes beforehand. | Users report such a banner **[Third party]**, but it is not confirmed. Check on the live site first. | S | C |
+| IDEE-29 | **Sync between devices:** favourites and settings via `chrome.storage.sync` (limit ~100 KB), or a dedicated file in Google Drive. | Right now only via export and import (limitation A7). | M | C |
+| IDEE-30 | **Firefox version** (MV3 with `background.scripts` and `browser_specific_settings`). | Enhanced Cardmarket and Cardmarket Helper are also on addons.mozilla.org. | M | C |
+| IDEE-31 | **Undo** after removing an article or favourite (a message with *Undo*). | Prevents accidental loss of data. | S | S |
 
-**Bewust níet doen.** Deze ideeën botsen met fair use of met de voorwaarden
-van Cardmarket:
+**Deliberately not doing.** These ideas clash with fair use or with
+Cardmarket's terms:
 
-- **Het mandje "warm houden"** om te voorkomen dat Cardmarket het leegt. Dat
-  houdt artikelen vast die anderen willen kopen en ondermijnt de reservering.
-- **Automatisch kopen of "sniping"** van aanbod op de achtergrond.
-- **Op grote schaal pagina's ophalen**, of prijsdata buiten je eigen browser
-  delen. Prijzen publiek tonen vraagt toestemming van Cardmarket.
-  **[Officieel]**
+- **Keeping the cart "warm"** to stop Cardmarket from emptying it. That
+  holds on to articles that others want to buy and undermines the reservation.
+- **Automatic buying or "sniping"** of offers in the background.
+- **Fetching pages on a large scale**, or sharing price data outside your own
+  browser. Showing prices publicly requires Cardmarket's permission.
+  **[Official]**
 
-### B9. Voorgestelde roadmap
+### B9. Proposed roadmap
 
-| Versie | Inhoud | Waarom in deze volgorde |
+| Version | Contents | Why in this order |
 |---|---|---|
-| **1.1 — Betrouwbaar en terugvinden** | IDEE-01 zelftest, IDEE-03 prijs veranderd, IDEE-02 uitleg bij mislukken, IDEE-18 recent bekeken, IDEE-19 labels en notities, IDEE-31 ongedaan maken | Alles klein, zonder nieuwe permissies en zonder extra verzoeken. Maakt de basis robuuster op de live site. |
-| **1.2 — Wat kost mijn mandje?** | IDEE-10 kostenpaneel, IDEE-11 drempeladvies, IDEE-12 verkoper al in mandje, IDEE-22 benoemde mandjes | Het onderscheidende terrein, met data die we al hebben. Alleen de verzend-API is nieuw. |
-| **1.3 — Prijsinzicht** | IDEE-05 trendlabels, IDEE-06 geschiedenis, IDEE-07 prijsalarm, IDEE-17 favoriete verkopers en blocklist | Vraagt een optionele host-permissie voor `downloads.s3.cardmarket.com`, plus opslag per product. |
-| **2.0 — Slim kopen** | IDEE-14 slim vervangen, IDEE-15 naar de Wizard, IDEE-26 decklijst importeren, IDEE-24 groepsbestelling, IDEE-27 "heb ik al" | Grotere functies, deels met extra verzoeken: rustig tempo, maximum aantal en alleen na een klik. |
+| **1.1 — Reliable and easy to find again** | IDEE-01 self-test, IDEE-03 price changed, IDEE-02 explanation of failures, IDEE-18 recently viewed, IDEE-19 labels and notes, IDEE-31 undo | All small, without new permissions and without extra requests. Makes the basics more robust on the live site. |
+| **1.2 — What does my cart cost?** | IDEE-10 cost panel, IDEE-11 threshold advice, IDEE-12 seller already in cart, IDEE-22 named carts | The ground where we stand out, with data we already have. Only the shipping API is new. |
+| **1.3 — Price insight** | IDEE-05 trend labels, IDEE-06 history, IDEE-07 price alert, IDEE-17 favourite sellers and blocklist | Requires an optional host permission for `downloads.s3.cardmarket.com`, plus storage per product. |
+| **2.0 — Smart buying** | IDEE-14 smart replacement, IDEE-15 to the Wizard, IDEE-26 deck list import, IDEE-24 group order, IDEE-27 "already own it" | Larger features, partly with extra requests: a calm pace, a maximum number and only after a click. |
 
-### B10. Bronnen
+### B10. Sources
 
-- Bestaande tools:
+- Existing tools:
   - [Enhanced Cardmarket](https://enhanced-cardmarket.mave.me/);
   - [Cardmarket Helper](https://github.com/SuppenNudel/cardmarket-helper):
-    prijsgids-URL's, trendkleuren, ManaBox;
+    price guide URLs, trend colours, ManaBox;
   - [CM Helper by LastDraw](https://chromewebstore.google.com/detail/lcngonadhpeolkgmjjimdobdhfalnglf);
   - [Cardmarket Companion](https://chromewebstore.google.com/detail/mpbncolfefkegmaccdejhngjcjkjoaep);
   - [TCG Market Wizard](https://chromewebstore.google.com/detail/idcpcfanbabnakoebbnklgkngjbldfde);
   - [Wants Lists Helper](https://github.com/grepfs17/cm-copy-lists);
-  - [Tsuina311/Lugin](https://github.com/Tsuina311/Lugin): verzend-API,
-    wants-acties, favoriete verkopers;
+  - [Tsuina311/Lugin](https://github.com/Tsuina311/Lugin): shipping API,
+    wants actions, favourite sellers;
   - [Lioxyze/Cardmarket-Regroupeur](https://github.com/Lioxyze/Cardmarket-Regroupeur):
-    optimalisatie inclusief verzending;
+    optimisation including shipping;
   - [michasng/cardmarket_wizard](https://github.com/michasng/cardmarket_wizard);
   - [natefinch/tcgmizer](https://github.com/natefinch/tcgmizer).
 - Cardmarket:
-  - [Prijsgids en catalogus als download](https://news.cardmarket.com/en/Magic/were-making-the-price-guide-and-product-catalogue-available-for-download);
-  - [Verzendkosten](https://help.cardmarket.com/en/ShippingCosts);
+  - [Price guide and catalogue available for download](https://news.cardmarket.com/en/Magic/were-making-the-price-guide-and-product-catalogue-available-for-download);
+  - [Shipping costs](https://help.cardmarket.com/en/ShippingCosts);
   - [Trustee Service](https://help.cardmarket.com/en/TrusteeService);
   - [Shopping Wizard](https://help.cardmarket.com/en/ShoppingWizard);
-  - [Beoordeling van verkopers](https://help.cardmarket.com/en/SellerRating);
-  - [Vakantiestatus](https://help.cardmarket.com/en/vacation-status);
-  - [Wijziging internationale verzending 2026](https://news.cardmarket.com/en/FoW/changes-to-international-shipping-methods-using-envelopes);
-  - [GBP op Cardmarket](https://news.cardmarket.com/en/Magic/Pound-Sterling-Are-Coming-To-Cardmarket).
-- Kopers:
-  - [Trustpilot over Cardmarket](https://www.trustpilot.com/review/www.cardmarket.com);
-  - Elite Fourum over [scans en reacties van verkopers](https://www.elitefourum.com/t/buying-from-cardmarket-buying-without-seeing-the-scans-no-response-from-sellers/40202)
-    en over [de UPU-regels van 2026](https://www.elitefourum.com/t/new-2026-upu-rules-is-this-the-end-of-international-singles-on-cardmarket-ebay-and-tcgplayer/60297).
-- Inspiratie:
+  - [Seller rating](https://help.cardmarket.com/en/SellerRating);
+  - [Vacation status](https://help.cardmarket.com/en/vacation-status);
+  - [Change to international shipping in 2026](https://news.cardmarket.com/en/FoW/changes-to-international-shipping-methods-using-envelopes);
+  - [GBP on Cardmarket](https://news.cardmarket.com/en/Magic/Pound-Sterling-Are-Coming-To-Cardmarket).
+- Buyers:
+  - [Trustpilot on Cardmarket](https://www.trustpilot.com/review/www.cardmarket.com);
+  - Elite Fourum on [scans and seller responses](https://www.elitefourum.com/t/buying-from-cardmarket-buying-without-seeing-the-scans-no-response-from-sellers/40202)
+    and on [the 2026 UPU rules](https://www.elitefourum.com/t/new-2026-upu-rules-is-this-the-end-of-international-singles-on-cardmarket-ebay-and-tcgplayer/60297).
+- Inspiration:
   - [CamelCamelCamel](https://camelcamelcamel.com/features);
   - [Honey Droplist](https://help.joinhoney.com/article/79-what-is-droplist);
   - [TCGplayer Cart Optimizer](https://help.tcgplayer.com/hc/en-us/articles/201769673-How-does-the-Cart-Optimizer-work);
-  - [verzoek om "missende kaarten kopen" bij Moxfield](https://moxfield.nolt.io/2226).
+  - [request for "buy missing cards" at Moxfield](https://moxfield.nolt.io/2226).
 
-> De meeste sites (Reddit, Cardmarket, de Chrome Web Store) waren vanuit de
-> onderzoeksomgeving niet direct te openen. Wat daar staat is gebaseerd op
-> zoekresultaten. GitHub-code is wel direct gecontroleerd.
+> Most sites (Reddit, Cardmarket, the Chrome Web Store) could not be opened
+> directly from the research environment. What is said about them is based on
+> search results. GitHub code, however, was checked directly.

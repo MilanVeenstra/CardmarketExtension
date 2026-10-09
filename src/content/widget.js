@@ -32,7 +32,7 @@
   const deselected = new Set();
   /** The article a replacement is being looked for: { id, loading, offers, error }. */
   let replacing = null;
-  /** "Bewaar als lijst…": the name field while open. */
+  /** "Save as list…": the name field while open. */
   let listForm = null;
   /** A short message in a strip at the bottom of the panel, optionally with one action (undo). */
   let strip = null;
@@ -130,7 +130,7 @@
       if (Object.keys(changes).some((key) => watched.includes(key))) refresh();
     });
     watchForUpdate();
-    // "Vervanging zoeken" in the popup opens the cart page at #cmcs-replace=<article>.
+    // "Find a replacement" in the popup opens the cart page at #cmcs-replace=<article>.
     window.addEventListener('hashchange', replaceFromHash);
     return refresh().then(replaceFromHash);
   }
@@ -591,7 +591,7 @@
     return h('div', { class: 'cmcs-replace' }, h('div', { class: 'cmcs-replace-title' }, t('replaceTitle')), body);
   }
 
-  /** A sold article: grey, with the VERKOCHT stamp, "Vervanging zoeken" and its suggestions. */
+  /** A sold article: grey, with the SOLD stamp, "Find a replacement" and its suggestions. */
   const unavailableRow = (item, { remove = () => removeItems([item.articleId]), attempt = item.lastAttempt, multiGame = false } = {}) => {
     const alt = cm.alternativesUrl(item);
     // In the interface's words; Cardmarket's own (in the site's language) in the tooltip.

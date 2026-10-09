@@ -111,7 +111,7 @@
    */
   async function resumePending() {
     const job = await store.getJob();
-    // "Ongedaan maken" asked from the popup while no Cardmarket tab was open.
+    // "Undo" asked from the popup while no Cardmarket tab was open.
     if (job && job.undoRequested && job.finishedAt && !job.undone && document.visibilityState === 'visible' && cm.isSignedIn(document)) {
       await store.updateJob((current) => (current && current.id === job.id ? { ...current, undoRequested: false } : undefined));
       const result = await undo(job.id);
